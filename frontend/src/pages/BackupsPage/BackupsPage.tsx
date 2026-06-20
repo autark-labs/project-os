@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { AlertTriangle, AppWindow, Boxes, CalendarClock, DatabaseBackup, HardDrive, Layers3, Loader2, Play, RotateCcw } from 'lucide-react';
 import { BackupAPIClient } from '@/api/BackupAPIClient';
 import { apiErrorMessage } from '@/api/httpClient';
+import { JobsAPIClient } from '@/api/JobsAPIClient';
 import { RefreshStatus } from '@/components/RefreshStatus';
 import { PageErrorState, PageLoadingState } from '@/components/project-os/PageState';
 import { PageShell, SurfaceFrame, SurfacePanel } from '@/components/project-os/ProjectOSComponents';
@@ -9,6 +10,7 @@ import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { AppBackupStatus, BackupReport, RestorePlan, RestorePoint } from '@/types/backup';
+import type { ProjectOsJob } from '@/types/jobs';
 import {
   ActionCard,
   AppBackupCard,
@@ -40,6 +42,7 @@ function BackupsPage() {
   const [detailPoint, setDetailPoint] = useState<RestorePoint | null>(null);
   const [restoreTargetAppId, setRestoreTargetAppId] = useState<string | null>(null);
   const [restoreView, setRestoreView] = useState<RestoreView>('timeline');
+  const [activeJob, setActiveJob] = useState<ProjectOsJob | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -73,6 +76,31 @@ function BackupsPage() {
     return () => window.clearInterval(interval);
   }, [restorePoint, running]);
 
+  useEffect(() => {
+    if (!activeJob || terminalJob(activeJob)) {
+      return undefined;
+    }
+    const interval = window.setInterval(async () => {
+      try {
+        const nextJob = await JobsAPIClient.get(activeJob.jobId);
+        setActiveJob(nextJob);
+        if (terminalJob(nextJob)) {
+          if (nextJob.status === 'failed') {
+            setError(nextJob.error?.message || 'Backup job failed.');
+          } else if (nextJob.status === 'succeeded') {
+            setMessage('Backup job completed.');
+          }
+          setRunning(null);
+          await load(true);
+        }
+      } catch (jobError) {
+        setError(apiErrorMessage(jobError, 'Backup job progress could not be refreshed.'));
+        setRunning(null);
+      }
+    }, 1200);
+    return () => window.clearInterval(interval);
+  }, [activeJob]);
+
   async function runManualAppBackup(app: AppBackupStatus) {
     await runBackup(`app-${app.appId}`, () => BackupAPIClient.run(app.appId));
   }
@@ -85,21 +113,17 @@ function BackupsPage() {
     await runBackup('routine', () => BackupAPIClient.runRoutine());
   }
 
-  async function runBackup(id: string, action: () => Promise<{ status: string; message: string }>) {
+  async function runBackup(id: string, action: () => Promise<ProjectOsJob>) {
     setRunning(id);
     setError(null);
     setMessage(null);
     try {
       const result = await action();
-      if (result.status !== 'completed') {
-        setError(result.message);
-      } else {
-        setMessage(result.message);
-      }
+      setActiveJob(result);
+      setMessage(result.status === 'failed' ? result.error?.message || 'Backup could not be started.' : 'Backup job started. Project OS will update restore points when it finishes.');
       await load(true);
     } catch (runError) {
       setError(apiErrorMessage(runError, 'Backup could not be started.'));
-    } finally {
       setRunning(null);
     }
   }
@@ -211,6 +235,7 @@ function BackupsPage() {
         </div>
 
         {error && <PageErrorState className="rounded-none border-x-0 border-t-0 px-6 py-4" message={error} onRetry={() => void load(true)} title="Backup status could not refresh" />}
+        {activeJob && !terminalJob(activeJob) && <BackupJobBanner job={activeJob} />}
         {message && <div className="border-b border-emerald-300/20 bg-emerald-500/10 px-6 py-4 text-sm text-emerald-100">{message}</div>}
       </SurfaceFrame>
 
@@ -336,6 +361,24 @@ function BackupsPage() {
       />
     </PageShell>
   );
+}
+
+function BackupJobBanner({ job }: { job: ProjectOsJob }) {
+  return (
+    <div className="border-b border-violet-300/20 bg-violet-500/10 px-6 py-4 text-sm text-violet-100">
+      <p className="font-semibold text-white">Backup in progress</p>
+      <p className="mt-1">{currentJobStep(job)}</p>
+    </div>
+  );
+}
+
+function terminalJob(job: ProjectOsJob) {
+  return ['succeeded', 'failed', 'cancelled'].includes(job.status);
+}
+
+function currentJobStep(job: ProjectOsJob) {
+  const step = job.steps.find((candidate) => candidate.id === job.currentStep) ?? job.steps.find((candidate) => candidate.status === 'running') ?? job.steps.find((candidate) => candidate.status === 'pending');
+  return step?.message || step?.label || 'Project OS is creating a restore point.';
 }
 
 export default BackupsPage;

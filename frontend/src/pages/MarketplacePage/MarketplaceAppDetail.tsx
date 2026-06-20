@@ -17,12 +17,15 @@ import { backupSafetyWarning } from '@/lib/backupSafety';
 import { poButtonClass } from '@/lib/projectOsStyleKit';
 import { cn } from '@/lib/utils';
 import type { AppRuntimeView } from '@/types/app';
+import type { ProjectOsJob } from '@/types/jobs';
 import type { InstallOptions, InstallPlan, InstallResult, MarketplaceApp } from '@/types/marketplace';
 import { InstallWizard, TechnicalPlanCard } from './MarketplaceInstallWizard';
 import { AppImage, Config, InfoCard, Stat, SupportBadge, VerifiedBadge } from './MarketplacePage.shared';
 
 type AppDetailProps = {
   app: MarketplaceApp;
+  backupJob: ProjectOsJob | null;
+  installJob: ProjectOsJob | null;
   installOptions: InstallOptions;
   installPlan: InstallPlan | null;
   installResult: InstallResult | null;
@@ -31,6 +34,7 @@ type AppDetailProps = {
   installing: boolean;
   installedApp: AppRuntimeView | null;
   onBack: () => void;
+  onCreateBackup: (appId: string) => Promise<void>;
   onInstall: (options: InstallOptions) => Promise<void>;
   onOptionsChange: Dispatch<SetStateAction<InstallOptions | null>>;
   onReinstallCurrent: () => void | Promise<void>;
@@ -40,7 +44,7 @@ type AppDetailProps = {
   recoveryMode?: string | null;
 };
 
-export function MarketplaceAppDetail({ app, installedApp, installLocked, installOptions, installPlan, installResult, installStatusMessage, installing, onBack, onInstall, onOptionsChange, onReinstallCurrent, onRequestPlan, onResetReinstall, planLoading, recoveryMode }: AppDetailProps) {
+export function MarketplaceAppDetail({ app, backupJob, installJob, installedApp, installLocked, installOptions, installPlan, installResult, installStatusMessage, installing, onBack, onCreateBackup, onInstall, onOptionsChange, onReinstallCurrent, onRequestPlan, onResetReinstall, planLoading, recoveryMode }: AppDetailProps) {
   const isInstalled = Boolean(installedApp);
   const showFreshInstallResult = installResult?.appId === app.id && (installResult.status === 'installed' || installResult.status === 'already_installed');
   return (
@@ -174,7 +178,7 @@ export function MarketplaceAppDetail({ app, installedApp, installLocked, install
             onResetReinstall={onResetReinstall}
           />
         )}
-        {(installing || installResult) && <InlineInstallStatus installing={installing} result={installResult} />}
+        {(installJob || backupJob || installing || installResult) && <InlineInstallStatus app={app} backupJob={backupJob} installedApp={installedApp} installing={installing} job={installJob} onCreateBackup={onCreateBackup} result={installResult} />}
 
         <Tabs className="gap-4" defaultValue="overview">
           <TabsList className="w-full justify-start overflow-x-auto border-b border-slate-700/30 bg-transparent p-0" variant="line">
@@ -378,7 +382,69 @@ function InstalledAppNotice({ app }: { app: AppRuntimeView | null }) {
   );
 }
 
-function InlineInstallStatus({ installing, result }: { installing: boolean; result: InstallResult | null }) {
+function InlineInstallStatus({
+  app,
+  backupJob,
+  installedApp,
+  installing,
+  job,
+  onCreateBackup,
+  result,
+}: {
+  app: MarketplaceApp;
+  backupJob: ProjectOsJob | null;
+  installedApp: AppRuntimeView | null;
+  installing: boolean;
+  job: ProjectOsJob | null;
+  onCreateBackup: (appId: string) => Promise<void>;
+  result: InstallResult | null;
+}) {
+  if (job) {
+    const running = !terminalJob(job);
+    const succeeded = job.status === 'succeeded';
+    const failed = job.status === 'failed';
+    return (
+      <section className={cn('rounded-lg border p-4', succeeded ? 'border-emerald-300/20 bg-emerald-500/10' : failed ? 'border-red-300/20 bg-red-500/10' : 'border-violet-300/20 bg-violet-500/10')}>
+        <div className="flex items-start gap-3">
+          {running ? <Loader2 className="mt-0.5 size-5 animate-spin text-violet-200" /> : succeeded ? <CheckCircle2 className="mt-0.5 size-5 text-emerald-200" /> : <TriangleAlert className="mt-0.5 size-5 text-red-200" />}
+          <div className="min-w-0 flex-1">
+            <h4 className="font-bold text-white">{succeeded ? `${app.name} is ready` : failed ? `${app.name} did not finish installing` : `Installing ${app.name}`}</h4>
+            <p className={cn('mt-1 text-sm', succeeded ? 'text-emerald-100/80' : failed ? 'text-red-100/80' : 'text-violet-100/75')}>
+              {succeeded ? 'Open the app now, or create a first restore point before changing settings.' : failed ? job.error?.message || 'Project OS stopped before making this app available.' : currentJobStep(job)}
+            </p>
+            <JobStepList job={job} />
+            {succeeded && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {(installedApp?.accessUrl || app.accessUrl) && (
+                  <Button asChild className="bg-emerald-500 text-slate-950 hover:bg-emerald-400" size="sm">
+                    <a href={installedApp?.accessUrl || app.accessUrl} rel="noreferrer" target="_blank">Open {app.name}</a>
+                  </Button>
+                )}
+                {installedApp && shouldOfferFirstBackup(installedApp) && (
+                  <Button className={poButtonClass('quiet')} disabled={backupJob ? !terminalJob(backupJob) : false} onClick={() => onCreateBackup(installedApp.appId)} size="sm" type="button" variant="outline">
+                    {backupJob && !terminalJob(backupJob) ? <Loader2 className="size-3.5 animate-spin" /> : <Archive className="size-3.5" />}
+                    {backupJob?.status === 'succeeded' ? 'Backup created' : backupJob && !terminalJob(backupJob) ? 'Creating backup' : 'Create first backup'}
+                  </Button>
+                )}
+                <Button asChild className={poButtonClass('quiet')} size="sm" variant="outline">
+                  <Link to="/apps">View in My Apps</Link>
+                </Button>
+              </div>
+            )}
+            {failed && (
+              <details className="mt-4 rounded-lg border border-red-300/20 bg-slate-950/35 p-3 text-sm text-red-100/80">
+                <summary className="cursor-pointer font-semibold text-white">View details</summary>
+                <div className="mt-2 grid gap-1">
+                  {job.steps.map((step) => <p key={step.id}>{step.label}: {step.message || step.status}</p>)}
+                </div>
+              </details>
+            )}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   if (installing) {
     return (
       <section className="rounded-lg border border-violet-300/20 bg-violet-500/10 p-4">
@@ -419,6 +485,43 @@ function InlineInstallStatus({ installing, result }: { installing: boolean; resu
       </div>
     </section>
   );
+}
+
+function JobStepList({ job }: { job: ProjectOsJob }) {
+  return (
+    <div className="mt-4 grid gap-2">
+      {job.steps.map((step) => (
+        <div className="flex items-start gap-2 text-sm" key={step.id}>
+          <span className={cn('mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border text-[0.65rem] font-bold', step.status === 'succeeded' ? 'border-emerald-300/30 bg-emerald-500/15 text-emerald-100' : step.status === 'failed' ? 'border-red-300/30 bg-red-500/15 text-red-100' : step.status === 'running' ? 'border-violet-300/30 bg-violet-500/15 text-violet-100' : 'border-slate-700 bg-slate-950 text-slate-400')}>
+            {step.status === 'succeeded' ? 'ok' : step.status === 'failed' ? '!' : step.status === 'running' ? '...' : ''}
+          </span>
+          <span>
+            <span className="block font-semibold text-white">{step.label}</span>
+            {step.message && <span className="block leading-5 text-slate-400">{step.message}</span>}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function terminalJob(job: ProjectOsJob) {
+  return ['succeeded', 'failed', 'cancelled'].includes(job.status);
+}
+
+function currentJobStep(job: ProjectOsJob) {
+  const step = job.steps.find((candidate) => candidate.id === job.currentStep) ?? job.steps.find((candidate) => candidate.status === 'running') ?? job.steps.find((candidate) => candidate.status === 'pending');
+  return step?.message || step?.label || 'Project OS is working on this job.';
+}
+
+function shouldOfferFirstBackup(app: AppRuntimeView) {
+  if (app.canonicalBackupState === 'protected_by_restore_point') {
+    return false;
+  }
+  if (app.canonicalBackupState) {
+    return app.canonicalBackupState !== 'backup_disabled';
+  }
+  return Boolean(app.settings?.backup?.enabled);
 }
 
 function CatalogConfidenceCard({ app }: { app: MarketplaceApp }) {

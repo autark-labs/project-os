@@ -1,5 +1,6 @@
 import { httpClient } from './httpClient';
-import type { InstallOptions, InstallPlan, InstallResult } from '@/types/marketplace';
+import type { ProjectOsJob } from '@/types/jobs';
+import type { InstallOptions, InstallPlan } from '@/types/marketplace';
 
 export const MarketplaceInstallClient = {
   async plan(appId: string, options: InstallOptions | Record<string, never> = {}) {
@@ -8,7 +9,7 @@ export const MarketplaceInstallClient = {
   },
 
   async install(appId: string, options: InstallOptions | Record<string, never> = {}) {
-    const response = await httpClient.post<InstallResult>(`/api/marketplace/apps/${appId}/install`, options);
+    const response = await httpClient.post<ProjectOsJob>(`/api/marketplace/apps/${appId}/install`, options);
     return response.data;
   },
 };

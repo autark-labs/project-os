@@ -1,5 +1,6 @@
 import { httpClient } from './httpClient';
-import type { BackupReport, BackupRunResult, BackupVerificationResult, RestorePlan, RestoreResult } from '@/types/backup';
+import type { ProjectOsJob } from '@/types/jobs';
+import type { BackupReport, BackupVerificationResult, RestorePlan, RestoreResult } from '@/types/backup';
 
 export const BackupAPIClient = {
   async report() {
@@ -8,17 +9,17 @@ export const BackupAPIClient = {
   },
 
   async run(appId: string) {
-    const response = await httpClient.post<BackupRunResult>(`/api/backups/apps/${appId}/run`);
+    const response = await httpClient.post<ProjectOsJob>(`/api/backups/apps/${appId}/run`);
     return response.data;
   },
 
   async runFull() {
-    const response = await httpClient.post<BackupRunResult>('/api/backups/full/run');
+    const response = await httpClient.post<ProjectOsJob>('/api/backups/full/run');
     return response.data;
   },
 
   async runRoutine() {
-    const response = await httpClient.post<BackupRunResult>('/api/backups/routine/run');
+    const response = await httpClient.post<ProjectOsJob>('/api/backups/routine/run');
     return response.data;
   },
 

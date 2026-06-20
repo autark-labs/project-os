@@ -14,7 +14,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { ActivityAPIClient } from '@/api/ActivityAPIClient';
+import { BackupAPIClient } from '@/api/BackupAPIClient';
 import { InstalledAppsAPIClient } from '@/api/InstalledAppsAPIClient';
+import { JobsAPIClient } from '@/api/JobsAPIClient';
 import { MarketplaceAPIClient } from '@/api/MarketplaceAPIClient';
 import { MarketplaceInstallClient } from '@/api/MarketplaceInstallClient';
 import { SystemAPIClient } from '@/api/SystemAPIClient';
@@ -24,11 +26,11 @@ import { poButtonClass, poCardClass } from '@/lib/projectOsStyleKit';
 import { cn } from '@/lib/utils';
 import type { AppRuntimeView, InstallSettings } from '@/types/app';
 import type { ActivityLog } from '@/types/activity';
-import type { InstallOptions, InstallPlan, InstallResult, MarketplaceApp } from '@/types/marketplace';
+import type { ProjectOsJob } from '@/types/jobs';
+import type { InstallOptions, InstallPlan, MarketplaceApp } from '@/types/marketplace';
 import type { OnboardingState, StorageReport, SystemDoctorStatus } from '@/types/system';
 import { categories } from './extensions/MarketplacePage.constants';
 import { defaultInstallOptions } from './extensions/MarketplacePage.installation';
-import { activeInstallMessage, canStartInstall, completeInstallJob, failInstallJob, modeLabel, startInstallJob } from './extensions/MarketplacePage.installQueue';
 import {
   formatMarketplaceActivityTime,
   marketplaceActivityTone,
@@ -64,8 +66,8 @@ function MarketplacePage() {
   const [installPlan, setInstallPlan] = useState<InstallPlan | null>(null);
   const [installOptions, setInstallOptions] = useState<InstallOptions | null>(null);
   const [planLoading, setPlanLoading] = useState(false);
-  const [installJob, setInstallJob] = useState<any>({ status: 'idle' });
-  const [installResult, setInstallResult] = useState<InstallResult | null>(null);
+  const [installJob, setInstallJob] = useState<ProjectOsJob | null>(null);
+  const [backupJob, setBackupJob] = useState<ProjectOsJob | null>(null);
   const [marketplaceActivity, setMarketplaceActivity] = useState<ActivityLog[]>([]);
   const [lastRefreshAt, setLastRefreshAt] = useState<Date | null>(null);
   const recoveryAppId = searchParams.get('app');
@@ -151,7 +153,6 @@ function MarketplacePage() {
 
   useEffect(() => {
     setInstallPlan(null);
-    setInstallResult(null);
     const app = apps.find((nextApp) => nextApp.id === selectedAppId);
     if (app) {
       const defaults = defaultInstallOptions(app);
@@ -160,31 +161,67 @@ function MarketplacePage() {
     }
   }, [apps, requestPlan, selectedAppId]);
 
+  useEffect(() => {
+    if (!installJob || terminalJob(installJob)) {
+      return undefined;
+    }
+    const interval = window.setInterval(async () => {
+      try {
+        const nextJob = await JobsAPIClient.get(installJob.jobId);
+        setInstallJob(nextJob);
+        if (terminalJob(nextJob)) {
+          setInstalledApps(await InstalledAppsAPIClient.listApps());
+          setMarketplaceActivity(await ActivityAPIClient.recent({ category: 'marketplace', limit: 8 }));
+        }
+      } catch (error) {
+        setMarketplaceError(apiErrorMessage(error, 'Install progress could not be refreshed.'));
+      }
+    }, 1200);
+    return () => window.clearInterval(interval);
+  }, [installJob]);
+
+  useEffect(() => {
+    if (!backupJob || terminalJob(backupJob)) {
+      return undefined;
+    }
+    const interval = window.setInterval(async () => {
+      try {
+        const nextJob = await JobsAPIClient.get(backupJob.jobId);
+        setBackupJob(nextJob);
+        if (terminalJob(nextJob)) {
+          setInstalledApps(await InstalledAppsAPIClient.listApps());
+        }
+      } catch (error) {
+        setMarketplaceError(apiErrorMessage(error, 'Backup progress could not be refreshed.'));
+      }
+    }, 1200);
+    return () => window.clearInterval(interval);
+  }, [backupJob]);
+
   async function installApp(appId = selectedApp?.id, options = installOptions, mode: 'install' | 'reinstall' | 'reset-reinstall' = 'install') {
     if (!appId) {
       return;
     }
     const app = apps.find((candidate) => candidate.id === appId);
-    if (!canStartInstall(installJob, appId)) {
-      setMarketplaceError(activeInstallMessage(installJob, appId));
+    if (installJob && !terminalJob(installJob) && installJob.subjectId !== appId) {
+      setMarketplaceError(`${appNameForJob(installJob, apps)} is installing. Finish that install before starting ${app?.name || appId}.`);
       return;
     }
-    setInstallJob((current: any) => startInstallJob(current, { appId, appName: app?.name || appId, mode }));
-    setInstallResult(null);
     try {
-      const result = await MarketplaceInstallClient.install(appId, options ?? {});
-      setInstallResult(result);
-      setInstallPlan(result.plan ?? null);
-      setInstallJob((current: any) => completeInstallJob(current, { appId, status: result.status, message: result.message }));
-      if (result.status === 'installed') {
-        setInstalledApps(await InstalledAppsAPIClient.listApps());
-      }
-      setMarketplaceActivity(await ActivityAPIClient.recent({ category: 'marketplace', limit: 8 }));
+      setInstallJob(await MarketplaceInstallClient.install(appId, options ?? {}));
       setMarketplaceError('');
     } catch (error) {
       const message = apiErrorMessage(error);
-      setInstallJob((current: any) => failInstallJob(current, { appId, message }));
       setMarketplaceError(message);
+    }
+  }
+
+  async function createFirstBackup(appId: string) {
+    try {
+      setBackupJob(await BackupAPIClient.run(appId));
+      setMarketplaceError('');
+    } catch (error) {
+      setMarketplaceError(apiErrorMessage(error, 'Backup could not be started.'));
     }
   }
 
@@ -210,9 +247,9 @@ function MarketplacePage() {
     selectedCategory,
     sortBy,
   }) as MarketplaceApp[];
-  const selectedAppInstalling = installJob.status === 'active' && installJob.active.appId === selectedApp?.id;
-  const selectedAppInstallLocked = Boolean(selectedApp && !canStartInstall(installJob, selectedApp.id));
-  const installStatusMessage = selectedApp ? activeInstallMessage(installJob, selectedApp.id) : '';
+  const selectedAppInstalling = Boolean(installJob && !terminalJob(installJob) && installJob.subjectId === selectedApp?.id);
+  const selectedAppInstallLocked = Boolean(selectedApp && installJob && !terminalJob(installJob) && installJob.subjectId !== selectedApp.id);
+  const installStatusMessage = selectedAppInstallLocked && installJob ? `${appNameForJob(installJob, apps)} is installing. Finish that install before starting another app.` : '';
   const starterRecommendations = useMemo(
     () => onboarding?.status === 'complete' ? starterAppsForMarketplace(apps, onboarding.recommendedApps, installedById, doctor, storage) as StarterRecommendation[] : [],
     [apps, doctor, installedById, onboarding?.recommendedApps, onboarding?.status, storage],
@@ -298,7 +335,7 @@ function MarketplacePage() {
       </header>
 
       {marketplaceError && <PageErrorState className="mb-5" message={marketplaceError} onRetry={loadApps} title="Discover action needs attention" />}
-      <InstallJobBanner installJob={installJob} selectedAppId={selectedApp.id} />
+      <InstallJobBanner apps={apps} installJob={installJob} selectedAppId={selectedApp.id} />
 
       {starterRecommendations.length > 0 && (
         <StarterAppHandoff
@@ -330,34 +367,37 @@ function MarketplacePage() {
 
       <div className="grid items-start gap-6 2xl:grid-cols-[minmax(620px,1fr)_minmax(420px,560px)]">
         <MarketplaceAppList apps={visibleApps} installedAppIds={new Set(installedById.keys())} modeLabel={showAdvancedMetrics ? 'All apps' : 'Starter apps'} onSelect={setSelectedAppId} onSortChange={setSortBy} selectedAppId={selectedApp.id} sortBy={sortBy} />
-        <MarketplaceAppDetail app={selectedApp} installLocked={selectedAppInstallLocked} installOptions={installOptions ?? defaultInstallOptions(selectedApp)} installResult={installResult} installStatusMessage={installStatusMessage} installing={selectedAppInstalling} installPlan={installPlan} installedApp={selectedInstalledApp} onBack={() => { setSearchQuery(''); setSelectedCategory('All'); }} onInstall={(options) => installApp(selectedApp.id, options)} onOptionsChange={setInstallOptions} onReinstallCurrent={reinstallWithCurrentSettings} onRequestPlan={(options) => requestPlan(selectedApp.id, options)} onResetReinstall={resetAndReinstall} planLoading={planLoading} recoveryMode={recoveryAppId === selectedApp.id ? recoveryMode : null} />
+        <MarketplaceAppDetail app={selectedApp} backupJob={backupJob?.subjectId === selectedApp.id ? backupJob : null} installJob={installJob?.subjectId === selectedApp.id ? installJob : null} installLocked={selectedAppInstallLocked} installOptions={installOptions ?? defaultInstallOptions(selectedApp)} installResult={null} installStatusMessage={installStatusMessage} installing={selectedAppInstalling} installPlan={installPlan} installedApp={selectedInstalledApp} onBack={() => { setSearchQuery(''); setSelectedCategory('All'); }} onCreateBackup={createFirstBackup} onInstall={(options) => installApp(selectedApp.id, options)} onOptionsChange={setInstallOptions} onReinstallCurrent={reinstallWithCurrentSettings} onRequestPlan={(options) => requestPlan(selectedApp.id, options)} onResetReinstall={resetAndReinstall} planLoading={planLoading} recoveryMode={recoveryAppId === selectedApp.id ? recoveryMode : null} />
       </div>
     </PageShell>
   );
 }
 
-function InstallJobBanner({ installJob, selectedAppId }: { installJob: any; selectedAppId: string }) {
-  if (installJob.status === 'active') {
+function InstallJobBanner({ apps, installJob, selectedAppId }: { apps: MarketplaceApp[]; installJob: ProjectOsJob | null; selectedAppId: string }) {
+  if (!installJob || installJob.subjectId !== selectedAppId) {
+    return null;
+  }
+  if (!terminalJob(installJob)) {
     return (
       <div className="mb-5 rounded-lg border border-violet-300/25 bg-violet-500/10 p-4 text-sm text-violet-100">
-        <p className="font-semibold text-white">{modeLabel(installJob.active.mode)} in progress</p>
-        <p className="mt-1">{activeInstallMessage(installJob, selectedAppId)}</p>
+        <p className="font-semibold text-white">Installing {appNameForJob(installJob, apps)}</p>
+        <p className="mt-1">{currentJobStep(installJob) || 'Project OS is preparing this app.'}</p>
       </div>
     );
   }
   if (installJob.status === 'failed') {
     return (
       <div className="mb-5 rounded-lg border border-red-300/25 bg-red-500/10 p-4 text-sm text-red-100">
-        <p className="font-semibold text-white">{modeLabel(installJob.failed.mode)} failed for {installJob.failed.appName}</p>
-        <p className="mt-1">{installJob.failed.message}</p>
+        <p className="font-semibold text-white">Install failed for {appNameForJob(installJob, apps)}</p>
+        <p className="mt-1">{installJob.error?.message || 'Project OS could not finish the install.'}</p>
       </div>
     );
   }
-  if (installJob.status === 'completed') {
+  if (installJob.status === 'succeeded') {
     return (
       <div className="mb-5 rounded-lg border border-emerald-300/25 bg-emerald-500/10 p-4 text-sm text-emerald-100">
-        <p className="font-semibold text-white">{modeLabel(installJob.completed.mode)} finished for {installJob.completed.appName}</p>
-        <p className="mt-1">{installJob.completed.message}</p>
+        <p className="font-semibold text-white">{appNameForJob(installJob, apps)} is ready</p>
+        <p className="mt-1">Open the app or create a first restore point before experimenting.</p>
       </div>
     );
   }
@@ -416,3 +456,19 @@ function StarterAppHandoff({ onSelect, recommendations }: { onSelect: (appId: st
 }
 
 export default MarketplacePage;
+
+function terminalJob(job: ProjectOsJob) {
+  return ['succeeded', 'failed', 'cancelled'].includes(job.status);
+}
+
+function currentJobStep(job: ProjectOsJob) {
+  const step = job.steps.find((candidate) => candidate.id === job.currentStep) ?? job.steps.find((candidate) => candidate.status === 'running') ?? job.steps.find((candidate) => candidate.status === 'pending');
+  if (!step) {
+    return '';
+  }
+  return step.message || step.label;
+}
+
+function appNameForJob(job: ProjectOsJob, apps: MarketplaceApp[]) {
+  return apps.find((app) => app.id === job.subjectId)?.name || job.subjectId || 'this app';
+}
