@@ -1,11 +1,16 @@
 import { httpClient } from './httpClient';
-import type { AppAccessCheck, AppActionResult, AppHealthSnapshot, AppReliabilitySummary, AppRuntimeView, AppSettingsChangePlan, AppTelemetry, AppUpdatePlan, AppUpdateResult, AppUpdateStatus, InstallSettings, UninstallPlan } from '@/types/app';
+import type { AppAccessCheck, AppActionResult, AppHealthSnapshot, AppInstanceView, AppReliabilitySummary, AppRuntimeView, AppSettingsChangePlan, AppTelemetry, AppUpdatePlan, AppUpdateResult, AppUpdateStatus, InstallSettings, UninstallPlan } from '@/types/app';
 
 export type InstalledAppAction = 'start' | 'stop' | 'restart' | 'repair';
 
 export const InstalledAppsAPIClient = {
   async listApps() {
     const response = await httpClient.get<AppRuntimeView[]>('/api/apps');
+    return response.data;
+  },
+
+  async listAppInstances() {
+    const response = await httpClient.get<AppInstanceView[]>('/api/app-instances');
     return response.data;
   },
 

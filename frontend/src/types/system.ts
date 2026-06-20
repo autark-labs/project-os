@@ -1,3 +1,5 @@
+import type { ProjectOsAction, ProjectOsIssue } from './app';
+
 export type SystemMetrics = {
   deviceName: string;
   runAsUser: string;
@@ -17,6 +19,80 @@ export type SystemMetrics = {
   runtimeUsableBytes: number;
   runtimeUsedPercent: number;
   checkedAt: string;
+};
+
+export type SetupProgressSummary = {
+  complete: boolean;
+  status: string;
+  nextStep: string;
+  summary: string;
+};
+
+export type DockerSummary = {
+  ready: boolean;
+  summary: string;
+};
+
+export type AccessSummary = {
+  mode: string;
+  summary: string;
+};
+
+export type ReadyAppSummary = {
+  appInstanceId: string;
+  name: string;
+  url: string;
+};
+
+export type AppsSummary = {
+  installed: number;
+  running: number;
+  needsAttention: number;
+  readyToOpen: ReadyAppSummary[];
+};
+
+export type BackupSummary = {
+  state: string;
+  summary: string;
+};
+
+export type StorageSummary = {
+  state: string;
+  summary: string;
+};
+
+export type SystemSummary = {
+  deviceName: string;
+  instanceId: string;
+  lanUrl: string;
+  setup: SetupProgressSummary;
+  docker: DockerSummary;
+  access: AccessSummary;
+  apps: AppsSummary;
+  backups: BackupSummary;
+  storage: StorageSummary;
+  issues: ProjectOsIssue[];
+  updatedAt: string;
+};
+
+export type RecommendedAction = {
+  id: string;
+  severity: 'success' | 'info' | 'warning' | 'critical' | string;
+  title: string;
+  body: string;
+  primaryAction?: ProjectOsAction | null;
+  secondaryAction?: ProjectOsAction | null;
+  sourceIssueIds: string[];
+  dismissible: boolean;
+};
+
+export type SetupProgress = {
+  setupVersion: number;
+  completedSteps: string[];
+  skippedSteps: string[];
+  lastRecommendedStep: string;
+  setupComplete: boolean;
+  updatedAt: string;
 };
 
 export type SystemSetupCheck = {
@@ -273,6 +349,7 @@ export type SupportSummary = {
   version: ProjectVersionInfo;
   recentFailures: number;
   findings: SupportFinding[];
+  unifiedIssues: ProjectOsIssue[];
   redactionRules: SupportRedactionRule[];
   commands: SupportCommand[];
   checkedAt: string;

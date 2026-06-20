@@ -1,0 +1,17 @@
+{
+  "mode": "local_only",
+  "serverLanUrl": "http://localhost:8082",
+  "tailscale": {
+    "installed": false,
+    "signedIn": false,
+    "hostname": "",
+    "magicDnsReady": false,
+    "httpsReady": false,
+    "serveReady": false,
+    "mode": "unavailable"
+  },
+  "apps": [],
+  "issues": [],
+  "actions": [],
+  "updatedAt": "2026-06-20T12:00:00Z"
+}

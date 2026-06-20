@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.projectos.api.ProjectOsIssue;
 import com.projectos.activity.ActivityLog;
 import com.projectos.activity.ActivityLogService;
 import com.projectos.backups.BackupReport;
@@ -48,6 +49,7 @@ public class SystemSupportService {
     private final StorageService storageService;
     private final BackupService backupService;
     private final ProjectVersionService versionService;
+    private final SystemSummaryProvider systemSummaryProvider;
     private final Function<List<String>, CommandResult> commandRunner;
 
     @Autowired
@@ -59,12 +61,17 @@ public class SystemSupportService {
             PrivateAccessReconciliationService privateAccessReconciliationService,
             StorageService storageService,
             BackupService backupService,
-            ProjectVersionService versionService) {
-        this(activityLogService, metricsService, setupService, appLifecycleService, privateAccessReconciliationService, storageService, backupService, versionService, SystemSupportService::runProcess);
+            ProjectVersionService versionService,
+            SystemSummaryProvider systemSummaryProvider) {
+        this(activityLogService, metricsService, setupService, appLifecycleService, privateAccessReconciliationService, storageService, backupService, versionService, systemSummaryProvider, SystemSupportService::runProcess);
     }
 
     SystemSupportService(ActivityLogService activityLogService, SystemMetricsService metricsService, SystemSetupService setupService, Function<List<String>, CommandResult> commandRunner) {
-        this(activityLogService, metricsService, setupService, null, null, null, null, null, commandRunner);
+        this(activityLogService, metricsService, setupService, null, null, null, null, null, null, commandRunner);
+    }
+
+    SystemSupportService(ActivityLogService activityLogService, SystemMetricsService metricsService, SystemSetupService setupService, Function<List<String>, CommandResult> commandRunner, SystemSummaryProvider systemSummaryProvider) {
+        this(activityLogService, metricsService, setupService, null, null, null, null, null, systemSummaryProvider, commandRunner);
     }
 
     SystemSupportService(
@@ -76,6 +83,7 @@ public class SystemSupportService {
             StorageService storageService,
             BackupService backupService,
             ProjectVersionService versionService,
+            SystemSummaryProvider systemSummaryProvider,
             Function<List<String>, CommandResult> commandRunner) {
         this.activityLogService = activityLogService;
         this.metricsService = metricsService;
@@ -85,6 +93,7 @@ public class SystemSupportService {
         this.storageService = storageService;
         this.backupService = backupService;
         this.versionService = versionService;
+        this.systemSummaryProvider = systemSummaryProvider;
         this.commandRunner = commandRunner;
     }
 
@@ -102,9 +111,21 @@ public class SystemSupportService {
                 context.version(),
                 context.failures().size(),
                 context.findings(),
+                unifiedIssues(),
                 context.redactionRules(),
                 context.commands(),
                 context.checkedAt());
+    }
+
+    List<ProjectOsIssue> unifiedIssues() {
+        if (systemSummaryProvider == null) {
+            return List.of();
+        }
+        try {
+            return systemSummaryProvider.summary().issues();
+        } catch (RuntimeException exception) {
+            return List.of();
+        }
     }
 
     public List<SupportLogLine> logs(int limit) {

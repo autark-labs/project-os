@@ -31,10 +31,10 @@ import overviewBackground from '@/assets/overviewBackground.png';
 import { buildAppRemediationFromIssue } from '@/lib/appRemediation';
 import { cn } from '@/lib/utils';
 import type { ActivityLog } from '@/types/activity';
-import type { AppReliabilitySummary, AppRuntimeView, AppUpdateStatus } from '@/types/app';
+import type { AppReliabilitySummary, AppRuntimeView, AppUpdateStatus, ProjectOsAction } from '@/types/app';
 import type { BackupReport } from '@/types/backup';
 import type { PrivateAccessReconciliationReport, TailscaleDevice, TailscaleStatus } from '@/types/network';
-import type { ProjectSettings, StorageReport, SystemMetrics, SystemSetupStatus } from '@/types/system';
+import type { ProjectSettings, RecommendedAction, StorageReport, SystemMetrics, SystemSetupStatus, SystemSummary } from '@/types/system';
 
 type Tone = 'purple' | 'blue' | 'teal' | 'green' | 'amber' | 'red';
 
@@ -46,9 +46,11 @@ type OverviewState = {
   metrics: SystemMetrics | null;
   privateAccess: PrivateAccessReconciliationReport | null;
   reliability: AppReliabilitySummary | null;
+  recommendedAction: RecommendedAction | null;
   settings: ProjectSettings | null;
   setup: SystemSetupStatus | null;
   storage: StorageReport | null;
+  systemSummary: SystemSummary | null;
   tailscale: TailscaleStatus | null;
   updates: AppUpdateStatus[];
 };
@@ -76,9 +78,11 @@ const initialState: OverviewState = {
   metrics: null,
   privateAccess: null,
   reliability: null,
+  recommendedAction: null,
   settings: null,
   setup: null,
   storage: null,
+  systemSummary: null,
   tailscale: null,
   updates: [],
 };
@@ -93,7 +97,9 @@ function OverviewPage() {
 
     async function loadOverview() {
       setLoading(true);
-      const [apps, reliability, updates, activity, metrics, storage, backups, devices, tailscale, privateAccess, settings, setup] = await Promise.allSettled([
+      const [summary, recommendedAction, apps, reliability, updates, activity, metrics, storage, backups, devices, tailscale, privateAccess, settings, setup] = await Promise.allSettled([
+        SystemAPIClient.summary(),
+        SystemAPIClient.recommendedAction(),
         InstalledAppsAPIClient.listApps(),
         InstalledAppsAPIClient.reliabilitySummary(),
         InstalledAppsAPIClient.updates(),
@@ -110,7 +116,7 @@ function OverviewPage() {
 
       if (cancelled) return;
 
-      const rejected = [apps, reliability, updates, activity, metrics, storage, backups, devices, tailscale, privateAccess, settings, setup].find((result) => result.status === 'rejected');
+      const rejected = [summary, recommendedAction, apps, reliability, updates, activity, metrics, storage, backups, devices, tailscale, privateAccess, settings, setup].find((result) => result.status === 'rejected');
       setError(rejected?.status === 'rejected' ? apiErrorMessage(rejected.reason, 'Some Overview data could not be loaded.') : null);
       setState({
         activity: valueOr(activity, []),
@@ -120,9 +126,11 @@ function OverviewPage() {
         metrics: valueOr(metrics, null),
         privateAccess: valueOr(privateAccess, null),
         reliability: valueOr(reliability, null),
+        recommendedAction: valueOr(recommendedAction, null),
         settings: valueOr(settings, null),
         setup: valueOr(setup, null),
         storage: valueOr(storage, null),
+        systemSummary: valueOr(summary, null),
         tailscale: valueOr(tailscale, null),
         updates: valueOr(updates, []),
       });
@@ -353,12 +361,12 @@ function HelpfulNextSteps({ steps }: { steps: NextStep[] }) {
 }
 
 function buildOverviewView(state: OverviewState) {
-  const readyApps = state.reliability?.readyApps ?? state.apps.filter((app) => appIsReady(app)).length;
-  const attentionApps = (state.reliability?.needsAttentionApps ?? 0) + (state.reliability?.unavailableApps ?? 0);
-  const runningApps = state.apps.filter((app) => app.friendlyStatus !== 'Stopped').length;
+  const readyApps = state.systemSummary?.apps.running ?? state.reliability?.readyApps ?? state.apps.filter((app) => appIsReady(app)).length;
+  const attentionApps = state.systemSummary?.apps.needsAttention ?? (state.reliability?.needsAttentionApps ?? 0) + (state.reliability?.unavailableApps ?? 0);
+  const runningApps = state.systemSummary?.apps.running ?? state.apps.filter((app) => app.friendlyStatus !== 'Stopped').length;
   const onlineDevices = state.devices.filter((device) => device.online).length;
   const updatesAvailable = state.updates.filter((update) => update.updateAvailable).length;
-  const setupWarnings = state.setup?.checks.filter((check) => check.status !== 'ok').length ?? 0;
+  const setupWarnings = state.systemSummary ? (state.systemSummary.setup.complete ? 0 : 1) : state.setup?.checks.filter((check) => check.status !== 'ok').length ?? 0;
   const privateLinkIssues = state.privateAccess?.apps.filter((app) => app.status === 'missing' || app.status === 'mismatched').length ?? 0;
   const storageRisk = storageRiskLevel(state.storage?.runtimeDisk.usedPercent ?? state.metrics?.runtimeUsedPercent);
   const appTone: Tone = attentionApps > 0 ? 'amber' : 'purple';
@@ -366,7 +374,8 @@ function buildOverviewView(state: OverviewState) {
   const storagePercent = state.storage?.runtimeDisk.usedPercent ?? state.metrics?.runtimeUsedPercent;
   const storageTone: Tone = storagePercent == null ? 'teal' : storagePercent >= 90 ? 'red' : storagePercent >= 75 ? 'amber' : 'teal';
   const backupTone: Tone = state.backups?.status === 'protected' ? 'green' : state.backups ? 'amber' : 'green';
-  const healthTone: Tone = state.reliability?.posture === 'critical' ? 'red' : state.reliability?.posture === 'warning' || attentionApps > 0 || setupWarnings > 0 ? 'amber' : 'green';
+  const recommendationTone = toneForSeverity(state.recommendedAction?.severity);
+  const healthTone: Tone = recommendationTone ?? (state.reliability?.posture === 'critical' ? 'red' : state.reliability?.posture === 'warning' || attentionApps > 0 || setupWarnings > 0 ? 'amber' : 'green');
   const healthIcon = healthTone === 'green' ? Check : AlertTriangle;
   const firstRemediation = buildAppRemediationFromIssue(state.reliability?.issues[0]);
   const nextSteps = buildNextSteps(state, { attentionApps, privateLinkIssues, setupWarnings, storageRisk, updatesAvailable });
@@ -385,9 +394,9 @@ function buildOverviewView(state: OverviewState) {
     deviceValue: `${onlineDevices} online`,
     deviceWarning: state.tailscale?.connected === false || privateLinkIssues > 0,
     greeting: `${timeGreeting()}, ${displayName(state)}.`,
-    healthDetail: firstRemediation?.summary || state.reliability?.summary || state.setup?.summary || 'Project OS is checking your system.',
+    healthDetail: state.recommendedAction?.body || firstRemediation?.summary || state.reliability?.summary || state.systemSummary?.setup.summary || state.setup?.summary || 'Project OS is checking your system.',
     healthIcon,
-    healthLabel: healthTone === 'green' ? 'Healthy' : 'Needs review',
+    healthLabel: state.recommendedAction?.severity === 'success' || healthTone === 'green' ? 'Healthy' : 'Needs review',
     healthTone,
     heroSubtitle: heroSubtitle(healthTone, state),
     nextBackupLabel: backupNextLabel(state.backups, state.settings),
@@ -418,6 +427,14 @@ function buildQuickApps(apps: AppRuntimeView[]): QuickApp[] {
 
 function buildNextSteps(state: OverviewState, counts: { attentionApps: number; privateLinkIssues: number; setupWarnings: number; storageRisk: 'healthy' | 'warning' | 'critical'; updatesAvailable: number }): NextStep[] {
   const steps: NextStep[] = [];
+  if (state.recommendedAction && state.recommendedAction.id !== 'no-action-needed') {
+    steps.push({
+      icon: iconForSeverity(state.recommendedAction.severity),
+      label: state.recommendedAction.title,
+      tone: toneForSeverity(state.recommendedAction.severity) ?? 'blue',
+      to: routeForAction(state.recommendedAction.primaryAction) || '/support',
+    });
+  }
   const firstRemediation = buildAppRemediationFromIssue(state.reliability?.issues[0]);
   if (counts.updatesAvailable > 0) steps.push({ count: `${counts.updatesAvailable}`, icon: Grid3X3, label: `Update ${plural(counts.updatesAvailable, 'application')}`, tone: 'purple', to: '/updates' });
   if (counts.attentionApps > 0) {
@@ -487,10 +504,32 @@ function activityTone(event: ActivityLog): Tone {
 
 function heroSubtitle(tone: Tone, state: OverviewState) {
   if (tone === 'green') return 'Your digital home is healthy and protected.';
+  if (state.recommendedAction?.body) return state.recommendedAction.body;
   const remediation = buildAppRemediationFromIssue(state.reliability?.issues[0]);
   if (remediation) return remediation.nextStep;
   if (state.setup?.summary) return state.setup.summary;
   return 'Project OS found something that may need your attention.';
+}
+
+function routeForAction(action?: ProjectOsAction | null) {
+  if (!action) return null;
+  if (typeof action.route === 'string' && action.route) return action.route;
+  if (typeof action.href === 'string' && action.href.startsWith('/')) return action.href;
+  return null;
+}
+
+function toneForSeverity(severity?: string): Tone | null {
+  if (severity === 'critical') return 'red';
+  if (severity === 'warning') return 'amber';
+  if (severity === 'info') return 'blue';
+  if (severity === 'success') return 'green';
+  return null;
+}
+
+function iconForSeverity(severity?: string): LucideIcon {
+  if (severity === 'critical' || severity === 'warning') return AlertTriangle;
+  if (severity === 'success') return CheckCircle2;
+  return Sparkles;
 }
 
 function backupNextLabel(report: BackupReport | null, settings: ProjectSettings | null) {

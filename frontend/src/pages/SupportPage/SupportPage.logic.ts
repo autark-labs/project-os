@@ -13,6 +13,7 @@ export function summaryFromBundle(bundle: SupportBundle): SupportSummary {
     version: bundle.version,
     recentFailures: bundle.recentFailureCount,
     findings: bundle.findings,
+    unifiedIssues: [],
     redactionRules: bundle.redactionRules,
     commands: bundle.commands,
     checkedAt: bundle.generatedAt,

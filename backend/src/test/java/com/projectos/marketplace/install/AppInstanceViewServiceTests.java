@@ -1,0 +1,165 @@
+package com.projectos.marketplace.install;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.List;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import com.projectos.backups.BackupRepository;
+import com.projectos.marketplace.catalog.ManifestValidator;
+import com.projectos.marketplace.catalog.ManifestYamlReader;
+import com.projectos.marketplace.catalog.MarketplaceCatalogService;
+import com.projectos.marketplace.runtime.ProjectOsRuntimeProperties;
+import com.projectos.marketplace.runtime.RuntimeLayout;
+
+class AppInstanceViewServiceTests {
+
+    @TempDir
+    Path runtimeRoot;
+
+    @Test
+    void readyOwnedAppViewIncludesOpenAndRestartActions() {
+        InstalledAppRepository repository = repository();
+        repository.save(installed("vaultwarden", "Ready"));
+        repository.saveOwnershipMetadata(owned("vaultwarden", "ready"));
+        repository.saveSettings("vaultwarden", new InstallSettings("http://localhost:8090", null, false, java.util.Map.of(), new BackupPolicy(false, "daily", 7)));
+        AppInstanceViewService service = service(repository, List.of(
+                new ManagedContainer("vaultwarden", "projectos_homelab-box_vaultwarden", "Up 2 minutes (healthy)", DockerResourceOwnership.OWNED, "appinst_vaultwarden", "projectos_homelab-box_vaultwarden")));
+
+        AppInstanceView view = service.list().getFirst();
+
+        assertThat(view.appInstanceId()).isEqualTo("appinst_vaultwarden");
+        assertThat(view.catalogAppId()).isEqualTo("vaultwarden");
+        assertThat(view.name()).isEqualTo("Vaultwarden");
+        assertThat(view.category()).isEqualTo("Security");
+        assertThat(view.userStatus()).isEqualTo("Ready");
+        assertThat(view.ownershipState()).isEqualTo("owned");
+        assertThat(view.accessState()).isEqualTo("local_ready");
+        assertThat(view.localUrl()).isEqualTo("http://localhost:8090");
+        assertThat(view.actions()).extracting(action -> action.id()).contains("open-vaultwarden", "restart-vaultwarden");
+        assertThat(view.issues()).isEmpty();
+    }
+
+    @Test
+    void missingOwnedAppViewIncludesRepairIssueAndAction() {
+        InstalledAppRepository repository = repository();
+        repository.save(installed("vaultwarden", "Ready"));
+        repository.saveOwnershipMetadata(owned("vaultwarden", "ready"));
+        AppInstanceViewService service = service(repository, List.of());
+
+        AppInstanceView view = service.list().getFirst();
+
+        assertThat(view.userStatus()).isEqualTo("Missing");
+        assertThat(view.runtimeState()).isEqualTo("missing");
+        assertThat(view.issues()).singleElement().satisfies(issue -> {
+            assertThat(issue.reasonCode()).isEqualTo("app_missing_container");
+            assertThat(issue.severity()).isEqualTo("critical");
+            assertThat(issue.primaryAction()).isPresent();
+        });
+        assertThat(view.actions()).extracting(action -> action.id()).contains("repair-vaultwarden");
+    }
+
+    @Test
+    void foreignAppViewHasNoMutatingActions() {
+        InstalledAppRepository repository = repository();
+        AppInstanceViewService service = service(repository, List.of(
+                new ManagedContainer("vaultwarden", "projectos_other_vaultwarden", "Up 2 minutes", DockerResourceOwnership.FOREIGN, "appinst_other", "projectos_other_vaultwarden")));
+
+        AppInstanceView view = service.list().getFirst();
+
+        assertThat(view.userStatus()).isEqualTo("Managed elsewhere");
+        assertThat(view.ownershipState()).isEqualTo("foreign");
+        assertThat(view.actions()).extracting(action -> action.id()).contains("view-diagnostics-vaultwarden");
+        assertThat(view.actions()).noneSatisfy(action -> assertThat(action.method()).contains("POST"));
+        assertThat(view.issues()).singleElement().satisfies(issue -> {
+            assertThat(issue.reasonCode()).isEqualTo("app_managed_elsewhere");
+            assertThat(issue.severity()).isEqualTo("warning");
+        });
+    }
+
+    @Test
+    void backupEnabledWithoutRestorePointIsNotProtected() {
+        InstalledAppRepository repository = repository();
+        repository.save(installed("vaultwarden", "Ready"));
+        repository.saveOwnershipMetadata(owned("vaultwarden", "ready"));
+        repository.saveSettings("vaultwarden", new InstallSettings("http://localhost:8090", null, false, java.util.Map.of(), new BackupPolicy(true, "daily", 7)));
+        AppInstanceViewService service = service(repository, List.of(
+                new ManagedContainer("vaultwarden", "projectos_homelab-box_vaultwarden", "Up 2 minutes", DockerResourceOwnership.OWNED, "appinst_vaultwarden", "projectos_homelab-box_vaultwarden")));
+
+        assertThat(service.list().getFirst().backupState()).isEqualTo("backup_enabled_no_restore_point");
+    }
+
+    @Test
+    void completedRestorePointMarksAppProtected() {
+        InstalledAppRepository repository = repository();
+        BackupRepository backupRepository = backupRepository();
+        repository.save(installed("vaultwarden", "Ready"));
+        repository.saveOwnershipMetadata(owned("vaultwarden", "ready"));
+        repository.saveSettings("vaultwarden", new InstallSettings("http://localhost:8090", null, false, java.util.Map.of(), new BackupPolicy(true, "daily", 7)));
+        backupRepository.record("vaultwarden", "Vaultwarden", "app", "manual", "vaultwarden", "/backups/vaultwarden.zip", "completed", 128, "Backup completed.");
+        AppInstanceViewService service = service(repository, backupRepository, List.of(
+                new ManagedContainer("vaultwarden", "projectos_homelab-box_vaultwarden", "Up 2 minutes", DockerResourceOwnership.OWNED, "appinst_vaultwarden", "projectos_homelab-box_vaultwarden")));
+
+        assertThat(service.list().getFirst().backupState()).isEqualTo("protected_by_restore_point");
+    }
+
+    @Test
+    void failedLatestBackupMarksAppFailed() {
+        InstalledAppRepository repository = repository();
+        BackupRepository backupRepository = backupRepository();
+        repository.save(installed("vaultwarden", "Ready"));
+        repository.saveOwnershipMetadata(owned("vaultwarden", "ready"));
+        repository.saveSettings("vaultwarden", new InstallSettings("http://localhost:8090", null, false, java.util.Map.of(), new BackupPolicy(true, "daily", 7)));
+        backupRepository.record("vaultwarden", "Vaultwarden", "app", "manual", "vaultwarden", "", "failed", 0, "Backup failed.");
+        AppInstanceViewService service = service(repository, backupRepository, List.of(
+                new ManagedContainer("vaultwarden", "projectos_homelab-box_vaultwarden", "Up 2 minutes", DockerResourceOwnership.OWNED, "appinst_vaultwarden", "projectos_homelab-box_vaultwarden")));
+
+        assertThat(service.list().getFirst().backupState()).isEqualTo("backup_failed");
+    }
+
+    private AppInstanceViewService service(InstalledAppRepository repository, List<ManagedContainer> containers) {
+        return service(repository, backupRepository(), containers);
+    }
+
+    private AppInstanceViewService service(InstalledAppRepository repository, BackupRepository backupRepository, List<ManagedContainer> containers) {
+        MarketplaceCatalogService catalogService = new MarketplaceCatalogService(new ManifestYamlReader(), new ManifestValidator());
+        return new AppInstanceViewService(
+                repository,
+                new AppReconciliationService(repository, () -> containers, catalogService),
+                catalogService,
+                backupRepository);
+    }
+
+    private InstalledAppRepository repository() {
+        ProjectOsRuntimeProperties properties = new ProjectOsRuntimeProperties();
+        properties.setRuntimeRoot(runtimeRoot.toString());
+        return new InstalledAppRepository(new RuntimeLayout(properties));
+    }
+
+    private BackupRepository backupRepository() {
+        ProjectOsRuntimeProperties properties = new ProjectOsRuntimeProperties();
+        properties.setRuntimeRoot(runtimeRoot.toString());
+        return new BackupRepository(new RuntimeLayout(properties));
+    }
+
+    private InstalledApp installed(String appId, String status) {
+        return new InstalledApp(appId, appId, status, runtimeRoot.resolve("apps").resolve(appId).toString(), "projectos_homelab-box_" + appId, "http://localhost:8090", Instant.parse("2026-06-20T12:00:00Z"));
+    }
+
+    private InstalledAppOwnershipMetadata owned(String appId, String state) {
+        return new InstalledAppOwnershipMetadata(
+                appId,
+                "appinst_" + appId,
+                appId,
+                "pos_abcdef1234567890",
+                runtimeRoot.resolve("apps").resolve(appId).toString(),
+                state,
+                "owned",
+                Instant.parse("2026-06-20T12:00:00Z"),
+                Instant.parse("2026-06-20T12:00:00Z"));
+    }
+}

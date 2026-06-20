@@ -1,0 +1,18 @@
+{
+  "appInstanceId": "appinst_vaultwarden",
+  "catalogAppId": "vaultwarden",
+  "name": "Vaultwarden",
+  "category": "Security",
+  "icon": "",
+  "userStatus": "Ready",
+  "installState": "ready",
+  "runtimeState": "running",
+  "ownershipState": "owned",
+  "accessState": "local_ready",
+  "backupState": "protected_by_restore_point",
+  "localUrl": "http://localhost:8090",
+  "privateUrl": "",
+  "issues": [],
+  "actions": [],
+  "updatedAt": "2026-06-20T12:00:00Z"
+}

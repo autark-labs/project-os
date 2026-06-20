@@ -4,6 +4,48 @@ export type BackupPolicy = {
   retention: number;
 };
 
+export type ProjectOsAction = {
+  id: string;
+  label: string;
+  method?: string | null;
+  href?: string | null;
+  route?: string | null;
+  confirmationRequired: boolean;
+  danger: boolean;
+};
+
+export type ProjectOsIssue = {
+  id: string;
+  scope: 'system' | 'app' | 'backup' | 'access' | 'storage' | 'setup' | string;
+  subjectId: string;
+  severity: 'success' | 'info' | 'warning' | 'critical' | string;
+  reasonCode: string;
+  title: string;
+  summary: string;
+  primaryAction?: ProjectOsAction | null;
+  secondaryActions: ProjectOsAction[];
+  advancedDetails: Record<string, unknown>;
+};
+
+export type AppInstanceView = {
+  appInstanceId: string;
+  catalogAppId: string;
+  name: string;
+  category: string;
+  icon: string;
+  userStatus: 'Ready' | 'Starting' | 'Stopped' | 'Needs setup' | 'Needs attention' | 'Missing' | 'Managed elsewhere' | string;
+  installState: string;
+  runtimeState: string;
+  ownershipState: string;
+  accessState: 'local_ready' | 'private_ready' | 'not_ready' | string;
+  backupState: 'backup_disabled' | 'backup_enabled_no_restore_point' | 'protected_by_restore_point' | 'backup_failed' | 'restore_in_progress' | string;
+  localUrl: string;
+  privateUrl: string;
+  issues: ProjectOsIssue[];
+  actions: ProjectOsAction[];
+  updatedAt: string;
+};
+
 export type InstallSettings = {
   accessUrl: string | null;
   privateAccessUrl: string | null;
@@ -158,6 +200,13 @@ export type AppRuntimeView = {
   setupGuide: AppSetupGuide | null;
   appConfiguration: AppConfigurationItem[];
   recentEvents: AppEvent[];
+  canonicalUserStatus?: string;
+  canonicalRuntimeState?: string;
+  canonicalOwnershipState?: string;
+  canonicalAccessState?: string;
+  canonicalBackupState?: string;
+  canonicalIssues?: ProjectOsIssue[];
+  canonicalActions?: ProjectOsAction[];
 };
 
 export type AppSettingsChangePlan = {

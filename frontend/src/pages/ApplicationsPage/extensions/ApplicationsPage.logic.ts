@@ -12,13 +12,14 @@ export const statusStyles: Record<string, string> = {
 };
 
 export function friendlyStatusText(app: AppRuntimeView) {
-  if (app.friendlyStatus === 'Ready') {
+  const status = app.canonicalUserStatus || app.friendlyStatus;
+  if (status === 'Ready') {
     return app.appName + ' is running and ready to open.';
   }
-  if (app.friendlyStatus === 'Stopped') {
+  if (status === 'Stopped') {
     return app.appName + ' is stopped. Start it when you are ready to use it again.';
   }
-  if (app.friendlyStatus === 'Needs attention') {
+  if (status === 'Needs attention' || status === 'Missing' || status === 'Managed elsewhere') {
     return app.appName + ' needs attention. Open Advanced or restart the app to recover.';
   }
   return app.appName + ' is changing state. Refresh in a moment.';
@@ -81,6 +82,9 @@ export function appNeedsAttention(app: AppRuntimeView, telemetry?: AppTelemetry 
 }
 
 export function statusReason(app: AppRuntimeView, telemetry?: AppTelemetry | null, access?: AppAccessCheck, health?: AppHealthSnapshot | null, reconciliation?: PrivateAccessReconciliationItem | null) {
+  if (app.canonicalIssues?.[0]?.title) {
+    return app.canonicalIssues[0].title;
+  }
   if (health?.message) {
     return health.message;
   }
@@ -113,6 +117,9 @@ export function statusReason(app: AppRuntimeView, telemetry?: AppTelemetry | nul
 }
 
 export function appNotice(app: AppRuntimeView, telemetry?: AppTelemetry | null, access?: AppAccessCheck, health?: AppHealthSnapshot | null, reconciliation?: PrivateAccessReconciliationItem | null) {
+  if (app.canonicalIssues?.[0]?.summary) {
+    return app.canonicalIssues[0].summary;
+  }
   if (health && ['Needs attention', 'Unavailable'].includes(health.status)) {
     return health.detail || health.message;
   }
@@ -180,6 +187,9 @@ export function privateLinkLabel(app: AppRuntimeView, reconciliation?: PrivateAc
 }
 
 export function displayStatus(app: AppRuntimeView, health?: AppHealthSnapshot | null) {
+  if (app.canonicalUserStatus) {
+    return app.canonicalUserStatus;
+  }
   if (health?.status) {
     return health.status;
   }

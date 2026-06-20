@@ -1,0 +1,35 @@
+{
+  "deviceName": "project-os-test",
+  "instanceId": "pos_test",
+  "lanUrl": "http://localhost:8082",
+  "setup": {
+    "complete": false,
+    "status": "in_progress",
+    "nextStep": "welcome",
+    "summary": "Setup is in progress."
+  },
+  "docker": {
+    "ready": true,
+    "summary": "Docker is ready."
+  },
+  "access": {
+    "mode": "local_only",
+    "summary": "Local access is ready."
+  },
+  "apps": {
+    "installed": 0,
+    "running": 0,
+    "needsAttention": 0,
+    "readyToOpen": []
+  },
+  "backups": {
+    "state": "not_configured",
+    "summary": "No restore point is required yet."
+  },
+  "storage": {
+    "state": "unknown",
+    "summary": "Storage details are available from the Storage page."
+  },
+  "issues": [],
+  "updatedAt": "2026-06-20T12:00:00Z"
+}

@@ -7,7 +7,7 @@ import { PageShell } from '@/components/project-os/ProjectOSComponents';
 import { Button } from '@/components/ui/button';
 import { InstalledAppsAPIClient } from '@/api/InstalledAppsAPIClient';
 import { NetworkAPIClient } from '@/api/NetworkAPIClient';
-import type { AppAccessCheck, AppActionResult, AppHealthSnapshot, AppRuntimeView, AppTelemetry, AppUpdateResult, AppUpdateStatus, InstallSettings } from '@/types/app';
+import type { AppAccessCheck, AppActionResult, AppHealthSnapshot, AppInstanceView, AppRuntimeView, AppTelemetry, AppUpdateResult, AppUpdateStatus, InstallSettings } from '@/types/app';
 import type { PrivateAccessReconciliationReport } from '@/types/network';
 import { ApplicationsDashboard, EmptyState } from './ApplicationsDashboard';
 import { ManageAppDialog } from './ApplicationsPageModal';
@@ -73,10 +73,10 @@ function ApplicationsPage() {
       setError(null);
     }
     try {
-      const data = await InstalledAppsAPIClient.listApps();
-      setApps(data);
+      const data = await InstalledAppsAPIClient.listAppInstances();
+      setApps(data.map(appInstanceToRuntimeView));
       setUpdatedAt(new Date());
-      setSelectedId((current) => current && !data.some((app) => app.appId === current) ? null : current);
+      setSelectedId((current) => current && !data.some((app) => app.catalogAppId === current) ? null : current);
     } catch (err) {
       if (!background) {
         setError(errorMessage(err));
@@ -354,6 +354,76 @@ function ApplicationsPage() {
       )}
     </PageShell>
   );
+}
+
+function appInstanceToRuntimeView(instance: AppInstanceView): AppRuntimeView {
+  const primaryIssue = instance.issues[0];
+  const accessUrl = instance.privateUrl || instance.localUrl || null;
+  return {
+    appId: instance.catalogAppId,
+    appName: instance.name,
+    category: instance.category || 'Application',
+    description: primaryIssue?.summary || 'Managed by Project OS.',
+    version: '',
+    image: instance.icon || null,
+    friendlyStatus: instance.userStatus,
+    technicalStatus: instance.runtimeState,
+    healthCheck: instance.runtimeState,
+    runtimePath: '',
+    composeProject: '',
+    accessUrl,
+    desiredAccess: null,
+    observedAccess: {
+      localUrl: instance.localUrl || null,
+      privateUrl: instance.privateUrl || null,
+      localPort: null,
+      protocol: accessUrl?.startsWith('https://') ? 'https' : 'http',
+      privateLinkStatus: instance.privateUrl ? 'configured' : 'not_enabled',
+      lastAccessCheckAt: instance.updatedAt,
+      lastSuccessfulAccessAt: ['local_ready', 'private_ready'].includes(instance.accessState) ? instance.updatedAt : null,
+      lastRepairAttemptAt: null,
+      lastRepairStatus: null,
+    },
+    installedAt: instance.updatedAt,
+    lastBackup: backupLabelForState(instance.backupState),
+    settings: {
+      accessUrl: instance.localUrl || null,
+      privateAccessUrl: instance.privateUrl || null,
+      tailscaleEnabled: Boolean(instance.privateUrl),
+      storageSubfolders: {},
+      backup: {
+        enabled: instance.backupState !== 'backup_disabled',
+        frequency: 'daily',
+        retention: 7,
+      },
+    },
+    telemetry: null,
+    healthSnapshot: null,
+    usageGuide: null,
+    setupGuide: null,
+    appConfiguration: [],
+    recentEvents: [],
+    canonicalUserStatus: instance.userStatus,
+    canonicalRuntimeState: instance.runtimeState,
+    canonicalOwnershipState: instance.ownershipState,
+    canonicalAccessState: instance.accessState,
+    canonicalBackupState: instance.backupState,
+    canonicalIssues: instance.issues,
+    canonicalActions: instance.actions,
+  };
+}
+
+function backupLabelForState(state: string) {
+  if (state === 'protected_by_restore_point') {
+    return 'Protected';
+  }
+  if (state === 'backup_failed') {
+    return 'Backup failed';
+  }
+  if (state === 'backup_enabled_no_restore_point') {
+    return 'No restore point yet';
+  }
+  return 'Not configured';
 }
 
 export default ApplicationsPage;
