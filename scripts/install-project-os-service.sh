@@ -102,6 +102,13 @@ require_port() {
   (( value >= 1 && value <= 65535 )) || die "--port must be between 1 and 65535: ${value}"
 }
 
+env_file_value() {
+  local file="$1"
+  local key="$2"
+  [[ -r "${file}" ]] || return 0
+  awk -F= -v key="${key}" '$1 == key {print $2; exit}' "${file}"
+}
+
 java_major_version() {
   local java_cmd="$1"
   local version
@@ -330,6 +337,27 @@ preflight_host() {
     local runtime_mount
     runtime_mount="$(path_mount_summary "${RUNTIME_DIR}")"
     [[ -n "${runtime_mount}" ]] && log "Runtime data will use filesystem: ${runtime_mount}"
+  fi
+}
+
+preflight_install_collision() {
+  if [[ "${PROJECT_OS_ALLOW_INSTALL_COLLISION:-0}" == "1" ]]; then
+    log "Collision preflight override enabled by PROJECT_OS_ALLOW_INSTALL_COLLISION=1."
+    return 0
+  fi
+
+  local env_file="${CONFIG_DIR}/project-os.env"
+  [[ -f "${env_file}" ]] || return 0
+
+  local existing_runtime existing_port
+  existing_runtime="$(env_file_value "${env_file}" PROJECT_OS_RUNTIME_ROOT)"
+  existing_port="$(env_file_value "${env_file}" SERVER_PORT)"
+
+  if [[ -n "${existing_runtime}" && "${existing_runtime}" != "${RUNTIME_DIR}" ]]; then
+    die "Existing Project OS config at ${env_file} uses runtime root ${existing_runtime}, but this install requested ${RUNTIME_DIR}. Use the same runtime root, choose a separate config/service name, or rerun with PROJECT_OS_ALLOW_INSTALL_COLLISION=1 if you intentionally want to replace this config."
+  fi
+  if [[ -n "${existing_port}" && "${existing_port}" != "${SERVER_PORT}" ]]; then
+    die "Existing Project OS config at ${env_file} uses port ${existing_port}, but this install requested ${SERVER_PORT}. Use the same port, choose a separate config/service name, or rerun with PROJECT_OS_ALLOW_INSTALL_COLLISION=1 if you intentionally want to replace this config."
   fi
 }
 
@@ -586,6 +614,7 @@ main() {
 
   log "Installing Project OS service-user architecture."
   preflight_host
+  preflight_install_collision
   ensure_group
   ensure_user
   ensure_directories

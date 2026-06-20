@@ -31,6 +31,7 @@ import com.projectos.marketplace.install.DockerComposeExecutor;
 import com.projectos.marketplace.install.DockerComposeResult;
 import com.projectos.marketplace.install.InstallSettings;
 import com.projectos.marketplace.install.InstalledApp;
+import com.projectos.marketplace.install.InstalledAppOwnershipMetadata;
 import com.projectos.marketplace.install.InstalledAppRepository;
 import com.projectos.marketplace.install.ManagedContainer;
 import com.projectos.marketplace.install.PostInstallGuideBuilder;
@@ -69,6 +70,16 @@ class AppLifecycleServiceTests {
         Files.createDirectories(appRoot);
         Files.writeString(appRoot.resolve("compose.yaml"), "services: {}\n");
         repository.save(new InstalledApp("vaultwarden", "Vaultwarden", "Installed", appRoot.toString(), "project-os-vaultwarden", "http://localhost:8090", Instant.parse("2026-06-11T00:00:00Z")));
+        repository.saveOwnershipMetadata(new InstalledAppOwnershipMetadata(
+                "vaultwarden",
+                "appinst_vaultwarden",
+                "vaultwarden",
+                "pos_test",
+                appRoot.toString(),
+                "ready",
+                "owned",
+                Instant.parse("2026-06-11T00:00:00Z"),
+                Instant.parse("2026-06-11T00:00:00Z")));
         repository.recordEvent("vaultwarden", "installed", "Vaultwarden installed successfully.");
     }
 
@@ -87,6 +98,25 @@ class AppLifecycleServiceTests {
     @Test
     void telemetryIsLoadedOnDemandOutsideApplicationListRefresh() {
         assertThat(service.telemetry("vaultwarden").cpuPercent()).isEqualTo("1.25%");
+    }
+
+    @Test
+    void lifecycleActionRejectsLegacyUnscopedAppsBeforeCallingDocker() {
+        repository.saveOwnershipMetadata(new InstalledAppOwnershipMetadata(
+                "vaultwarden",
+                "",
+                "vaultwarden",
+                "",
+                runtimeRoot.resolve("apps/vaultwarden").toString(),
+                "legacy_unscoped",
+                "legacy_unscoped",
+                Instant.parse("2026-06-11T00:00:00Z"),
+                Instant.parse("2026-06-11T00:00:00Z")));
+
+        assertThatThrownBy(() -> service.start("vaultwarden"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("not owned by this Project OS instance");
+        assertThat(composeExecutor.upCalled).isFalse();
     }
 
     @Test
@@ -246,6 +276,54 @@ class AppLifecycleServiceTests {
     }
 
     @Test
+    void guardianPersistsBackoffWhenOwnershipBlocksAutomaticRepair() {
+        repository.saveOwnershipMetadata(new InstalledAppOwnershipMetadata(
+                "vaultwarden",
+                "",
+                "vaultwarden",
+                "",
+                runtimeRoot.resolve("apps/vaultwarden").toString(),
+                "legacy_unscoped",
+                "legacy_unscoped",
+                Instant.parse("2026-06-11T00:00:00Z"),
+                Instant.parse("2026-06-11T00:00:00Z")));
+        repository.saveSettings("vaultwarden", new InstallSettings(
+                "http://localhost:8090",
+                null,
+                false,
+                java.util.Map.of(),
+                BackupPolicy.defaults(),
+                "local",
+                "optional",
+                8090,
+                "http",
+                null,
+                null,
+                null,
+                null,
+                true));
+        composeExecutor.containers = List.of(new DockerContainerStatus(
+                "project-os-vaultwarden",
+                "vaultwarden",
+                "running",
+                "unhealthy",
+                "Up 1 minute (unhealthy)",
+                "0.0.0.0:8090->80/tcp"));
+        AppGuardianService guardian = new AppGuardianService(repository, service, true);
+
+        guardian.inspectApp(repository.findById("vaultwarden").orElseThrow());
+        guardian.inspectApp(repository.findById("vaultwarden").orElseThrow());
+
+        InstallSettings settings = repository.settingsFor("vaultwarden").orElseThrow();
+        assertThat(settings.lastRepairAttemptAt()).isNotNull();
+        assertThat(settings.lastRepairStatus()).isEqualTo("guardian_repair_blocked");
+        assertThat(composeExecutor.restartCalled).isFalse();
+        assertThat(repository.eventsFor("vaultwarden", 10))
+                .extracting(event -> event.type())
+                .containsOnlyOnce("guardian_issue_detected");
+    }
+
+    @Test
     void reliabilitySummaryHighlightsIssuesAndRepairActivity() {
         composeExecutor.containers = List.of(new DockerContainerStatus(
                 "project-os-vaultwarden",
@@ -398,7 +476,7 @@ class AppLifecycleServiceTests {
 
 
     @Test
-    void listAppsRediscoverManagedContainersFromDockerLabels() throws Exception {
+    void listAppsDoesNotAdoptRediscoveredManagedContainersFromDockerLabels() throws Exception {
         repository.delete("vaultwarden");
         Files.createDirectories(runtimeRoot.resolve("apps/vaultwarden"));
         Files.writeString(runtimeRoot.resolve("apps/vaultwarden/compose.yaml"), "services: {}\n");
@@ -415,10 +493,8 @@ class AppLifecycleServiceTests {
 
         assertThat(apps)
                 .extracting(AppRuntimeView::appId)
-                .containsExactly("vaultwarden");
-        assertThat(repository.eventsFor("vaultwarden", 5))
-                .extracting(event -> event.type())
-                .contains("rediscovered");
+                .doesNotContain("vaultwarden");
+        assertThat(repository.findById("vaultwarden")).isEmpty();
     }
 
     @Test

@@ -34,21 +34,80 @@ public class InstalledAppRepository extends DatabaseBackedRepository {
     public void save(InstalledApp app) {
         migrate();
         String sql = """
-                insert into installed_apps(app_id, app_name, status, runtime_path, compose_project, access_url, installed_at)
-                values(?, ?, ?, ?, ?, ?, ?)
+                insert into installed_apps(
+                    app_id,
+                    app_name,
+                    status,
+                    runtime_path,
+                    compose_project,
+                    access_url,
+                    installed_at,
+                    catalog_app_id,
+                    runtime_path_or_hash,
+                    install_state,
+                    ownership_status,
+                    created_at,
+                    updated_at
+                )
+                values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 on conflict(app_id) do update set
                     app_name = excluded.app_name,
                     status = excluded.status,
                     runtime_path = excluded.runtime_path,
                     compose_project = excluded.compose_project,
                     access_url = excluded.access_url,
-                    installed_at = excluded.installed_at
+                    installed_at = excluded.installed_at,
+                    updated_at = excluded.updated_at
                 """;
         try (Connection connection = connection(); PreparedStatement statement = connection.prepareStatement(sql)) {
             bindInstalledApp(statement, app);
             statement.executeUpdate();
         } catch (SQLException exception) {
             throw new InstallationException("Unable to save installed app state.", exception);
+        }
+    }
+
+    public void saveOwnershipMetadata(InstalledAppOwnershipMetadata metadata) {
+        migrate();
+        String sql = """
+                update installed_apps
+                set app_instance_id = ?,
+                    catalog_app_id = ?,
+                    project_os_instance_id = ?,
+                    runtime_path_or_hash = ?,
+                    install_state = ?,
+                    ownership_status = ?,
+                    created_at = ?,
+                    updated_at = ?
+                where app_id = ?
+                """;
+        try (Connection connection = connection(); PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, metadata.appInstanceId());
+            statement.setString(2, metadata.catalogAppId());
+            statement.setString(3, metadata.projectOsInstanceId());
+            statement.setString(4, metadata.runtimePathOrHash());
+            statement.setString(5, metadata.installState());
+            statement.setString(6, metadata.ownershipStatus());
+            statement.setString(7, metadata.createdAt().toString());
+            statement.setString(8, metadata.updatedAt().toString());
+            statement.setString(9, metadata.appId());
+            statement.executeUpdate();
+        } catch (SQLException exception) {
+            throw new InstallationException("Unable to save installed app ownership metadata.", exception);
+        }
+    }
+
+    public Optional<InstalledAppOwnershipMetadata> ownershipFor(String appId) {
+        migrate();
+        try (Connection connection = connection(); PreparedStatement statement = connection.prepareStatement("select * from installed_apps where app_id = ?")) {
+            statement.setString(1, appId);
+            ResultSet resultSet = statement.executeQuery();
+            if (!resultSet.next()) {
+                return Optional.empty();
+            }
+            return Optional.of(ownershipMetadata(resultSet));
+        } catch (SQLException exception) {
+            throw new InstallationException("Unable to read installed app ownership metadata.", exception);
         }
     }
 
@@ -313,6 +372,12 @@ public class InstalledAppRepository extends DatabaseBackedRepository {
         statement.setString(5, app.composeProject());
         statement.setString(6, app.accessUrl());
         statement.setString(7, app.installedAt().toString());
+        statement.setString(8, app.appId());
+        statement.setString(9, app.runtimePath());
+        statement.setString(10, app.status());
+        statement.setString(11, "ownership_uncertain");
+        statement.setString(12, app.installedAt().toString());
+        statement.setString(13, Instant.now().toString());
     }
 
     private InstalledApp installedApp(ResultSet resultSet) throws SQLException {
@@ -324,6 +389,19 @@ public class InstalledAppRepository extends DatabaseBackedRepository {
                 resultSet.getString("compose_project"),
                 resultSet.getString("access_url"),
                 Instant.parse(resultSet.getString("installed_at")));
+    }
+
+    private InstalledAppOwnershipMetadata ownershipMetadata(ResultSet resultSet) throws SQLException {
+        return new InstalledAppOwnershipMetadata(
+                resultSet.getString("app_id"),
+                resultSet.getString("app_instance_id"),
+                resultSet.getString("catalog_app_id"),
+                resultSet.getString("project_os_instance_id"),
+                resultSet.getString("runtime_path_or_hash"),
+                resultSet.getString("install_state"),
+                resultSet.getString("ownership_status"),
+                decodeInstant(valueOr(resultSet.getString("created_at"), resultSet.getString("installed_at"))),
+                decodeInstant(valueOr(resultSet.getString("updated_at"), resultSet.getString("installed_at"))));
     }
 
     private String encodeMap(Map<String, String> values) {

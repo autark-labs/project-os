@@ -13,6 +13,7 @@ import com.projectos.marketplace.install.AppHealthSnapshot;
 import com.projectos.marketplace.install.BackupPolicy;
 import com.projectos.marketplace.install.InstallSettings;
 import com.projectos.marketplace.install.InstalledApp;
+import com.projectos.marketplace.install.InstalledAppOwnershipMetadata;
 import com.projectos.marketplace.install.InstalledAppRepository;
 import com.projectos.marketplace.runtime.ProjectOsRuntimeProperties;
 import com.projectos.marketplace.runtime.RuntimeLayout;
@@ -59,6 +60,36 @@ class InstalledAppRepositoryTests {
         assertThat(repository.eventsFor("vaultwarden", 5)).singleElement().satisfies(event -> assertThat(event.type()).isEqualTo("installed"));
         assertThat(repository.healthFor("vaultwarden")).hasValueSatisfying(snapshot -> assertThat(snapshot.privateAccessStatus()).isEqualTo("reachable"));
         assertThat(repository.healthSnapshots()).containsOnlyKeys("vaultwarden");
+    }
+
+    @Test
+    void savesAndReadsOwnershipMetadataWithoutChangingInstalledAppApi() {
+        InstalledAppRepository repository = new InstalledAppRepository(runtimeLayout());
+        Instant installedAt = Instant.parse("2026-06-19T00:00:00Z");
+        Instant updatedAt = Instant.parse("2026-06-19T01:00:00Z");
+        repository.save(new InstalledApp("vaultwarden", "Vaultwarden", "Installed", "/apps/vaultwarden", "projectos_homelab-box_vaultwarden", "http://localhost:8090", installedAt));
+
+        repository.saveOwnershipMetadata(new InstalledAppOwnershipMetadata(
+                "vaultwarden",
+                "appinst_vaultwarden",
+                "vaultwarden",
+                "pos_abcdef1234567890",
+                "sha256:runtimehash",
+                "ready",
+                "owned",
+                installedAt,
+                updatedAt));
+
+        assertThat(repository.ownershipFor("vaultwarden")).hasValueSatisfying(metadata -> {
+            assertThat(metadata.appInstanceId()).isEqualTo("appinst_vaultwarden");
+            assertThat(metadata.catalogAppId()).isEqualTo("vaultwarden");
+            assertThat(metadata.projectOsInstanceId()).isEqualTo("pos_abcdef1234567890");
+            assertThat(metadata.runtimePathOrHash()).isEqualTo("sha256:runtimehash");
+            assertThat(metadata.installState()).isEqualTo("ready");
+            assertThat(metadata.ownershipStatus()).isEqualTo("owned");
+            assertThat(metadata.createdAt()).isEqualTo(installedAt);
+            assertThat(metadata.updatedAt()).isEqualTo(updatedAt);
+        });
     }
 
     private RuntimeLayout runtimeLayout() {

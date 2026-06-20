@@ -25,6 +25,14 @@ public class RuntimeLayout {
         return runtimeRoot().resolve("project-os.db").normalize();
     }
 
+    public Path configRoot() {
+        return runtimeRoot().resolve("config").normalize();
+    }
+
+    public Path identityPath() {
+        return configRoot().resolve("identity.json").normalize();
+    }
+
     public String appPath(String appId, String relativePath) {
         return appRoot(appId).resolve(relativePath).normalize().toString();
     }

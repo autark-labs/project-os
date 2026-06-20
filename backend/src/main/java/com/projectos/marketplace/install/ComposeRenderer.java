@@ -4,8 +4,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.projectos.marketplace.model.ApplicationManifest;
@@ -16,9 +19,17 @@ import com.projectos.marketplace.runtime.RuntimeLayout;
 public class ComposeRenderer {
 
     private final RuntimeLayout runtimeLayout;
+    private final DockerOwnershipService dockerOwnershipService;
+
+    @Autowired
+    public ComposeRenderer(RuntimeLayout runtimeLayout, DockerOwnershipService dockerOwnershipService) {
+        this.runtimeLayout = runtimeLayout;
+        this.dockerOwnershipService = dockerOwnershipService;
+    }
 
     public ComposeRenderer(RuntimeLayout runtimeLayout) {
         this.runtimeLayout = runtimeLayout;
+        this.dockerOwnershipService = null;
     }
 
     public Path render(ApplicationManifest manifest, Path appRoot) {
@@ -26,9 +37,14 @@ public class ComposeRenderer {
     }
 
     public Path render(ApplicationManifest manifest, Path appRoot, ResolvedRuntimeConfiguration runtimeConfiguration) {
-        String compose = composeYaml(manifest, runtimeConfiguration);
+        return render(manifest, appRoot, runtimeConfiguration, "", "");
+    }
+
+    public Path render(ApplicationManifest manifest, Path appRoot, ResolvedRuntimeConfiguration runtimeConfiguration, String appInstanceId, String composeProject) {
+        String compose = composeYaml(manifest, runtimeConfiguration, appInstanceId, composeProject);
         Path composePath = appRoot.resolve("compose.yaml");
         try {
+            Files.createDirectories(composePath.getParent());
             Files.writeString(composePath, compose);
             return composePath;
         } catch (IOException exception) {
@@ -36,7 +52,7 @@ public class ComposeRenderer {
         }
     }
 
-    private String composeYaml(ApplicationManifest manifest, ResolvedRuntimeConfiguration runtimeConfiguration) {
+    private String composeYaml(ApplicationManifest manifest, ResolvedRuntimeConfiguration runtimeConfiguration, String appInstanceId, String composeProject) {
         StringBuilder yaml = new StringBuilder();
         yaml.append("services:\n");
         if (manifest.runtime().multiService()) {
@@ -44,10 +60,10 @@ public class ComposeRenderer {
             for (int index = 0; index < services.size(); index++) {
                 RuntimeServiceManifest service = services.get(index);
                 List<String> servicePorts = servicePorts(runtimeConfiguration, service, index);
-                appendService(yaml, manifest, service, servicePorts, runtimeConfiguration);
+                appendService(yaml, manifest, service, servicePorts, runtimeConfiguration, appInstanceId, composeProject);
             }
         } else {
-            appendLegacyService(yaml, manifest, runtimeConfiguration);
+            appendLegacyService(yaml, manifest, runtimeConfiguration, appInstanceId, composeProject);
         }
         if (!manifest.runtime().network().equalsIgnoreCase("host")) {
             yaml.append("networks:\n");
@@ -57,22 +73,22 @@ public class ComposeRenderer {
         return yaml.toString();
     }
 
-    private void appendLegacyService(StringBuilder yaml, ApplicationManifest manifest, ResolvedRuntimeConfiguration runtimeConfiguration) {
+    private void appendLegacyService(StringBuilder yaml, ApplicationManifest manifest, ResolvedRuntimeConfiguration runtimeConfiguration, String appInstanceId, String composeProject) {
         yaml.append("  ").append(manifest.runtime().containerName()).append(":\n");
         yaml.append("    image: ").append(manifest.runtime().image()).append("\n");
-        yaml.append("    container_name: project-os-").append(manifest.id()).append("\n");
+        yaml.append("    container_name: ").append(containerName(manifest, composeProject)).append("\n");
         yaml.append("    restart: unless-stopped\n");
         appendNetwork(yaml, manifest);
         appendPorts(yaml, manifest, runtimeConfiguration.ports());
         appendVolumes(yaml, manifest, manifest.runtime().volumes(), runtimeConfiguration);
         appendEnvironment(yaml, manifest.runtime().environment());
-        appendLabels(yaml, manifest.runtime().labels());
+        appendLabels(yaml, labels(manifest, manifest.runtime().labels(), appInstanceId, composeProject));
     }
 
-    private void appendService(StringBuilder yaml, ApplicationManifest manifest, RuntimeServiceManifest service, List<String> servicePorts, ResolvedRuntimeConfiguration runtimeConfiguration) {
+    private void appendService(StringBuilder yaml, ApplicationManifest manifest, RuntimeServiceManifest service, List<String> servicePorts, ResolvedRuntimeConfiguration runtimeConfiguration, String appInstanceId, String composeProject) {
         yaml.append("  ").append(service.name()).append(":\n");
         yaml.append("    image: ").append(service.image()).append("\n");
-        yaml.append("    container_name: ").append(service.containerName()).append("\n");
+        yaml.append("    container_name: ").append(containerName(service, composeProject)).append("\n");
         yaml.append("    restart: unless-stopped\n");
         appendNetwork(yaml, manifest);
         if (!service.dependsOn().isEmpty()) {
@@ -84,7 +100,7 @@ public class ComposeRenderer {
         appendPorts(yaml, manifest, servicePorts);
         appendVolumes(yaml, manifest, service.volumes(), runtimeConfiguration);
         appendEnvironment(yaml, service.environment());
-        appendLabels(yaml, serviceLabels(manifest, service));
+        appendLabels(yaml, labels(manifest, serviceLabels(manifest, service), appInstanceId, composeProject));
     }
 
     private List<String> servicePorts(ResolvedRuntimeConfiguration runtimeConfiguration, RuntimeServiceManifest service, int serviceIndex) {
@@ -144,6 +160,44 @@ public class ComposeRenderer {
         List<String> labels = new ArrayList<>(manifest.runtime().labels());
         labels.addAll(service.labels());
         return labels.stream().distinct().toList();
+    }
+
+    private List<String> labels(ApplicationManifest manifest, List<String> manifestLabels, String appInstanceId, String composeProject) {
+        if (dockerOwnershipService == null || appInstanceId == null || appInstanceId.isBlank() || composeProject == null || composeProject.isBlank()) {
+            return manifestLabels.stream().distinct().toList();
+        }
+        Map<String, String> merged = new LinkedHashMap<>();
+        List<String> passthrough = new ArrayList<>();
+        for (String label : manifestLabels) {
+            int separator = label.indexOf('=');
+            if (separator <= 0) {
+                passthrough.add(label);
+                continue;
+            }
+            String key = label.substring(0, separator);
+            String value = label.substring(separator + 1);
+            if (!key.startsWith("project-os.")) {
+                merged.put(key, value);
+            }
+        }
+        merged.putAll(dockerOwnershipService.labels(manifest.id(), appInstanceId, composeProject));
+        List<String> rendered = new ArrayList<>(passthrough);
+        rendered.addAll(merged.entrySet().stream().map(entry -> entry.getKey() + "=" + entry.getValue()).toList());
+        return rendered.stream().distinct().toList();
+    }
+
+    private String containerName(ApplicationManifest manifest, String composeProject) {
+        if (dockerOwnershipService == null || composeProject == null || composeProject.isBlank()) {
+            return "project-os-" + manifest.id();
+        }
+        return composeProject;
+    }
+
+    private String containerName(RuntimeServiceManifest service, String composeProject) {
+        if (dockerOwnershipService == null || composeProject == null || composeProject.isBlank()) {
+            return service.containerName();
+        }
+        return composeProject + "_" + service.name();
     }
 
     private String rewriteVolume(ApplicationManifest manifest, String volume, ResolvedRuntimeConfiguration runtimeConfiguration) {

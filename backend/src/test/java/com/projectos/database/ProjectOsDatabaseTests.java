@@ -36,6 +36,14 @@ class ProjectOsDatabaseTests {
             assertThat(tableExists(statement, "project_settings")).isTrue();
             assertThat(columnExists(statement, "installed_app_settings", "private_access_url")).isTrue();
             assertThat(columnExists(statement, "installed_app_settings", "auto_repair_enabled")).isTrue();
+            assertThat(columnExists(statement, "installed_apps", "app_instance_id")).isTrue();
+            assertThat(columnExists(statement, "installed_apps", "catalog_app_id")).isTrue();
+            assertThat(columnExists(statement, "installed_apps", "project_os_instance_id")).isTrue();
+            assertThat(columnExists(statement, "installed_apps", "runtime_path_or_hash")).isTrue();
+            assertThat(columnExists(statement, "installed_apps", "install_state")).isTrue();
+            assertThat(columnExists(statement, "installed_apps", "ownership_status")).isTrue();
+            assertThat(columnExists(statement, "installed_apps", "created_at")).isTrue();
+            assertThat(columnExists(statement, "installed_apps", "updated_at")).isTrue();
             assertThat(columnExists(statement, "app_health", "startup_grace")).isTrue();
             assertThat(columnExists(statement, "app_backups", "restore_confidence")).isTrue();
         }

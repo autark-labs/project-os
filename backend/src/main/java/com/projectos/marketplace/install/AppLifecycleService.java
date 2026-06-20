@@ -92,7 +92,6 @@ public class AppLifecycleService {
     }
 
     public List<AppRuntimeView> listApps() {
-        rediscoverManagedContainers();
         return repository.findAll().stream()
                 .map(this::refresh)
                 .toList();
@@ -306,18 +305,21 @@ public class AppLifecycleService {
 
     public AppActionResult start(String appId) {
         InstalledApp app = installedApp(appId);
+        assertLifecycleEligible(app, "start");
         DockerComposeResult result = composeExecutor.up(composeFile(app), app.composeProject());
         return completeAction(app, "start", result, "Starting " + app.appName(), "Could not start " + app.appName());
     }
 
     public AppActionResult stop(String appId) {
         InstalledApp app = installedApp(appId);
+        assertLifecycleEligible(app, "stop");
         DockerComposeResult result = composeExecutor.stop(composeFile(app), app.composeProject());
         return completeAction(app, "stop", result, "Stopped " + app.appName(), "Could not stop " + app.appName());
     }
 
     public AppActionResult restart(String appId) {
         InstalledApp app = installedApp(appId);
+        assertLifecycleEligible(app, "restart");
         DockerComposeResult result = composeExecutor.restart(composeFile(app), app.composeProject());
         return completeAction(app, "restart", result, "Restarted " + app.appName(), "Could not restart " + app.appName());
     }
@@ -328,6 +330,7 @@ public class AppLifecycleService {
 
     AppActionResult repair(String appId, boolean automatic) {
         InstalledApp app = installedApp(appId);
+        assertLifecycleEligible(app, "repair");
         AppHealthSnapshot before = healthSnapshot(app);
         List<String> logs = new java.util.ArrayList<>();
         logs.add("Before repair: " + before.status() + " - " + before.message());
@@ -391,6 +394,7 @@ public class AppLifecycleService {
 
     public AppRuntimeView updateSettings(String appId, InstallSettings settings) {
         InstalledApp app = installedApp(appId);
+        assertLifecycleEligible(app, "update settings for");
         String defaultAccessUrl = app.accessUrl();
         InstallSettings current = repository.settingsFor(app.appId()).orElseGet(() -> InstallSettings.defaults(defaultAccessUrl));
         InstallSettings sanitized = sanitize(settings, app);
@@ -604,6 +608,7 @@ public class AppLifecycleService {
 
     public AppActionResult enablePrivateAccess(String appId) {
         InstalledApp app = installedApp(appId);
+        assertLifecycleEligible(app, "enable private access for");
         AppRuntimeView view = refresh(app);
         String accessUrl = firstPresent(view.accessUrl(), view.settings() == null ? null : view.settings().accessUrl(), app.accessUrl());
         Integer localPort = runtimeStatusResolver.portFromUrl(accessUrl);
@@ -642,6 +647,7 @@ public class AppLifecycleService {
 
     public AppActionResult disablePrivateAccess(String appId) {
         InstalledApp app = installedApp(appId);
+        assertLifecycleEligible(app, "disable private access for");
         InstallSettings current = repository.settingsFor(app.appId()).orElseGet(() -> InstallSettings.defaults(app.accessUrl()));
         TailscaleServeResult disableResult = disablePrivateAccessMapping(app, current);
         InstallSettings updated = new InstallSettings(
@@ -755,6 +761,7 @@ public class AppLifecycleService {
 
     public AppActionResult uninstall(String appId) {
         InstalledApp app = installedApp(appId);
+        assertLifecycleEligible(app, "uninstall");
         InstallSettings settings = repository.settingsFor(app.appId()).orElseGet(() -> InstallSettings.defaults(app.accessUrl()));
         List<String> logs = new java.util.ArrayList<>();
         SafetyCheckpointResult checkpoint = createPreUninstallCheckpoint(app);
@@ -799,42 +806,6 @@ public class AppLifecycleService {
             activityWarning("safety_checkpoint_failed", "Safety checkpoint failed", message, app.appId());
             return new SafetyCheckpointResult(false, List.of(message));
         }
-    }
-
-    private void rediscoverManagedContainers() {
-        for (ManagedContainer container : managedContainerDiscovery.findManagedContainers()) {
-            if (repository.findById(container.appId()).isPresent()) {
-                continue;
-            }
-            catalogService.findById(container.appId()).ifPresent(manifest -> {
-                String status = friendlyStatusFromContainer(container.status());
-                repository.save(new InstalledApp(
-                        manifest.id(),
-                        manifest.name(),
-                        status,
-                        runtimeLayout.appRoot(manifest.id()).toString(),
-                        manifest.runtime().composeProject(),
-                        manifest.accessUrl(),
-                        Instant.now()));
-                repository.saveSettings(manifest.id(), InstallSettings.defaults(manifest.accessUrl()));
-                repository.recordEvent(manifest.id(), "rediscovered", "Found existing managed container " + container.containerName() + ".");
-                activitySuccess("rediscovered", "Found " + manifest.name(), "Project OS found an existing managed container named " + container.containerName() + ".", manifest.id());
-            });
-        }
-    }
-
-    private String friendlyStatusFromContainer(String status) {
-        String normalized = status == null ? "" : status.toLowerCase();
-        if (normalized.contains("unhealthy")) {
-            return "Needs attention";
-        }
-        if (normalized.contains("up")) {
-            return "Ready";
-        }
-        if (normalized.contains("exited") || normalized.contains("created")) {
-            return "Stopped";
-        }
-        return "Starting";
     }
 
     private AppActionResult completeAction(InstalledApp app, String action, DockerComposeResult result, String successMessage, String failureMessage) {
@@ -1362,6 +1333,18 @@ public class AppLifecycleService {
     private InstalledApp installedApp(String appId) {
         return repository.findById(appId)
                 .orElseThrow(() -> new InstallationException("Project-OS is not managing an app with id " + appId + "."));
+    }
+
+    private void assertLifecycleEligible(InstalledApp app, String action) {
+        InstalledAppOwnershipMetadata metadata = repository.ownershipFor(app.appId())
+                .orElseThrow(() -> new InstallationException(app.appName() + " is not owned by this Project OS instance, so Project OS will not " + action + " it automatically."));
+        if (!"owned".equalsIgnoreCase(metadata.ownershipStatus())) {
+            throw new InstallationException(app.appName() + " is not owned by this Project OS instance, so Project OS will not " + action + " it automatically.");
+        }
+        if (metadata.appInstanceId() == null || metadata.appInstanceId().isBlank()
+                || metadata.projectOsInstanceId() == null || metadata.projectOsInstanceId().isBlank()) {
+            throw new InstallationException(app.appName() + " has incomplete Project OS ownership metadata, so Project OS will not " + action + " it automatically.");
+        }
     }
 
     private void activityInfo(String action, String title, String message, String appId) {

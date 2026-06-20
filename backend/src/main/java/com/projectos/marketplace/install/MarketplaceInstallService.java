@@ -7,6 +7,7 @@ import java.net.URI;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -33,6 +34,8 @@ public class MarketplaceInstallService {
     private final PostInstallGuideBuilder postInstallGuideBuilder;
     private final TailscaleService tailscaleService;
     private final ActivityLogService activityLogService;
+    private final DockerOwnershipService dockerOwnershipService;
+    private final AppRuntimeMetadataWriter appRuntimeMetadataWriter;
 
     @Autowired
     public MarketplaceInstallService(
@@ -46,7 +49,9 @@ public class MarketplaceInstallService {
             PostInstallProvisioner postInstallProvisioner,
             PostInstallGuideBuilder postInstallGuideBuilder,
             TailscaleService tailscaleService,
-            ActivityLogService activityLogService) {
+            ActivityLogService activityLogService,
+            DockerOwnershipService dockerOwnershipService,
+            AppRuntimeMetadataWriter appRuntimeMetadataWriter) {
         this.installPlanService = installPlanService;
         this.directoryManager = directoryManager;
         this.packageCopier = packageCopier;
@@ -58,6 +63,8 @@ public class MarketplaceInstallService {
         this.postInstallGuideBuilder = postInstallGuideBuilder;
         this.tailscaleService = tailscaleService;
         this.activityLogService = activityLogService;
+        this.dockerOwnershipService = dockerOwnershipService;
+        this.appRuntimeMetadataWriter = appRuntimeMetadataWriter;
     }
 
     public MarketplaceInstallService(
@@ -71,7 +78,7 @@ public class MarketplaceInstallService {
             PostInstallProvisioner postInstallProvisioner,
             PostInstallGuideBuilder postInstallGuideBuilder,
             TailscaleService tailscaleService) {
-        this(installPlanService, directoryManager, packageCopier, composeRenderer, dockerComposeExecutor, installedAppRepository, customizationResolver, postInstallProvisioner, postInstallGuideBuilder, tailscaleService, null);
+        this(installPlanService, directoryManager, packageCopier, composeRenderer, dockerComposeExecutor, installedAppRepository, customizationResolver, postInstallProvisioner, postInstallGuideBuilder, tailscaleService, null, null, null);
     }
 
     public InstallResult install(ApplicationManifest manifest) {
@@ -99,16 +106,19 @@ public class MarketplaceInstallService {
                     setupGuide(manifest, existingApp.accessUrl(), null, PostInstallProvisioningResult.empty()));
         }
         try {
+            String appInstanceId = newAppInstanceId();
+            String composeProject = composeProject(manifest);
             activityInfo("install_started", "Installing " + manifest.name(), "Project OS is preparing storage, networking, and containers for " + manifest.name() + ".", manifest.id());
             steps.add(InstallStep.completed("Preparing app", "Validated manifest and generated install plan."));
             Path appRoot = directoryManager.prepare(manifest);
             steps.add(InstallStep.completed("Creating safe storage", appRoot.toString()));
 
             packageCopier.copyManifest(manifest, appRoot);
-            Path composeFile = composeRenderer.render(manifest, appRoot, runtimeConfiguration);
+            Path composeFile = composeRenderer.render(manifest, appRoot, runtimeConfiguration, appInstanceId, composeProject);
+            AppRuntimeMetadata runtimeMetadata = writeRuntimeMetadata(manifest, appRoot, appInstanceId, composeProject);
             steps.add(InstallStep.completed("Configuring private access", "Rendered Compose file with Project-OS labels and local access at " + runtimeConfiguration.accessUrl() + "."));
 
-            DockerComposeResult composeResult = dockerComposeExecutor.up(composeFile, manifest.runtime().composeProject());
+            DockerComposeResult composeResult = dockerComposeExecutor.up(composeFile, composeProject);
             logs.addAll(composeResult.output());
             if (!composeResult.successful()) {
                 steps.add(InstallStep.failed("Starting services", "Docker Compose exited with code " + composeResult.exitCode()));
@@ -117,7 +127,7 @@ public class MarketplaceInstallService {
                 return new InstallResult(manifest.id(), manifest.name(), "failed", "Docker Compose failed to start the app.", runtimeConfiguration.accessUrl(), plan, steps, logs, null, setupGuide(manifest, runtimeConfiguration.accessUrl(), null, PostInstallProvisioningResult.empty()));
             }
             steps.add(InstallStep.completed("Starting services", "Docker Compose started the managed services."));
-            StartupCheck startupCheck = waitForStartup(composeFile, manifest.runtime().composeProject(), manifest.health());
+            StartupCheck startupCheck = waitForStartup(composeFile, composeProject, manifest.health());
             logs.addAll(startupCheck.logs());
             if (!startupCheck.ready()) {
                 steps.add(InstallStep.failed("Checking app health", startupCheck.detail()));
@@ -145,9 +155,10 @@ public class MarketplaceInstallService {
                     manifest.name(),
                     startupCheck.warmingUp() ? "Starting" : "Ready",
                     appRoot.toString(),
-                    manifest.runtime().composeProject(),
+                    composeProject,
                     runtimeConfiguration.accessUrl(),
                     Instant.now()));
+            saveOwnershipMetadata(manifest, appRoot, runtimeMetadata, startupCheck.warmingUp() ? "starting" : "ready");
             installedAppRepository.saveSettings(manifest.id(), new InstallSettings(
                     runtimeConfiguration.accessUrl(),
                     privateAccess.privateUrl(),
@@ -169,6 +180,40 @@ public class MarketplaceInstallService {
             activityError("install_failed", "Install failed for " + manifest.name(), exception.getMessage(), manifest.id(), exception);
             return new InstallResult(manifest.id(), manifest.name(), "failed", exception.getMessage(), manifest.accessUrl(), plan, steps, logs, null, setupGuide(manifest, manifest.accessUrl(), null, PostInstallProvisioningResult.empty()));
         }
+    }
+
+    private String composeProject(ApplicationManifest manifest) {
+        if (dockerOwnershipService == null) {
+            return manifest.runtime().composeProject();
+        }
+        return dockerOwnershipService.composeProject(manifest.id());
+    }
+
+    private AppRuntimeMetadata writeRuntimeMetadata(ApplicationManifest manifest, Path appRoot, String appInstanceId, String composeProject) {
+        if (appRuntimeMetadataWriter != null) {
+            return appRuntimeMetadataWriter.write(manifest, appRoot, appInstanceId, composeProject);
+        }
+        return null;
+    }
+
+    private void saveOwnershipMetadata(ApplicationManifest manifest, Path appRoot, AppRuntimeMetadata metadata, String installState) {
+        if (metadata == null) {
+            return;
+        }
+        installedAppRepository.saveOwnershipMetadata(new InstalledAppOwnershipMetadata(
+                manifest.id(),
+                metadata.appInstanceId(),
+                metadata.catalogAppId(),
+                metadata.instanceId(),
+                appRoot.toString(),
+                installState,
+                "owned",
+                metadata.createdAt(),
+                Instant.now()));
+    }
+
+    private String newAppInstanceId() {
+        return "appinst_" + UUID.randomUUID().toString().replace("-", "");
     }
 
     private AppSetupGuide setupGuide(ApplicationManifest manifest, String accessUrl, String privateAccessUrl, PostInstallProvisioningResult provisioningResult) {

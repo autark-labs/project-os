@@ -74,9 +74,12 @@ public class AppGuardianService {
         if (activityLogService != null) {
             activityLogService.warning("stability", "guardian_issue_detected", app.appName() + " needs attention", snapshot.message(), app.appId());
         }
+        Instant attemptAt = Instant.now();
+        saveGuardianState(app, settings, "guardian_repair_queued", attemptAt);
         try {
             appLifecycleService.repair(app.appId(), true);
         } catch (RuntimeException exception) {
+            saveGuardianState(app, settings, blockedByOwnership(exception) ? "guardian_repair_blocked" : "guardian_repair_failed", attemptAt);
             if (!hasRecentGuardianFailure(app.appId())) {
                 repository.recordEvent(app.appId(), "guardian_repair_failed", "Project OS could not repair " + app.appName() + ". Reason: " + failureReason(exception));
                 if (activityLogService != null) {
@@ -92,6 +95,29 @@ public class AppGuardianService {
 
     private boolean recentlyAttempted(InstallSettings settings) {
         return settings.lastRepairAttemptAt() != null && settings.lastRepairAttemptAt().plus(REPAIR_RATE_LIMIT).isAfter(Instant.now());
+    }
+
+    private void saveGuardianState(InstalledApp app, InstallSettings settings, String status, Instant attemptAt) {
+        repository.saveSettings(app.appId(), new InstallSettings(
+                settings.accessUrl(),
+                settings.privateAccessUrl(),
+                settings.tailscaleEnabled(),
+                settings.storageSubfolders(),
+                settings.backup(),
+                settings.desiredAccessMode(),
+                settings.privateAccessRequirement(),
+                settings.expectedLocalPort(),
+                settings.expectedProtocol(),
+                settings.lastAccessCheckAt(),
+                settings.lastSuccessfulAccessAt(),
+                attemptAt,
+                status,
+                settings.autoRepairEnabled()));
+    }
+
+    private boolean blockedByOwnership(RuntimeException exception) {
+        String message = exception.getMessage();
+        return message != null && message.contains("not owned by this Project OS instance");
     }
 
     private String failureReason(RuntimeException exception) {

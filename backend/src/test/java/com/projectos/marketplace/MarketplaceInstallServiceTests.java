@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +29,8 @@ import com.projectos.marketplace.api.InstallOptionsRequest;
 import com.projectos.marketplace.install.InstallResult;
 import com.projectos.marketplace.install.InstallSettings;
 import com.projectos.marketplace.install.InstallStep;
+import com.projectos.marketplace.install.AppRuntimeMetadataWriter;
+import com.projectos.marketplace.install.DockerOwnershipService;
 import com.projectos.marketplace.install.MarketplaceInstallService;
 import com.projectos.marketplace.install.PortAllocator;
 import com.projectos.marketplace.install.PostInstallGuideBuilder;
@@ -41,6 +44,7 @@ import com.projectos.marketplace.runtime.ProjectOsRuntimeProperties;
 import com.projectos.marketplace.runtime.RuntimeLayout;
 import com.projectos.network.tailscale.TailscaleServeResult;
 import com.projectos.network.tailscale.TailscaleService;
+import com.projectos.system.ProjectOsIdentity;
 
 class MarketplaceInstallServiceTests {
 
@@ -80,6 +84,60 @@ class MarketplaceInstallServiceTests {
         assertThat(repository.findAll())
                 .extracting(installedApp -> installedApp.appId())
                 .containsExactly("vaultwarden");
+    }
+
+    @Test
+    void installWritesScopedDockerMetadataForOwnedApps() throws Exception {
+        ProjectOsRuntimeProperties properties = new ProjectOsRuntimeProperties();
+        properties.setRuntimeRoot(runtimeRoot.toString());
+        RuntimeLayout runtimeLayout = new RuntimeLayout(properties);
+        MarketplaceCatalogService catalogService = new MarketplaceCatalogService(new ManifestYamlReader(), new ManifestValidator());
+        ApplicationManifest manifest = catalogService.findById("vaultwarden").orElseThrow();
+        InstalledAppRepository repository = new InstalledAppRepository(runtimeLayout);
+        InstallCustomizationResolver customizationResolver = new InstallCustomizationResolver(new FixedPortAllocator());
+        ProjectOsIdentity identity = new ProjectOsIdentity(
+                "pos_abcdef1234567890",
+                "homelab-box",
+                runtimeRoot.toString(),
+                "sha256:runtimehash",
+                Instant.parse("2026-06-20T12:00:00Z"),
+                1);
+        DockerOwnershipService ownershipService = new DockerOwnershipService(() -> identity, () -> "0.2.0", false);
+        MarketplaceInstallService installService = new MarketplaceInstallService(
+                new InstallPlanService(runtimeLayout, customizationResolver),
+                new RuntimeDirectoryManager(runtimeLayout),
+                new CatalogPackageCopier(),
+                new ComposeRenderer(runtimeLayout, ownershipService),
+                new FakeDockerComposeExecutor(),
+                repository,
+                customizationResolver,
+                new FakePostInstallProvisioner(),
+                new PostInstallGuideBuilder(),
+                new FakeTailscaleService(),
+                null,
+                ownershipService,
+                new AppRuntimeMetadataWriter(() -> identity, () -> Instant.parse("2026-06-20T13:00:00Z")));
+
+        InstallResult result = installService.install(manifest);
+
+        String compose = Files.readString(runtimeRoot.resolve("apps/vaultwarden/compose.yaml"));
+        String metadata = Files.readString(runtimeRoot.resolve("apps/vaultwarden/project-os-app.json"));
+        assertThat(result.status()).isEqualTo("installed");
+        assertThat(repository.findById("vaultwarden").orElseThrow().composeProject()).isEqualTo("projectos_homelab-box_vaultwarden");
+        assertThat(repository.ownershipFor("vaultwarden")).hasValueSatisfying(ownership -> {
+            assertThat(ownership.appInstanceId()).startsWith("appinst_");
+            assertThat(ownership.projectOsInstanceId()).isEqualTo("pos_abcdef1234567890");
+            assertThat(ownership.installState()).isEqualTo("ready");
+            assertThat(ownership.ownershipStatus()).isEqualTo("owned");
+        });
+        assertThat(compose)
+                .contains("container_name: projectos_homelab-box_vaultwarden")
+                .contains("project-os.instance-id=pos_abcdef1234567890")
+                .contains("project-os.compose-project=projectos_homelab-box_vaultwarden");
+        assertThat(metadata)
+                .contains("\"catalogAppId\" : \"vaultwarden\"")
+                .contains("\"instanceId\" : \"pos_abcdef1234567890\"")
+                .contains("\"composeProject\" : \"projectos_homelab-box_vaultwarden\"");
     }
 
     @Test

@@ -12,20 +12,26 @@ public class ProjectVersionService {
 
     private final RuntimeLayout runtimeLayout;
     private final ProjectSettingsService settingsService;
+    private final InstanceIdentityService identityService;
 
-    public ProjectVersionService(RuntimeLayout runtimeLayout, ProjectSettingsService settingsService) {
+    public ProjectVersionService(RuntimeLayout runtimeLayout, ProjectSettingsService settingsService, InstanceIdentityService identityService) {
         this.runtimeLayout = runtimeLayout;
         this.settingsService = settingsService;
+        this.identityService = identityService;
     }
 
     public ProjectVersionInfo info() {
         ProjectSettings settings = settingsService.current();
+        ProjectOsIdentity identity = identityService.current();
         return new ProjectVersionInfo(
                 firstPresent(System.getenv("PROJECT_OS_VERSION"), packageVersion(), "0.0.1-SNAPSHOT"),
                 firstPresent(System.getenv("PROJECT_OS_BUILD_SHA"), "development"),
                 firstPresent(System.getenv("PROJECT_OS_BUILD_DATE"), "development"),
                 firstPresent(System.getenv("PROJECT_OS_INSTALL_DIR"), "/opt/project-os"),
                 runtimeLayout.runtimeRoot().toString(),
+                identity.instanceId(),
+                identity.instanceSlug(),
+                identity.runtimeRootHash(),
                 backendJar(),
                 settings.updateChannel(),
                 "unavailable",
