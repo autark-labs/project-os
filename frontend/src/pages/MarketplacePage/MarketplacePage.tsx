@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AlertTriangle, Bell, CheckCircle2, Filter, RefreshCw, Search, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -29,6 +30,7 @@ import { MarketplaceAppDetail } from './MarketplaceAppDetail';
 import { MarketplaceAppList } from './MarketplaceAppList';
 
 function MarketplacePage() {
+  const [searchParams] = useSearchParams();
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedAppId, setSelectedAppId] = useState('vaultwarden');
   const [sortBy, setSortBy] = useState('Recommended');
@@ -48,6 +50,8 @@ function MarketplacePage() {
   const [marketplaceActivity, setMarketplaceActivity] = useState<ActivityLog[]>([]);
   const [lastRefreshAt, setLastRefreshAt] = useState<Date | null>(null);
   const selectedApp = useMemo(() => apps.find((app) => app.id === selectedAppId) ?? apps[0], [apps, selectedAppId]);
+  const recoveryAppId = searchParams.get('app');
+  const recoveryMode = searchParams.get('mode');
   const installedById = useMemo(() => new Map(installedApps.map((app) => [app.appId, app])), [installedApps]);
   const selectedInstalledApp = selectedApp ? installedById.get(selectedApp.id) ?? null : null;
 
@@ -109,6 +113,14 @@ function MarketplacePage() {
   useEffect(() => {
     loadApps();
   }, [loadApps]);
+
+  useEffect(() => {
+    if (recoveryAppId && apps.some((app) => app.id === recoveryAppId)) {
+      setSearchQuery('');
+      setSelectedCategory('All');
+      setSelectedAppId(recoveryAppId);
+    }
+  }, [apps, recoveryAppId]);
 
   useEffect(() => {
     setInstallPlan(null);
@@ -244,6 +256,11 @@ function MarketplacePage() {
       </header>
 
       {marketplaceError && <PageErrorState className="mb-5" message={marketplaceError} onRetry={loadApps} title="Marketplace action needs attention" />}
+      {installing && selectedApp && (
+        <div className="mb-5 rounded-lg border border-violet-300/25 bg-violet-500/10 p-4 text-sm text-violet-100">
+          Installing {selectedApp.name}. Keep this page open while Project OS creates folders, writes Compose files, starts containers, and checks health.
+        </div>
+      )}
 
       {starterRecommendations.length > 0 && (
         <StarterAppHandoff
@@ -275,7 +292,7 @@ function MarketplacePage() {
 
       <div className="grid items-start gap-6 2xl:grid-cols-[minmax(620px,1fr)_minmax(420px,560px)]">
         <MarketplaceAppList apps={visibleApps} installedAppIds={new Set(installedById.keys())} onSelect={setSelectedAppId} onSortChange={setSortBy} selectedAppId={selectedApp.id} sortBy={sortBy} />
-        <MarketplaceAppDetail app={selectedApp} installedApp={selectedInstalledApp} installOptions={installOptions ?? defaultInstallOptions(selectedApp)} installResult={installResult} installing={installing} installPlan={installPlan} onBack={() => { setSearchQuery(''); setSelectedCategory('All'); }} onInstall={(options) => installApp(selectedApp.id, options)} onOptionsChange={setInstallOptions} onReinstallCurrent={reinstallWithCurrentSettings} onRequestPlan={(options) => requestPlan(selectedApp.id, options)} onResetReinstall={resetAndReinstall} planLoading={planLoading} />
+        <MarketplaceAppDetail app={selectedApp} installedApp={selectedInstalledApp} installOptions={installOptions ?? defaultInstallOptions(selectedApp)} installResult={installResult} installing={installing} installPlan={installPlan} onBack={() => { setSearchQuery(''); setSelectedCategory('All'); }} onInstall={(options) => installApp(selectedApp.id, options)} onOptionsChange={setInstallOptions} onReinstallCurrent={reinstallWithCurrentSettings} onRequestPlan={(options) => requestPlan(selectedApp.id, options)} onResetReinstall={resetAndReinstall} planLoading={planLoading} recoveryMode={recoveryAppId === selectedApp.id ? recoveryMode : null} />
       </div>
     </PageShell>
   );

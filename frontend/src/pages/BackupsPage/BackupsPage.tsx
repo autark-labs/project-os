@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, AppWindow, Archive, Boxes, CalendarClock, CheckCircle2, Clock3, DatabaseBackup, HardDrive, Layers3, Loader2, Play, RotateCcw, ShieldCheck, Sparkles, TimerReset } from 'lucide-react';
+import { AlertTriangle, AppWindow, Archive, Boxes, CalendarClock, CheckCircle2, Clock3, DatabaseBackup, HardDrive, Info, Layers3, Loader2, Play, RotateCcw, ShieldCheck, Sparkles, TimerReset } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { BackupAPIClient } from '@/api/BackupAPIClient';
 import { apiErrorMessage } from '@/api/httpClient';
@@ -20,6 +20,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import type { AppBackupStatus, BackupReport, RestorePlan, RestorePoint } from '@/types/backup';
+import { restorePointDetails } from './BackupsPage.restoreDetails';
 
 type RestoreView = 'timeline' | 'list';
 
@@ -32,6 +33,8 @@ function BackupsPage() {
   const [running, setRunning] = useState<string | null>(null);
   const [restorePlan, setRestorePlan] = useState<RestorePlan | null>(null);
   const [restorePoint, setRestorePoint] = useState<RestorePoint | null>(null);
+  const [detailPlan, setDetailPlan] = useState<RestorePlan | null>(null);
+  const [detailPoint, setDetailPoint] = useState<RestorePoint | null>(null);
   const [restoreTargetAppId, setRestoreTargetAppId] = useState<string | null>(null);
   const [restoreView, setRestoreView] = useState<RestoreView>('timeline');
   const [error, setError] = useState<string | null>(null);
@@ -108,6 +111,17 @@ function BackupsPage() {
       setRestorePoint(null);
       setRestorePlan(null);
       setError(apiErrorMessage(planError, 'Restore plan could not be loaded.'));
+    }
+  }
+
+  async function openRestorePointDetails(point: RestorePoint) {
+    setError(null);
+    setDetailPoint(point);
+    setDetailPlan(null);
+    try {
+      setDetailPlan(await BackupAPIClient.restorePlan(point.id));
+    } catch (planError) {
+      console.warn('Restore detail plan could not be loaded.', planError);
     }
   }
 
@@ -241,9 +255,9 @@ function BackupsPage() {
               </div>
               <div className="mt-5">
                 {restoreView === 'timeline' ? (
-                  <RoutineTimeline apps={report.apps} latestRestore={latestRestore} nextRun={report.settings.nextRoutineRun} onRestore={openRestore} onVerify={verifyRestorePoint} points={routineRestorePoints} running={running} />
+                  <RoutineTimeline apps={report.apps} latestRestore={latestRestore} nextRun={report.settings.nextRoutineRun} onDetails={openRestorePointDetails} onRestore={openRestore} onVerify={verifyRestorePoint} points={routineRestorePoints} running={running} />
                 ) : (
-                  <RestoreList apps={report.apps} appRestorePoints={appRestorePoints} fullRestorePoints={fullRestorePoints} onRestore={openRestore} onVerify={verifyRestorePoint} running={running} />
+                  <RestoreList apps={report.apps} appRestorePoints={appRestorePoints} fullRestorePoints={fullRestorePoints} onDetails={openRestorePointDetails} onRestore={openRestore} onVerify={verifyRestorePoint} running={running} />
                 )}
               </div>
             </SurfacePanel>
@@ -295,6 +309,18 @@ function BackupsPage() {
         point={restorePoint}
         targetAppId={restoreTargetAppId}
         showAdvancedMetrics={showAdvancedMetrics}
+      />
+      <RestorePointDetailsDialog
+        apps={report?.apps ?? []}
+        onClose={() => {
+          setDetailPoint(null);
+          setDetailPlan(null);
+        }}
+        onRestore={(point) => void openRestore(point, null)}
+        onVerify={(point) => void verifyRestorePoint(point)}
+        plan={detailPlan}
+        point={detailPoint}
+        running={running}
       />
     </PageShell>
   );
@@ -374,7 +400,7 @@ function ActionCard({ busy, description, disabled = false, icon: Icon, label, on
   );
 }
 
-function RoutineTimeline({ apps, latestRestore, nextRun, onRestore, onVerify, points, running }: { apps: AppBackupStatus[]; latestRestore: RestorePoint | null; nextRun: string | null; onRestore: (point: RestorePoint, appId?: string | null) => void; onVerify: (point: RestorePoint) => void; points: RestorePoint[]; running: string | null }) {
+function RoutineTimeline({ apps, latestRestore, nextRun, onDetails, onRestore, onVerify, points, running }: { apps: AppBackupStatus[]; latestRestore: RestorePoint | null; nextRun: string | null; onDetails: (point: RestorePoint) => void; onRestore: (point: RestorePoint, appId?: string | null) => void; onVerify: (point: RestorePoint) => void; points: RestorePoint[]; running: string | null }) {
   if (!points.length) {
     return <EmptyState title="No routine restore points yet" message="Run a routine backup to create the first visual timeline point." />;
   }
@@ -386,14 +412,14 @@ function RoutineTimeline({ apps, latestRestore, nextRun, onRestore, onVerify, po
       </div>
       <div className="flex gap-4 overflow-x-auto pb-2">
         {points.map((point, index) => (
-          <TimelinePoint apps={apps} first={index === 0} key={point.id} onRestore={onRestore} onVerify={onVerify} point={point} running={running === `verify-${point.id}`} />
+          <TimelinePoint apps={apps} first={index === 0} key={point.id} onDetails={onDetails} onRestore={onRestore} onVerify={onVerify} point={point} running={running === `verify-${point.id}`} />
         ))}
       </div>
     </div>
   );
 }
 
-function TimelinePoint({ apps, first, onRestore, onVerify, point, running }: { apps: AppBackupStatus[]; first: boolean; onRestore: (point: RestorePoint, appId?: string | null) => void; onVerify: (point: RestorePoint) => void; point: RestorePoint; running: boolean }) {
+function TimelinePoint({ apps, first, onDetails, onRestore, onVerify, point, running }: { apps: AppBackupStatus[]; first: boolean; onDetails: (point: RestorePoint) => void; onRestore: (point: RestorePoint, appId?: string | null) => void; onVerify: (point: RestorePoint) => void; point: RestorePoint; running: boolean }) {
   const included = point.includedAppIds.split(',').map((id) => id.trim()).filter(Boolean);
   const eligibleApps = apps.filter((app) => included.includes(app.appId));
   return (
@@ -414,6 +440,10 @@ function TimelinePoint({ apps, first, onRestore, onVerify, point, running }: { a
           {eligibleApps.length} app{eligibleApps.length === 1 ? '' : 's'} included
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
+          <Button className="border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" onClick={() => onDetails(point)} size="sm" type="button" variant="outline">
+            <Info className="size-3.5" />
+            Details
+          </Button>
           <Button className="bg-violet-600 text-white hover:bg-violet-500" onClick={() => onRestore(point, null)} size="sm" type="button">
             Restore all
           </Button>
@@ -430,14 +460,14 @@ function TimelinePoint({ apps, first, onRestore, onVerify, point, running }: { a
   );
 }
 
-function RestoreList({ apps, appRestorePoints, fullRestorePoints, onRestore, onVerify, running }: { apps: AppBackupStatus[]; appRestorePoints: RestorePoint[]; fullRestorePoints: RestorePoint[]; onRestore: (point: RestorePoint, appId?: string | null) => void; onVerify: (point: RestorePoint) => void; running: string | null }) {
+function RestoreList({ apps, appRestorePoints, fullRestorePoints, onDetails, onRestore, onVerify, running }: { apps: AppBackupStatus[]; appRestorePoints: RestorePoint[]; fullRestorePoints: RestorePoint[]; onDetails: (point: RestorePoint) => void; onRestore: (point: RestorePoint, appId?: string | null) => void; onVerify: (point: RestorePoint) => void; running: string | null }) {
   const allPoints = [...fullRestorePoints, ...appRestorePoints].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
   if (!allPoints.length) {
     return <EmptyState title="No restore points yet" message="Run a routine or manual backup to create the first restore point." />;
   }
   return (
     <div className="grid gap-3">
-      {allPoints.map((point) => <RestorePointRow apps={apps} key={point.id} onRestore={onRestore} onVerify={onVerify} point={point} running={running === `verify-${point.id}`} />)}
+      {allPoints.map((point) => <RestorePointRow apps={apps} key={point.id} onDetails={onDetails} onRestore={onRestore} onVerify={onVerify} point={point} running={running === `verify-${point.id}`} />)}
     </div>
   );
 }
@@ -477,7 +507,7 @@ function AppBackupCard({ app, onRun, running, showAdvancedMetrics }: { app: AppB
   );
 }
 
-function RestorePointRow({ apps, onRestore, onVerify, point, running }: { apps: AppBackupStatus[]; onRestore: (point: RestorePoint, appId?: string | null) => void; onVerify: (point: RestorePoint) => void; point: RestorePoint; running: boolean }) {
+function RestorePointRow({ apps, onDetails, onRestore, onVerify, point, running }: { apps: AppBackupStatus[]; onDetails: (point: RestorePoint) => void; onRestore: (point: RestorePoint, appId?: string | null) => void; onVerify: (point: RestorePoint) => void; point: RestorePoint; running: boolean }) {
   const included = point.includedAppIds.split(',').map((id) => id.trim()).filter(Boolean);
   const eligibleApps = point.scope === 'full' ? apps.filter((app) => included.includes(app.appId)) : apps.filter((app) => app.appId === point.appId);
   return (
@@ -494,6 +524,10 @@ function RestorePointRow({ apps, onRestore, onVerify, point, running }: { apps: 
       <Metric label="Size" value={formatBytes(point.sizeBytes)} />
       <Metric label="Created" value={formatDate(point.createdAt)} />
       <div className="flex flex-wrap gap-2 xl:justify-end">
+        <Button className="border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" onClick={() => onDetails(point)} size="sm" type="button" variant="outline">
+          <Info className="size-3.5" />
+          Details
+        </Button>
         {point.scope === 'full' && (
           <Button className="border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" onClick={() => onRestore(point, null)} size="sm" type="button" variant="outline">
             Restore all
@@ -508,6 +542,50 @@ function RestorePointRow({ apps, onRestore, onVerify, point, running }: { apps: 
         </Button>
       </div>
     </SurfaceInset>
+  );
+}
+
+function RestorePointDetailsDialog({ apps, onClose, onRestore, onVerify, plan, point, running }: { apps: AppBackupStatus[]; onClose: () => void; onRestore: (point: RestorePoint) => void; onVerify: (point: RestorePoint) => void; plan: RestorePlan | null; point: RestorePoint | null; running: string | null }) {
+  const open = Boolean(point);
+  const details = point ? restorePointDetails(point, apps, plan) : null;
+  return (
+    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+      <DialogContent className="max-w-2xl border-white/10 bg-slate-950 text-slate-100">
+        <DialogHeader>
+          <DialogTitle>{details?.title || 'Restore point details'}</DialogTitle>
+          <DialogDescription className="text-slate-400">Review what this backup contains before verifying or restoring it.</DialogDescription>
+        </DialogHeader>
+        {point && details && (
+          <div className="grid gap-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <FactRow label="Created" value={formatDate(point.createdAt)} />
+              <FactRow label="Size" value={formatBytes(point.sizeBytes)} />
+              <FactRow label="Source" value={point.source} />
+            </div>
+            <InfoBlock title="Included apps" values={details.includedApps.length ? details.includedApps : ['No matching installed apps were found for this restore point.']} />
+            <InfoBlock title="Verification" values={[details.verification, point.verificationMessage || 'No verification note recorded.', `Checksum: ${details.checksum}`]} />
+            <InfoBlock title="Restore preview" values={[details.restoreSummary]} />
+            <InfoBlock tone="warning" title="Warnings" values={details.warnings} />
+            <InfoBlock title="Stored at" values={[details.location]} />
+          </div>
+        )}
+        <DialogFooter>
+          <Button className="border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" onClick={onClose} type="button" variant="outline">Close</Button>
+          {point && (
+            <>
+              <Button className="border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" disabled={running === `verify-${point.id}`} onClick={() => onVerify(point)} type="button" variant="outline">
+                {running === `verify-${point.id}` ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
+                Verify
+              </Button>
+              <Button className="bg-violet-600 text-white hover:bg-violet-500" onClick={() => onRestore(point)} type="button">
+                <RotateCcw className="size-4" />
+                Restore
+              </Button>
+            </>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, BookOpen, CheckCircle2, ChevronDown, ExternalLink, Loader2, Star, TriangleAlert } from 'lucide-react';
+import { Archive, ArrowLeft, BookOpen, CheckCircle2, ChevronDown, ExternalLink, Loader2, Star, TriangleAlert } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -33,9 +33,10 @@ type AppDetailProps = {
   onRequestPlan: (options: InstallOptions) => Promise<void>;
   onResetReinstall: () => void | Promise<void>;
   planLoading: boolean;
+  recoveryMode?: string | null;
 };
 
-export function MarketplaceAppDetail({ app, installedApp, installOptions, installPlan, installResult, installing, onBack, onInstall, onOptionsChange, onReinstallCurrent, onRequestPlan, onResetReinstall, planLoading }: AppDetailProps) {
+export function MarketplaceAppDetail({ app, installedApp, installOptions, installPlan, installResult, installing, onBack, onInstall, onOptionsChange, onReinstallCurrent, onRequestPlan, onResetReinstall, planLoading, recoveryMode }: AppDetailProps) {
   const isInstalled = Boolean(installedApp);
   const showFreshInstallResult = installResult?.appId === app.id && (installResult.status === 'installed' || installResult.status === 'already_installed');
   return (
@@ -160,6 +161,13 @@ export function MarketplaceAppDetail({ app, installedApp, installOptions, instal
         </div>
 
         {isInstalled && !showFreshInstallResult && <InstalledAppNotice app={installedApp} />}
+        {isInstalled && recoveryMode && (
+          <RecoveryInstallNotice
+            mode={recoveryMode}
+            onReinstallCurrent={onReinstallCurrent}
+            onResetReinstall={onResetReinstall}
+          />
+        )}
         {(installing || installResult) && <InlineInstallStatus installing={installing} result={installResult} />}
 
         <Tabs className="gap-4" defaultValue="overview">
@@ -292,6 +300,34 @@ export function MarketplaceAppDetail({ app, installedApp, installOptions, instal
         </Tabs>
       </CardContent>
     </Card>
+  );
+}
+
+function RecoveryInstallNotice({ mode, onReinstallCurrent, onResetReinstall }: { mode: string; onReinstallCurrent: () => void | Promise<void>; onResetReinstall: () => void | Promise<void> }) {
+  const resetMode = mode === 'reset-reinstall';
+  return (
+    <section className={cn('rounded-lg border p-4', resetMode ? 'border-red-300/25 bg-red-500/10' : 'border-amber-300/25 bg-amber-500/10')}>
+      <div className="flex items-start gap-3">
+        <TriangleAlert className={cn('mt-0.5 size-5 shrink-0', resetMode ? 'text-red-200' : 'text-amber-200')} />
+        <div className="min-w-0">
+          <h4 className="font-bold text-white">{resetMode ? 'Reset and reinstall requested' : 'Reinstall requested'}</h4>
+          <p className={cn('mt-1 text-sm leading-6', resetMode ? 'text-red-100/80' : 'text-amber-100/80')}>
+            Create a backup before continuing. {resetMode ? 'Reset and reinstall can remove app state and should only be used when you are ready to rebuild the app.' : 'Reinstalling with current settings should keep configured data folders, but a backup gives you a restore point if anything goes wrong.'}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button asChild className="border-slate-700/50 bg-slate-950/50 text-slate-200 hover:bg-slate-800" size="sm" type="button" variant="outline">
+              <Link to="/backups">
+                <Archive className="size-3.5" />
+                Open Backups
+              </Link>
+            </Button>
+            <Button className={resetMode ? 'bg-red-500 text-white hover:bg-red-400' : 'bg-amber-500 text-slate-950 hover:bg-amber-400'} onClick={resetMode ? onResetReinstall : onReinstallCurrent} size="sm" type="button">
+              {resetMode ? 'I backed up, reset and reinstall' : 'I backed up, reinstall'}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 

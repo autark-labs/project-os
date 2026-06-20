@@ -19,23 +19,28 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { InstalledAppsAPIClient } from '@/api/InstalledAppsAPIClient';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
-import type { AppRuntimeView, AppSettingsChangePlan, AppTelemetry, InstallSettings } from '@/types/app';
+import type { AppAccessCheck, AppHealthSnapshot, AppRuntimeView, AppSettingsChangePlan, AppTelemetry, InstallSettings } from '@/types/app';
+import type { PrivateAccessReconciliationItem } from '@/types/network';
 import { AppIcon, Diagnostic } from './ApplicationsPage.shared';
 import { ApplicationsStabilityTab } from './ApplicationsStabilityTab';
 import { ApplicationsSetupGuide } from './ApplicationsSetupGuide';
 import { ApplicationsUsageGuide } from './ApplicationsUsageGuide';
 import { errorMessage, formatDate, percentFromTelemetry } from './extensions/ApplicationsPage.logic';
 import { settingsFromApp, settingsPayload, storageRowsFromSettings } from './extensions/ApplicationsPage.settings';
-import type { StorageRow } from './extensions/ApplicationsPage.types';
+import type { AppAction, StorageRow } from './extensions/ApplicationsPage.types';
 
 type ManageAppDialogProps = {
+  access?: AppAccessCheck;
   app: AppRuntimeView;
+  health?: AppHealthSnapshot | null;
   open: boolean;
+  onAction: (action: AppAction) => void;
   onOpenChange: (open: boolean) => void;
   onSave: (appId: string, settings: InstallSettings) => Promise<AppRuntimeView>;
+  reconciliation?: PrivateAccessReconciliationItem | null;
 };
 
-export function ManageAppDialog({ app, open, onOpenChange, onSave }: ManageAppDialogProps) {
+export function ManageAppDialog({ access, app, health, onAction, open, onOpenChange, onSave, reconciliation }: ManageAppDialogProps) {
   const { showAdvancedMetrics } = useProjectSettings();
   const [settings, setSettings] = useState(() => settingsFromApp(app));
   const [storageRows, setStorageRows] = useState(() => storageRowsFromSettings(app.settings));
@@ -293,7 +298,17 @@ export function ManageAppDialog({ app, open, onOpenChange, onSave }: ManageAppDi
             </TabsContent>
 
             <TabsContent className="grid gap-4" value="stability">
-              <ApplicationsStabilityTab app={app} autoRepairEnabled={settings.autoRepairEnabled} onAutoRepairChange={updateAutoRepair} saving={saving} />
+              <ApplicationsStabilityTab
+                access={access}
+                app={app}
+                autoRepairEnabled={settings.autoRepairEnabled}
+                health={health}
+                onAction={onAction}
+                onAutoRepairChange={updateAutoRepair}
+                reconciliation={reconciliation}
+                saving={saving}
+                telemetry={liveTelemetry}
+              />
             </TabsContent>
 
             <TabsContent className="grid gap-4" value="telemetry">

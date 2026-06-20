@@ -44,6 +44,7 @@ function ApplicationsPage() {
   const updatesRefreshInFlight = useRef(false);
 
   const managedApp = useMemo(() => apps.find((app) => app.appId === manageAppId) || null, [apps, manageAppId]);
+  const managedAppReconciliation = useMemo(() => reconciliation?.apps.find((item) => item.appId === manageAppId) || null, [manageAppId, reconciliation?.apps]);
   const visibleApps = useMemo(() => apps.filter((app) => {
     const query = search.trim().toLowerCase();
     if (!query) {
@@ -340,7 +341,16 @@ function ApplicationsPage() {
       )}
 
       {managedApp && (
-        <ManageAppDialog app={managedApp} onOpenChange={(open) => !open && setManageAppId(null)} onSave={saveSettings} open={Boolean(managedApp)} />
+        <ManageAppDialog
+          access={accessByAppId[managedApp.appId]}
+          app={managedApp}
+          health={healthByAppId[managedApp.appId] || managedApp.healthSnapshot}
+          onAction={(action) => runAction(managedApp.appId, action)}
+          onOpenChange={(open) => !open && setManageAppId(null)}
+          onSave={saveSettings}
+          open={Boolean(managedApp)}
+          reconciliation={managedAppReconciliation}
+        />
       )}
     </PageShell>
   );

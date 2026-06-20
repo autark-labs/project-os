@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import type { AppRuntimeView } from '@/types/app';
 import type { PrivateAccessReconciliationReport, TailscaleStatus } from '@/types/network';
+import { tailscaleSetupGuidance } from './extensions/NetworkPage.tailscaleSetup';
 import { statusTone } from './extensions/NetworkPage.theme';
 import type { PrivateAppAccess } from './extensions/NetworkPage.types';
 import { AccessLine, EmptyState } from './NetworkPage.shared';
@@ -46,6 +47,7 @@ export function PrivateAccessManager({
   tailscale: TailscaleStatus | null;
 }) {
   const localApps = installedApps.filter((app) => app.desiredAccess?.mode !== 'private' && app.desiredAccess?.mode !== 'local-and-private' && !app.settings?.tailscaleEnabled);
+  const tailscaleGuidance = tailscaleSetupGuidance(tailscale);
   return (
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
       <Card className="border-white/10 bg-slate-950/55 py-0 text-slate-100">
@@ -120,6 +122,7 @@ export function PrivateAccessManager({
           <p className="mt-1 text-sm text-slate-400">Pick local apps that should be easy to reach from your own devices.</p>
         </CardHeader>
         <CardContent className="grid gap-3 p-5">
+          <TailscaleSetupCard guidance={tailscaleGuidance} />
           {localApps.length === 0 ? (
             <EmptyState icon={CheckCircle2} title="All apps reviewed" text="Every installed app is already marked for private access or there are no local apps yet." />
           ) : (
@@ -195,6 +198,42 @@ export function PrivateAccessManager({
           </CardContent>
         </Card>
       ) : null}
+    </div>
+  );
+}
+
+function TailscaleSetupCard({ guidance }: { guidance: ReturnType<typeof tailscaleSetupGuidance> }) {
+  const tone = guidance.tone === 'green'
+    ? 'border-emerald-300/20 bg-emerald-500/10 text-emerald-100'
+    : guidance.tone === 'red'
+      ? 'border-red-300/20 bg-red-500/10 text-red-100'
+      : 'border-amber-300/20 bg-amber-500/10 text-amber-100';
+  return (
+    <div className={cn('rounded-lg border p-4', tone)}>
+      <div className="flex items-start gap-3">
+        {guidance.goodState ? <CheckCircle2 className="mt-0.5 size-5 shrink-0" /> : <Lock className="mt-0.5 size-5 shrink-0" />}
+        <div className="min-w-0">
+          <p className="font-bold text-white">{guidance.title}</p>
+          <p className="mt-1 text-sm leading-6 text-current/80">{guidance.summary}</p>
+          <p className="mt-1 text-xs leading-5 text-current/70">{guidance.action}</p>
+          {!guidance.goodState && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button asChild className="border-white/15 bg-slate-950/55 text-current hover:bg-slate-900" size="sm" type="button" variant="outline">
+                <a href="https://login.tailscale.com/start" rel="noreferrer" target="_blank">
+                  <ExternalLink className="size-3.5" />
+                  Create or sign in
+                </a>
+              </Button>
+              <Button asChild className="border-white/15 bg-slate-950/55 text-current hover:bg-slate-900" size="sm" type="button" variant="outline">
+                <a href="https://tailscale.com/kb/1017/install" rel="noreferrer" target="_blank">
+                  <ExternalLink className="size-3.5" />
+                  Tailscale setup
+                </a>
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
