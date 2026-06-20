@@ -15,6 +15,7 @@ import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { buildAppRemediationFromIssue } from '@/lib/appRemediation';
 import { cn } from '@/lib/utils';
 import type { ActivityLog } from '@/types/activity';
 import type { AppReliabilityIssue, AppReliabilitySummary, AppTelemetry } from '@/types/app';
@@ -378,16 +379,18 @@ function HighlightedIssueCard({ issue }: { issue: AppReliabilityIssue | null }) 
       </section>
     );
   }
+  const remediation = buildAppRemediationFromIssue(issue);
+  const destination = remediation?.safeAction.kind === 'link' ? remediation.safeAction.to : '/applications';
   return (
     <section className="rounded-lg border border-amber-300/20 bg-amber-500/10 p-5 text-amber-100 shadow-po-panel">
       <div className="flex gap-3">
         <AlertTriangle className="mt-0.5 size-5 shrink-0" />
         <div>
-          <h2 className="font-black text-white">Review {issue.appName}</h2>
-          <p className="mt-1 text-sm text-amber-100/80">{issue.message}</p>
-          <p className="mt-2 text-xs text-amber-100/70">{issue.suggestedAction}</p>
+          <h2 className="font-black text-white">{remediation?.title || `Review ${issue.appName}`}</h2>
+          <p className="mt-1 text-sm text-amber-100/80">{remediation?.summary || issue.message}</p>
+          <p className="mt-2 text-xs text-amber-100/70">{remediation?.nextStep || issue.suggestedAction}</p>
           <Button asChild className="mt-4 border-amber-300/30 bg-slate-950/50 text-amber-100 hover:bg-slate-900" size="sm" variant="outline">
-            <Link to="/applications">Open Applications <ChevronRight className="size-4" /></Link>
+            <Link to={destination}>{remediation?.safeAction.label || 'Open Applications'} <ChevronRight className="size-4" /></Link>
           </Button>
         </div>
       </div>
@@ -766,17 +769,18 @@ function ActivityRow({ event, expanded, onToggle, showAdvancedMetrics }: { event
 }
 
 function IssueCard({ issue }: { issue: AppReliabilityIssue }) {
+  const remediation = buildAppRemediationFromIssue(issue);
   return (
     <div className="rounded-lg border border-amber-300/20 bg-amber-500/10 p-4 text-sm text-amber-100">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-bold text-white">{issue.appName}</p>
-          <p className="mt-1">{issue.message}</p>
+          <p className="mt-1">{remediation?.summary || issue.message}</p>
         </div>
         <Badge className="border-amber-300/20 bg-amber-500/10 text-amber-100">{issue.status}</Badge>
       </div>
-      <p className="mt-3 text-xs text-amber-100/75">{issue.suggestedAction}</p>
-      {issue.detail && <p className="mt-2 text-xs text-amber-100/60">{issue.detail}</p>}
+      <p className="mt-3 text-xs text-amber-100/75">{remediation?.nextStep || issue.suggestedAction}</p>
+      {issue.detail && remediation?.summary !== issue.detail && <p className="mt-2 text-xs text-amber-100/60">{issue.detail}</p>}
     </div>
   );
 }

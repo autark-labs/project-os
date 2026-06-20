@@ -28,6 +28,7 @@ import { InstalledAppsAPIClient } from '@/api/InstalledAppsAPIClient';
 import { NetworkAPIClient } from '@/api/NetworkAPIClient';
 import { SystemAPIClient } from '@/api/SystemAPIClient';
 import overviewBackground from '@/assets/overviewBackground.png';
+import { buildAppRemediationFromIssue } from '@/lib/appRemediation';
 import { cn } from '@/lib/utils';
 import type { ActivityLog } from '@/types/activity';
 import type { AppReliabilitySummary, AppRuntimeView, AppUpdateStatus } from '@/types/app';
@@ -367,6 +368,7 @@ function buildOverviewView(state: OverviewState) {
   const backupTone: Tone = state.backups?.status === 'protected' ? 'green' : state.backups ? 'amber' : 'green';
   const healthTone: Tone = state.reliability?.posture === 'critical' ? 'red' : state.reliability?.posture === 'warning' || attentionApps > 0 || setupWarnings > 0 ? 'amber' : 'green';
   const healthIcon = healthTone === 'green' ? Check : AlertTriangle;
+  const firstRemediation = buildAppRemediationFromIssue(state.reliability?.issues[0]);
   const nextSteps = buildNextSteps(state, { attentionApps, privateLinkIssues, setupWarnings, storageRisk, updatesAvailable });
 
   return {
@@ -383,7 +385,7 @@ function buildOverviewView(state: OverviewState) {
     deviceValue: `${onlineDevices} online`,
     deviceWarning: state.tailscale?.connected === false || privateLinkIssues > 0,
     greeting: `${timeGreeting()}, ${displayName(state)}.`,
-    healthDetail: state.reliability?.summary || state.setup?.summary || 'Project OS is checking your system.',
+    healthDetail: firstRemediation?.summary || state.reliability?.summary || state.setup?.summary || 'Project OS is checking your system.',
     healthIcon,
     healthLabel: healthTone === 'green' ? 'Healthy' : 'Needs review',
     healthTone,
@@ -416,8 +418,17 @@ function buildQuickApps(apps: AppRuntimeView[]): QuickApp[] {
 
 function buildNextSteps(state: OverviewState, counts: { attentionApps: number; privateLinkIssues: number; setupWarnings: number; storageRisk: 'healthy' | 'warning' | 'critical'; updatesAvailable: number }): NextStep[] {
   const steps: NextStep[] = [];
+  const firstRemediation = buildAppRemediationFromIssue(state.reliability?.issues[0]);
   if (counts.updatesAvailable > 0) steps.push({ count: `${counts.updatesAvailable}`, icon: Grid3X3, label: `Update ${plural(counts.updatesAvailable, 'application')}`, tone: 'purple', to: '/updates' });
-  if (counts.attentionApps > 0) steps.push({ count: `${counts.attentionApps}`, icon: AlertTriangle, label: `Review ${plural(counts.attentionApps, 'application issue')}`, tone: 'amber', to: '/applications' });
+  if (counts.attentionApps > 0) {
+    steps.push({
+      count: `${counts.attentionApps}`,
+      icon: AlertTriangle,
+      label: firstRemediation ? `${firstRemediation.safeAction.label}: ${state.reliability?.issues[0]?.appName}` : `Review ${plural(counts.attentionApps, 'application issue')}`,
+      tone: firstRemediation?.severity === 'critical' ? 'red' : 'amber',
+      to: firstRemediation?.safeAction.kind === 'link' ? firstRemediation.safeAction.to : '/applications',
+    });
+  }
   if (counts.privateLinkIssues > 0) steps.push({ count: `${counts.privateLinkIssues}`, icon: Monitor, label: 'Repair private app links', tone: 'amber', to: '/network' });
   if (counts.storageRisk !== 'healthy') steps.push({ icon: Database, label: counts.storageRisk === 'critical' ? 'Free up storage soon' : 'Review storage space', tone: counts.storageRisk === 'critical' ? 'red' : 'amber', to: '/storage' });
   if (state.backups && (state.backups.unprotectedApps > 0 || state.backups.failedBackups > 0)) steps.push({ count: `${state.backups.unprotectedApps + state.backups.failedBackups}`, icon: ShieldCheck, label: 'Review backup protection', tone: 'amber', to: '/backups' });
@@ -476,7 +487,8 @@ function activityTone(event: ActivityLog): Tone {
 
 function heroSubtitle(tone: Tone, state: OverviewState) {
   if (tone === 'green') return 'Your digital home is healthy and protected.';
-  if (state.reliability?.issues.length) return state.reliability.issues[0].message;
+  const remediation = buildAppRemediationFromIssue(state.reliability?.issues[0]);
+  if (remediation) return remediation.nextStep;
   if (state.setup?.summary) return state.setup.summary;
   return 'Project OS found something that may need your attention.';
 }

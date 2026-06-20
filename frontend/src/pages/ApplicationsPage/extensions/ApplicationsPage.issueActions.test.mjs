@@ -15,10 +15,10 @@ test('builds backup-first reinstall guidance for unhealthy apps', () => {
   });
 
   assert.equal(guidance.tone, 'red');
-  assert.equal(guidance.primaryAction, 'restart');
-  assert.equal(guidance.destructiveOptions.length, 2);
-  assert.match(guidance.destructiveOptions[0].warning, /backup/i);
-  assert.match(guidance.destructiveOptions[1].warning, /remove app state/i);
+  assert.equal(guidance.safeAction.action, 'restart');
+  assert.equal(guidance.dangerousActions.length, 2);
+  assert.match(guidance.dangerousActions[0].warning, /backup/i);
+  assert.match(guidance.dangerousActions[1].warning, /remove app state/i);
 });
 
 test('prioritizes private access repair when Tailscale mapping is wrong', () => {
@@ -27,6 +27,6 @@ test('prioritizes private access repair when Tailscale mapping is wrong', () => 
     reconciliation: { status: 'mismatched', message: 'Wrong port', detail: 'Tailscale routes to another port.' },
   });
 
-  assert.equal(guidance.primaryAction, 'repair-private-access');
+  assert.equal(guidance.safeAction.to, '/network');
   assert.equal(guidance.title, 'Private access needs repair');
 });

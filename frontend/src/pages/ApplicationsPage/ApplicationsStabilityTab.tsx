@@ -116,9 +116,7 @@ function IssueGuidanceCard({ guidance, onAction }: { guidance: ReturnType<typeof
   }
   const tone = guidance.tone === 'red'
     ? 'border-red-300/25 bg-red-500/10 text-red-100'
-    : guidance.tone === 'green'
-      ? 'border-emerald-300/25 bg-emerald-500/10 text-emerald-100'
-      : 'border-amber-300/25 bg-amber-500/10 text-amber-100';
+    : 'border-amber-300/25 bg-amber-500/10 text-amber-100';
   return (
     <section className={cn('rounded-lg border p-4', tone)}>
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -137,12 +135,12 @@ function IssueGuidanceCard({ guidance, onAction }: { guidance: ReturnType<typeof
             {guidance.checklist.map((item) => <li className="flex gap-2" key={item}><span className="mt-2 size-1.5 shrink-0 rounded-full bg-current" />{item}</li>)}
           </ul>
         </div>
-        {guidance.destructiveOptions.length > 0 && (
+        {guidance.dangerousActions.length > 0 && (
           <div className="rounded-lg border border-red-300/20 bg-red-500/10 p-3">
             <p className="text-sm font-bold text-white">Advanced recovery</p>
             <p className="mt-1 text-xs leading-5 text-red-100/80">Always create a backup before using reinstall or reset options.</p>
             <div className="mt-3 grid gap-2">
-              {guidance.destructiveOptions.map((option) => (
+              {guidance.dangerousActions.map((option) => (
                 <Button asChild className="justify-start border-red-300/25 bg-slate-950/55 text-red-100 hover:bg-slate-900" key={option.label} size="sm" type="button" variant="outline">
                   <Link to={option.target} title={option.warning}>
                     <ExternalLink className="size-3.5" />
@@ -159,20 +157,20 @@ function IssueGuidanceCard({ guidance, onAction }: { guidance: ReturnType<typeof
 }
 
 function GuidancePrimaryAction({ guidance, onAction }: { guidance: NonNullable<ReturnType<typeof buildAppIssueGuidance>>; onAction: (action: AppAction) => void }) {
-  if (guidance.primaryAction === 'restart') {
+  if (guidance.safeAction.kind === 'app-action' && guidance.safeAction.action === 'restart') {
     return (
       <Button className="bg-violet-600 text-white hover:bg-violet-500" onClick={() => onAction('restart')} type="button">
         <RotateCcw className="size-4" />
-        {guidance.primaryLabel}
+        {guidance.safeAction.label}
       </Button>
     );
   }
-  if (guidance.primaryAction === 'repair-private-access') {
+  if (guidance.safeAction.kind === 'link') {
     return (
       <Button asChild className="bg-violet-600 text-white hover:bg-violet-500" type="button">
-        <Link to="/network">
+        <Link to={guidance.safeAction.to}>
           <ExternalLink className="size-4" />
-          {guidance.primaryLabel}
+          {guidance.safeAction.label}
         </Link>
       </Button>
     );
