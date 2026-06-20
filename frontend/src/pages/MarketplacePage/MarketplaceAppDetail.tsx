@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { backupSafetyWarning } from '@/lib/backupSafety';
 import { poButtonClass } from '@/lib/projectOsStyleKit';
 import { cn } from '@/lib/utils';
 import type { AppRuntimeView } from '@/types/app';
@@ -331,7 +332,7 @@ function RecoveryInstallNotice({ disabled, mode, onReinstallCurrent, onResetRein
         <div className="min-w-0">
           <h4 className="font-bold text-white">{resetMode ? 'Reset and reinstall requested' : 'Reinstall requested'}</h4>
           <p className={cn('mt-1 text-sm leading-6', resetMode ? 'text-red-100/80' : 'text-amber-100/80')}>
-            Create a backup before continuing. {resetMode ? 'Reset and reinstall can remove app state and should only be used when you are ready to rebuild the app.' : 'Reinstalling with current settings should keep configured data folders, but a backup gives you a restore point if anything goes wrong.'}
+            {backupSafetyWarning(resetMode ? 'reset' : 'reinstall')}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Button asChild className={poButtonClass('quiet')} size="sm" type="button" variant="outline">

@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
+import { backupSafetyChecklist } from '@/lib/backupSafety';
 import { cn } from '@/lib/utils';
 import type { AppStorageUsage, OrphanedStorage, StorageRecommendation, StorageReport, StorageUsage } from '@/types/system';
 
@@ -372,13 +373,14 @@ function OrphanedRow({ onCleanup, orphan, showAdvancedMetrics }: { onCleanup: (o
 
 function CleanupDialog({ confirmation, loading, onChange, onClose, onConfirm, target }: { confirmation: string; loading: boolean; onChange: (value: string) => void; onClose: () => void; onConfirm: () => void; target: OrphanedStorage | null }) {
   const canConfirm = Boolean(target && confirmation === target.name);
+  const safetyChecklist = backupSafetyChecklist('storage-cleanup');
   return (
     <Dialog open={Boolean(target)} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-xl border-white/10 bg-slate-950 text-slate-100">
         <DialogHeader>
           <DialogTitle>Clean up unused app data</DialogTitle>
           <DialogDescription className="text-slate-400">
-            Project OS will create a safety checkpoint before removing this folder.
+            {safetyChecklist[0]}
           </DialogDescription>
         </DialogHeader>
         {target && (
@@ -387,7 +389,7 @@ function CleanupDialog({ confirmation, loading, onChange, onClose, onConfirm, ta
             <FactRow label="Path" value={target.path} />
             <FactRow label="Space to recover" value={formatBytes(target.usedBytes)} />
             <div className="rounded-lg border border-amber-300/20 bg-amber-500/10 p-3 text-sm text-amber-100">
-              This only removes a direct child of the Project OS apps folder that does not match an installed app.
+              {safetyChecklist[1]}
             </div>
             <label className="text-sm font-semibold text-slate-300" htmlFor="cleanup-confirmation">Type `{target.name}` to confirm</label>
             <input

@@ -1,3 +1,5 @@
+import { backupSafetyWarning } from './backupSafety.js';
+
 /**
  * @typedef {{ kind: 'app-action', action: 'restart', label: string }} AppActionRemediation
  * @typedef {{ kind: 'link', to: string, label: string }} LinkRemediation
@@ -137,12 +139,12 @@ function recoveryActions(appId) {
   return [
     {
       label: 'Reinstall with current settings',
-      warning: 'Reinstalling should keep the configured data folders, but create a backup first so you have a restore point.',
+      warning: backupSafetyWarning('reinstall'),
       target: `/marketplace?app=${encodeURIComponent(appId)}&mode=reinstall`,
     },
     {
       label: 'Reset and reinstall',
-      warning: 'Reset and reinstall can remove app state. Back up the app first and only use this when you are comfortable rebuilding it.',
+      warning: backupSafetyWarning('reset'),
       target: `/marketplace?app=${encodeURIComponent(appId)}&mode=reset-reinstall`,
     },
   ];

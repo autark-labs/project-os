@@ -1,3 +1,5 @@
+import { backupSafetyWarnings } from '../../lib/backupSafety.js';
+
 /**
  * @param {import('@/types/backup').RestorePoint} point
  * @param {Array<{ appId: string; appName: string }>} apps
@@ -26,9 +28,5 @@ export function restorePointDetails(point, apps = [], plan = null) {
 }
 
 function defaultWarnings(point) {
-  const warnings = ['Restoring replaces current app data with the selected restore point.'];
-  if (point.verificationStatus !== 'verified') {
-    warnings.push('Verify this restore point before restoring if the current app data matters.');
-  }
-  return warnings;
+  return backupSafetyWarnings('restore', { verified: point.verificationStatus === 'verified' });
 }
