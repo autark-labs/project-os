@@ -38,6 +38,7 @@ import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
 import { cn } from '@/lib/utils';
 import type { AppRuntimeView, InstallSettings } from '@/types/app';
 import type { ProjectSettings, ProjectVersionInfo, SystemDoctorStatus, SystemMetrics, SystemSetupCheck, SystemSetupStatus } from '@/types/system';
+import { defaultSettingsGroup, sectionsForGroup, settingsGroups as topLevelSettingsGroups } from './SettingsPage.sections';
 
 type SettingsState = {
   apps: AppRuntimeView[];
@@ -50,6 +51,7 @@ type SettingsState = {
 };
 
 type SettingsSection = 'general' | 'system' | 'network' | 'storage' | 'backups' | 'applications' | 'security' | 'updates' | 'remote-access' | 'advanced';
+type SettingsGroupId = 'general' | 'backups' | 'network' | 'advanced';
 
 type SettingHelp = {
   id: string;
@@ -71,6 +73,13 @@ const sections: Array<{ id: SettingsSection; label: string; icon: LucideIcon; de
   { id: 'remote-access', label: 'Remote Access', icon: Network, description: 'Private access settings' },
   { id: 'advanced', label: 'Advanced', icon: Code2, description: 'Raw system details' },
 ];
+
+const groupIcons: Record<SettingsGroupId, LucideIcon> = {
+  advanced: Code2,
+  backups: Database,
+  general: Settings,
+  network: Network,
+};
 
 const settingHelp: Record<string, SettingHelp> = {
   deviceName: {
@@ -133,7 +142,7 @@ const settingHelp: Record<string, SettingHelp> = {
 
 function SettingsPage() {
   const { setProjectSettings } = useProjectSettings();
-  const [activeSection, setActiveSection] = useState<SettingsSection>('general');
+  const [activeGroup, setActiveGroup] = useState<SettingsGroupId>('general');
   const [activeHelpId, setActiveHelpId] = useState('deviceName');
   const [state, setState] = useState<SettingsState>({ apps: [], backupRoot: null, doctor: null, metrics: null, projectSettings: null, setup: null, version: null });
   const [draft, setDraft] = useState<ProjectSettings | null>(null);
@@ -181,8 +190,9 @@ function SettingsPage() {
   const requiredChecks = useMemo(() => state.setup?.checks.filter((check) => ['service-user', 'runtime-root', 'docker', 'tailscale', 'tailscale-operator'].includes(check.id)) ?? [], [state.setup]);
   const advancedChecks = useMemo(() => state.setup?.checks.filter((check) => !requiredChecks.includes(check)) ?? [], [requiredChecks, state.setup]);
   const help = settingHelp[activeHelpId] || settingHelp.deviceName;
-  const activeSectionMeta = sections.find((section) => section.id === activeSection) || sections[0];
-  const ActiveSectionIcon = activeSectionMeta.icon;
+  const activeGroupId = defaultSettingsGroup(activeGroup) as SettingsGroupId;
+  const activeGroupMeta = topLevelSettingsGroups.find((group) => group.id === activeGroupId) || topLevelSettingsGroups[0];
+  const ActiveGroupIcon = groupIcons[activeGroupId];
   const dirty = Boolean(draft && state.projectSettings && JSON.stringify(draft) !== JSON.stringify(state.projectSettings));
 
   async function copy(value: string, id: string) {
@@ -252,58 +262,72 @@ function SettingsPage() {
         <div className="grid gap-4 p-5 md:grid-cols-3">
           <SettingsStatusCard icon={CheckCircle2} label="Save state" tone={dirty ? 'amber' : 'green'} value={dirty ? 'Review changes' : 'No pending changes'} />
           <SettingsStatusCard icon={ShieldCheck} label="Setup" tone={state.setup?.status === 'ready' ? 'green' : 'amber'} value={state.setup?.headline || 'Setup status unavailable'} />
-          <SettingsStatusCard icon={activeSectionMeta.icon} label="Selected" tone={activeSection === 'advanced' ? 'violet' : 'slate'} value={activeSectionMeta.label} />
+          <SettingsStatusCard icon={ActiveGroupIcon} label="Selected" tone={activeGroupId === 'advanced' ? 'violet' : 'slate'} value={activeGroupMeta.label} />
         </div>
       </header>
 
       {error && <PageErrorState message={error} onRetry={() => void load(true)} title="Settings could not refresh" />}
       {message && <div className="rounded-lg border border-emerald-300/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">{message}</div>}
 
-      <div className="grid gap-5 xl:grid-cols-[210px_minmax(0,1fr)_320px]">
-        <nav className={cn(surfacePanelClass, 'bg-slate-950/55 p-3')}>
-          {sections.map((section) => {
-            const Icon = section.icon;
-            const active = activeSection === section.id;
-            return (
-              <button
-                className={cn(
-                  'flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/70',
-                  section.id === 'advanced' && 'mt-3 border-t border-white/10 pt-3',
-                  active ? 'bg-gradient-to-br from-violet-600 to-indigo-600/75 text-white shadow-po-brand-glow' : 'text-slate-400 hover:bg-slate-900/70 hover:text-slate-100',
-                )}
-                key={section.id}
-                onClick={() => setActiveSection(section.id)}
-                type="button"
-              >
-                <Icon className="size-4 shrink-0" />
-                <span className="truncate">{section.label}</span>
-              </button>
-            );
-          })}
-        </nav>
+      <nav className={cn(surfacePanelClass, 'grid gap-2 bg-slate-950/55 p-2 sm:grid-cols-2 xl:grid-cols-4')}>
+        {topLevelSettingsGroups.map((group) => {
+          const groupId = group.id as SettingsGroupId;
+          const Icon = groupIcons[groupId];
+          const active = activeGroupId === group.id;
+          return (
+            <button
+              className={cn(
+                'flex min-h-16 items-start gap-3 rounded-lg px-3 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/70',
+                active ? 'bg-gradient-to-br from-violet-600 to-indigo-600/75 text-white shadow-po-brand-glow' : 'text-slate-400 hover:bg-slate-900/70 hover:text-slate-100',
+              )}
+              key={group.id}
+              onClick={() => setActiveGroup(groupId)}
+              type="button"
+            >
+              <Icon className="mt-0.5 size-4 shrink-0" />
+              <span className="min-w-0">
+                <span className="block font-bold">{group.label}</span>
+                <span className="mt-1 block text-xs leading-5 opacity-75">{group.description}</span>
+              </span>
+            </button>
+          );
+        })}
+      </nav>
 
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
         <main className={cn(surfacePanelClass, 'bg-slate-950/60 shadow-po-panel')}>
           <div className="mb-5 rounded-lg border border-white/10 bg-slate-900/40 p-4">
             <div className="flex items-start gap-3">
               <span className="grid size-10 shrink-0 place-items-center rounded-lg border border-violet-300/20 bg-violet-500/10 text-violet-200">
-                <ActiveSectionIcon className="size-4" />
+                <ActiveGroupIcon className="size-4" />
               </span>
               <div>
-                <h2 className="text-lg font-black text-white">{activeSectionMeta.label}</h2>
-                <p className="mt-1 text-sm leading-6 text-slate-400">{activeSectionMeta.description}</p>
+                <h2 className="text-lg font-black text-white">{activeGroupMeta.label}</h2>
+                <p className="mt-1 text-sm leading-6 text-slate-400">{activeGroupMeta.description}</p>
               </div>
             </div>
           </div>
-          {activeSection === 'general' && <GeneralPanel draft={draft} onHelp={setActiveHelpId} onUpdate={updateDraft} />}
-          {activeSection === 'system' && <SystemPanel checks={requiredChecks} copied={copied} doctor={state.doctor} draft={draft} metrics={state.metrics} onCopy={copy} onHelp={setActiveHelpId} onUpdate={updateDraft} settings={draft} setup={state.setup} version={state.version} />}
-          {activeSection === 'network' && <NetworkPanel draft={draft} onHelp={setActiveHelpId} onUpdate={updateDraft} setup={state.setup} />}
-          {activeSection === 'storage' && <StoragePanel metrics={state.metrics} onHelp={setActiveHelpId} />}
-          {activeSection === 'backups' && <BackupsPanel apps={state.apps} backupRoot={state.backupRoot} draft={draft} onHelp={setActiveHelpId} onUpdate={updateDraft} />}
-          {activeSection === 'applications' && <ApplicationsPanel apps={state.apps} draft={draft} onHelp={setActiveHelpId} onUpdate={updateDraft} />}
-          {activeSection === 'security' && <SecurityPanel draft={draft} onHelp={setActiveHelpId} onUpdate={updateDraft} setup={state.setup} />}
-          {activeSection === 'updates' && <UpdatesPanel draft={draft} onHelp={setActiveHelpId} onUpdate={updateDraft} version={state.version} />}
-          {activeSection === 'remote-access' && <RemoteAccessPanel apps={state.apps} draft={draft} onHelp={setActiveHelpId} onUpdate={updateDraft} setup={state.setup} />}
-          {activeSection === 'advanced' && <AdvancedPanel checks={advancedChecks} copied={copied} doctor={state.doctor} draft={draft} metrics={state.metrics} onCopy={copy} onHelp={setActiveHelpId} onUpdate={updateDraft} settings={draft} setup={state.setup} version={state.version} />}
+          <div className="grid gap-5">
+            {sectionsForGroup(activeGroupId).map((sectionId) => (
+              <SettingsPanelBySection
+                advancedChecks={advancedChecks}
+                apps={state.apps}
+                backupRoot={state.backupRoot}
+                copied={copied}
+                doctor={state.doctor}
+                draft={draft}
+                key={sectionId}
+                metrics={state.metrics}
+                onCopy={copy}
+                onHelp={setActiveHelpId}
+                onUpdate={updateDraft}
+                requiredChecks={requiredChecks}
+                sectionId={sectionId as SettingsSection}
+                setup={state.setup}
+                version={state.version}
+              />
+            ))}
+          </div>
         </main>
 
         <aside className={cn(surfacePanelClass, 'bg-slate-950/60 shadow-po-panel')}>
@@ -520,6 +544,50 @@ type SystemPanelProps = PanelProps & {
   setup: SystemSetupStatus | null;
   version: ProjectVersionInfo | null;
 };
+
+type SettingsPanelBySectionProps = {
+  advancedChecks: SystemSetupCheck[];
+  apps: AppRuntimeView[];
+  backupRoot: string | null;
+  copied: string | null;
+  doctor: SystemDoctorStatus | null;
+  draft: ProjectSettings;
+  metrics: SystemMetrics | null;
+  onCopy: (value: string, id: string) => void;
+  onHelp: (id: string) => void;
+  onUpdate: (update: Partial<ProjectSettings>) => void;
+  requiredChecks: SystemSetupCheck[];
+  sectionId: SettingsSection;
+  setup: SystemSetupStatus | null;
+  version: ProjectVersionInfo | null;
+};
+
+function SettingsPanelBySection({ advancedChecks, apps, backupRoot, copied, doctor, draft, metrics, onCopy, onHelp, onUpdate, requiredChecks, sectionId, setup, version }: SettingsPanelBySectionProps) {
+  switch (sectionId) {
+    case 'general':
+      return <GeneralPanel draft={draft} onHelp={onHelp} onUpdate={onUpdate} />;
+    case 'system':
+      return <SystemPanel checks={requiredChecks} copied={copied} doctor={doctor} draft={draft} metrics={metrics} onCopy={onCopy} onHelp={onHelp} onUpdate={onUpdate} settings={draft} setup={setup} version={version} />;
+    case 'applications':
+      return <ApplicationsPanel apps={apps} draft={draft} onHelp={onHelp} onUpdate={onUpdate} />;
+    case 'backups':
+      return <BackupsPanel apps={apps} backupRoot={backupRoot} draft={draft} onHelp={onHelp} onUpdate={onUpdate} />;
+    case 'storage':
+      return <StoragePanel metrics={metrics} onHelp={onHelp} />;
+    case 'network':
+      return <NetworkPanel draft={draft} onHelp={onHelp} onUpdate={onUpdate} setup={setup} />;
+    case 'remote-access':
+      return <RemoteAccessPanel apps={apps} draft={draft} onHelp={onHelp} onUpdate={onUpdate} setup={setup} />;
+    case 'security':
+      return <SecurityPanel draft={draft} onHelp={onHelp} onUpdate={onUpdate} setup={setup} />;
+    case 'updates':
+      return <UpdatesPanel draft={draft} onHelp={onHelp} onUpdate={onUpdate} version={version} />;
+    case 'advanced':
+      return <AdvancedPanel checks={advancedChecks} copied={copied} doctor={doctor} draft={draft} metrics={metrics} onCopy={onCopy} onHelp={onHelp} onUpdate={onUpdate} settings={draft} setup={setup} version={version} />;
+    default:
+      return null;
+  }
+}
 
 function SettingsGroup({ children, description, title }: { children: ReactNode; description: string; title: string }) {
   return (
