@@ -67,9 +67,10 @@ export function MarketplaceAppList({ apps, modeLabel = 'All apps', selectedAppId
 }
 
 function AppStoreCard({ app, isSelected, onSelect }: { app: DiscoverAppView; isSelected: boolean; onSelect: () => void }) {
-  const actionVariant = app.primaryAction === 'review_setup' ? 'default' : 'outline';
+  const primaryActionId = app.primaryAction.id;
+  const actionVariant = primaryActionId === 'review_setup' ? 'default' : 'outline';
   return (
-    <div className={cn('group relative overflow-hidden rounded-2xl border border-slate-700/25 bg-slate-950/48 p-4 text-slate-100 shadow-po-card transition hover:-translate-y-0.5 hover:border-violet-300/45 hover:bg-slate-900/70', isSelected && 'border-violet-300/55 bg-violet-950/20 shadow-po-brand-glow')}>
+    <div className={cn('group relative grid min-h-[258px] overflow-hidden rounded-xl border border-slate-700/25 bg-slate-950/48 p-4 text-slate-100 shadow-po-card transition hover:-translate-y-0.5 hover:border-violet-300/45 hover:bg-slate-900/70', isSelected && 'border-violet-300/55 bg-violet-950/20 shadow-po-brand-glow')}>
       <div className="absolute inset-0 bg-po-card-hover-sheen opacity-0 transition group-hover:opacity-100" />
       <button className="relative z-10 grid w-full gap-4 text-left" onClick={onSelect} type="button">
         <span className="flex items-start gap-3">
@@ -77,7 +78,7 @@ function AppStoreCard({ app, isSelected, onSelect }: { app: DiscoverAppView; isS
           <span className="min-w-0 flex-1">
             <span className="flex flex-wrap items-center gap-2">
               <strong className="truncate text-base text-white">{app.name}</strong>
-              <Badge className={stateBadgeClass(app.state)} variant="outline">{app.stateLabel}</Badge>
+              <Badge className={stateBadgeClass(app.statusTone)} variant="outline">{app.stateLabel}</Badge>
             </span>
             <span className="mt-1 block text-xs text-slate-400">{app.categoryLabel} · {app.estimatedInstallTime} · {app.difficulty}</span>
           </span>
@@ -87,19 +88,13 @@ function AppStoreCard({ app, isSelected, onSelect }: { app: DiscoverAppView; isS
           <span className="block text-lg font-black leading-tight text-white">{outcomeCopy(app.app)}</span>
           <span className="mt-2 line-clamp-2 block min-h-10 text-sm leading-5 text-slate-300">{app.description}</span>
         </span>
-
-        {app.primaryAction === 'resolve' && (
-          <span className="line-clamp-2 rounded-lg border border-amber-300/20 bg-amber-500/10 p-3 text-sm leading-5 text-amber-100/85">
-            {app.stateDescription}
-          </span>
-        )}
       </button>
 
-      <div className="relative z-10 mt-4 flex items-center justify-between gap-3 border-t border-white/10 pt-3">
+      <div className="relative z-10 mt-auto flex items-center justify-between gap-3 border-t border-white/10 pt-3">
         <div className="min-w-0 text-xs text-slate-400">{app.serviceKindLabel}</div>
-        <Button className={cn('h-8 px-3 text-xs', app.primaryAction === 'review_setup' && poButtonClass('primary'), app.primaryAction === 'manage' && 'border-emerald-300/25 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/15', app.primaryAction === 'resolve' && 'border-amber-300/25 bg-amber-500/10 text-amber-100 hover:bg-amber-500/15')} disabled={app.primaryAction === 'unavailable'} onClick={onSelect} type="button" variant={actionVariant}>
-          {app.primaryAction === 'manage' ? <CheckCircle2 className="size-3.5" /> : <Sparkles className="size-3.5" />}
-          {app.primaryActionLabel}
+        <Button className={cn('h-8 px-3 text-xs', primaryActionId === 'review_setup' && poButtonClass('primary'), primaryActionId === 'manage' && 'border-emerald-300/25 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/15', primaryActionId === 'review_existing' && 'border-amber-300/25 bg-amber-500/10 text-amber-100 hover:bg-amber-500/15')} disabled={app.primaryAction.disabled} onClick={onSelect} type="button" variant={actionVariant}>
+          {primaryActionId === 'manage' ? <CheckCircle2 className="size-3.5" /> : <Sparkles className="size-3.5" />}
+          {app.primaryAction.label}
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -121,14 +116,17 @@ function AppStoreCard({ app, isSelected, onSelect }: { app: DiscoverAppView; isS
   );
 }
 
-function stateBadgeClass(state: string) {
-  if (state === 'installed') {
+function stateBadgeClass(tone: string) {
+  if (tone === 'success') {
     return 'border-emerald-300/25 bg-emerald-500/10 text-emerald-100';
   }
-  if (state === 'found_on_server' || state === 'managed_elsewhere' || state === 'blocked') {
+  if (tone === 'warning') {
     return 'border-amber-300/25 bg-amber-500/10 text-amber-100';
   }
-  if (state === 'coming_soon') {
+  if (tone === 'danger') {
+    return 'border-red-300/25 bg-red-500/10 text-red-100';
+  }
+  if (tone === 'neutral') {
     return 'border-slate-600 bg-slate-800/60 text-slate-300';
   }
   return 'border-sky-300/25 bg-sky-500/10 text-sky-100';

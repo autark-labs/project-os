@@ -86,6 +86,16 @@ class HostResourceActionServiceTests {
         assertThat(ignoreRepository().ignoredResourceIds()).contains("docker:project-os-homepage");
     }
 
+    @Test
+    void recoveryPlanForUnmanagedDockerUsesExplicitLinkOrInstallCopy() {
+        HostResourceActionService service = service(List.of(unmanagedContainer("homepage_external", "homepage")));
+
+        HostResourceRecoveryPlan plan = service.recoveryPlan("docker:homepage_external");
+
+        assertThat(plan.recoverable()).isFalse();
+        assertThat(plan.blockedReasons()).containsExactly("Project OS can link this service or install a managed copy, but guided adoption for unmanaged Docker containers is not available yet.");
+    }
+
     private HostResourceActionService service(List<HostDockerContainer> containers) {
         return service(containers, command -> new HostCommandResult(true, String.join(" ", command)));
     }
@@ -132,6 +142,12 @@ class HostResourceActionServiceTests {
             labels.put(HostInventoryService.DATA_PATHS_LABEL, dataPath);
         }
         return new HostDockerContainer(name, "project-os/" + appId + ":latest", "Up 2 minutes", Map.copyOf(labels), "0.0.0.0:8080->80/tcp");
+    }
+
+    private HostDockerContainer unmanagedContainer(String name, String appId) {
+        java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+        labels.put(DockerOwnershipService.APP_ID, appId);
+        return new HostDockerContainer(name, "external/" + appId + ":latest", "Up 2 minutes", Map.copyOf(labels), "0.0.0.0:8080->80/tcp");
     }
 
     private static class RecordingHostCommandRunner implements HostCommandRunner {

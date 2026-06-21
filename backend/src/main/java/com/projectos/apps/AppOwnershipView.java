@@ -1,24 +1,18 @@
-package com.projectos.discover;
+package com.projectos.apps;
 
 import java.util.List;
 
-import com.projectos.apps.AppOwnershipAction;
-import com.projectos.apps.AppOwnershipState;
+import com.projectos.discover.DiscoverInstalledAppSummary;
 import com.projectos.host.ExternalService;
 import com.projectos.host.HostInventoryResource;
-import com.projectos.marketplace.model.ApplicationManifest;
 
-public record DiscoverAppView(
-        String id,
-        ApplicationManifest app,
+public record AppOwnershipView(
+        String catalogAppId,
         String name,
+        String category,
         String image,
         String summary,
         String description,
-        String categoryLabel,
-        String serviceKindLabel,
-        String estimatedInstallTime,
-        String difficulty,
         AppOwnershipState state,
         String stateLabel,
         String stateDescription,
@@ -31,6 +25,5 @@ public record DiscoverAppView(
         List<AppOwnershipAction> availableActions,
         DiscoverInstalledAppSummary installedApp,
         HostInventoryResource foundResource,
-        ExternalService linkedService,
-        DiscoverSetupSchema setupSchema) {
+        ExternalService linkedService) {
 }

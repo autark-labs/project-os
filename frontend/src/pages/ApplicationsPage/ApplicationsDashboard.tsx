@@ -22,12 +22,13 @@ import { Input } from '@/components/ui/input';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
 import { cn } from '@/lib/utils';
 import type { AppAccessCheck, AppHealthSnapshot, AppRuntimeView, AppTelemetry, AppUpdateStatus } from '@/types/app';
-import type { ExternalService } from '@/types/host';
+import type { AppOwnershipView } from '@/types/appOwnership';
 import type { PrivateAccessReconciliationItem, PrivateAccessReconciliationReport } from '@/types/network';
 import { AppIcon } from './ApplicationsPage.shared';
 import { ApplicationsSetupGuide } from './ApplicationsSetupGuide';
 import { ApplicationsUsageGuide } from './ApplicationsUsageGuide';
 import { UninstallDialog } from './ApplicationsPageRemoveDialog';
+import { FoundServicesPanel } from './FoundServicesPanel';
 import {
   accessLabel,
   appNotice,
@@ -40,7 +41,7 @@ import {
   telemetryValue,
   uptimeLabel,
 } from './extensions/ApplicationsPage.logic';
-import { appCardPrimaryUrl, linkedServiceCard } from './extensions/ApplicationsPage.cardModel';
+import { appCardPrimaryUrl } from './extensions/ApplicationsPage.cardModel';
 import type { AppAction } from './extensions/ApplicationsPage.types';
 
 type ApplicationsDashboardProps = {
@@ -64,12 +65,14 @@ type ApplicationsDashboardProps = {
   accessByAppId: Record<string, AppAccessCheck>;
   telemetryByAppId: Record<string, AppTelemetry>;
   healthByAppId: Record<string, AppHealthSnapshot>;
-  linkedServices: ExternalService[];
+  existingServices: AppOwnershipView[];
+  onIgnoreFoundResource: (resourceId: string) => void;
+  onRemoveLinkedService: (id: string) => void;
   updatesByAppId: Record<string, AppUpdateStatus>;
   reconciliation: PrivateAccessReconciliationReport | null;
 };
 
-export function ApplicationsDashboard({ accessByAppId, actionLoading, apps, healthByAppId, linkedServices, onAction, onManage, onRollback, onSearch, onSelect, onUninstall, onUpdate, reconciliation, search, selectedId, summary, telemetryByAppId, updatesByAppId }: ApplicationsDashboardProps) {
+export function ApplicationsDashboard({ accessByAppId, actionLoading, apps, existingServices, healthByAppId, onAction, onIgnoreFoundResource, onManage, onRemoveLinkedService, onRollback, onSearch, onSelect, onUninstall, onUpdate, reconciliation, search, selectedId, summary, telemetryByAppId, updatesByAppId }: ApplicationsDashboardProps) {
   const { showAdvancedMetrics } = useProjectSettings();
   const reconciliationByAppId = new Map((reconciliation?.apps || []).map((item) => [item.appId, item]));
   const updateCount = Object.values(updatesByAppId).filter((update) => update.updateAvailable).length;
@@ -83,10 +86,12 @@ export function ApplicationsDashboard({ accessByAppId, actionLoading, apps, heal
         accessByAppId={accessByAppId}
         actionLoading={actionLoading}
         apps={apps}
+        existingServices={existingServices}
         healthByAppId={healthByAppId}
-        linkedServices={linkedServices}
+        onIgnoreFoundResource={onIgnoreFoundResource}
         onAction={onAction}
         onManage={onManage}
+        onRemoveLinkedService={onRemoveLinkedService}
         onRollback={onRollback}
         onSearch={onSearch}
         onSelect={onSelect}
@@ -104,6 +109,7 @@ export function ApplicationsDashboard({ accessByAppId, actionLoading, apps, heal
   }
 
   return (
+    <div className="grid gap-5">
     <Card className="overflow-hidden border-white/10 bg-slate-950/55 py-0 text-slate-100 shadow-po-panel">
       <CardHeader className="border-b border-white/10 p-0">
         <div className="flex border-b border-white/10 px-5 pt-5">
@@ -186,10 +192,12 @@ export function ApplicationsDashboard({ accessByAppId, actionLoading, apps, heal
         )}
       </CardContent>
     </Card>
+    <FoundServicesPanel items={existingServices} onIgnoreFoundResource={onIgnoreFoundResource} onRemoveLinkedService={onRemoveLinkedService} />
+    </div>
   );
 }
 
-function BasicApplicationsView({ accessByAppId, actionLoading, apps, healthByAppId, linkedServices, onAction, onManage, onRollback, onSearch, onSelect, onUninstall, onUpdate, reconciliation, search, selectedId, summary, telemetryByAppId, updateCount, updatesByAppId }: ApplicationsDashboardProps & { updateCount: number }) {
+function BasicApplicationsView({ accessByAppId, actionLoading, apps, existingServices, healthByAppId, onAction, onIgnoreFoundResource, onManage, onRemoveLinkedService, onRollback, onSearch, onSelect, onUninstall, onUpdate, reconciliation, search, selectedId, summary, telemetryByAppId, updateCount, updatesByAppId }: ApplicationsDashboardProps & { updateCount: number }) {
   const reconciliationByAppId = new Map((reconciliation?.apps || []).map((item) => [item.appId, item]));
 
   return (
@@ -223,7 +231,7 @@ function BasicApplicationsView({ accessByAppId, actionLoading, apps, healthByApp
         </CardHeader>
 
         <CardContent className="p-5">
-          {apps.length === 0 && linkedServices.length === 0 ? (
+          {apps.length === 0 && existingServices.length === 0 ? (
             <div className="rounded-xl border border-white/10 bg-slate-950/45 px-5 py-10 text-center text-sm text-slate-500">No apps match your search.</div>
           ) : (
             <div className="grid gap-6">
@@ -258,17 +266,7 @@ function BasicApplicationsView({ accessByAppId, actionLoading, apps, healthByApp
                   })}
                 </div>
               )}
-              {linkedServices.length > 0 && (
-                <section className="grid gap-3">
-                  <div>
-                    <h4 className="text-sm font-black uppercase tracking-normal text-sky-300">Linked services</h4>
-                    <p className="mt-1 text-sm text-slate-500">These are external links Project OS opens but does not install or repair.</p>
-                  </div>
-                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {linkedServices.map((service) => <LinkedServiceCard key={service.id} service={service} />)}
-                  </div>
-                </section>
-              )}
+              <FoundServicesPanel items={existingServices} onIgnoreFoundResource={onIgnoreFoundResource} onRemoveLinkedService={onRemoveLinkedService} />
             </div>
           )}
         </CardContent>
@@ -333,33 +331,6 @@ function ApplicationCard({ access, actionLoading, app, health, isSelected, onAct
           <ExpandedAppManagement access={access} actionLoading={actionLoading} app={app} health={health} onAction={onAction} onManage={onManage} onRollback={onRollback} onUninstall={onUninstall} onUpdate={onUpdate} reconciliation={reconciliation} showAdvancedMetrics={false} telemetry={telemetry} update={update} />
         </div>
       )}
-    </article>
-  );
-}
-
-function LinkedServiceCard({ service }: { service: ExternalService }) {
-  const card = linkedServiceCard(service);
-  return (
-    <article className="grid gap-4 rounded-xl border border-sky-300/20 bg-sky-500/8 p-4 shadow-po-card">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="truncate text-base font-black text-white">{card.title}</h3>
-          <p className="mt-1 truncate text-sm text-slate-400">{card.subtitle}</p>
-        </div>
-        <span className="rounded-full border border-sky-300/25 bg-sky-500/10 px-2.5 py-1 text-xs font-bold text-sky-100">{card.status}</span>
-      </div>
-      <p className="truncate rounded-lg border border-white/10 bg-slate-950/45 px-3 py-2 text-sm text-slate-300" title={card.url}>{card.url}</p>
-      <div className="flex flex-wrap gap-2">
-        <Button asChild className="bg-sky-500 text-slate-950 hover:bg-sky-400" size="sm">
-          <a href={card.url} rel="noreferrer" target="_blank">
-            <ExternalLink className="size-4" />
-            Open
-          </a>
-        </Button>
-        <Button className="border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" disabled size="sm" type="button" variant="outline">
-          Managed externally
-        </Button>
-      </div>
     </article>
   );
 }

@@ -40,7 +40,7 @@ import {
   START_HERE_DISMISSAL_KEY,
   formatMarketplaceActivityTime,
   marketplaceActivityTone,
-  marketplaceVisibleApps,
+  marketplaceVisibleAppViews,
   starterCatalogForDiscover,
   shouldShowStartHereSection,
   starterAppsForMarketplace,
@@ -81,8 +81,7 @@ function MarketplacePage() {
   const [startHereDismissed, setStartHereDismissed] = useState(() => readStartHereDismissed());
   const recoveryAppId = searchParams.get('app');
   const recoveryMode = searchParams.get('mode');
-  const installedById = useMemo(() => new Map(apps.filter((app) => app.installedApp).map((app) => [app.id, app.installedApp])), [apps]);
-  const installedAppIds = useMemo(() => new Set(installedById.keys()), [installedById]);
+  const installedById = useMemo(() => new Map(apps.filter((app) => app.state === 'installed_managed' && app.installedApp).map((app) => [app.id, app.installedApp])), [apps]);
   const catalogApps = useMemo(() => {
     if (showAdvancedMetrics) {
       return apps;
@@ -236,11 +235,6 @@ function MarketplacePage() {
       return;
     }
     const app = apps.find((candidate) => candidate.id === appId);
-    const foundResource = app?.foundResource;
-    if (foundResource) {
-      setMarketplaceError(`${app?.name || appId} already exists on this server but is not managed by this Project OS installation. Review existing apps before installing a duplicate.`);
-      return;
-    }
     if (mode === 'install' && appId === selectedApp?.id && installPreview && !installPreview.valid) {
       setMarketplaceError(installPreview.blockingIssues[0]?.message || 'Finish setup choices before installing.');
       return;
@@ -274,14 +268,13 @@ function MarketplacePage() {
     return installApp(selectedApp.id, installOptions ?? undefined, 'reinstall');
   }
 
-  const visibleApps = useMemo(() => marketplaceVisibleApps({
-    apps: catalogApps.map((view) => view.app),
+  const visibleApps = useMemo(() => marketplaceVisibleAppViews({
+    views: catalogApps,
     hideInstalled,
-    installedAppIds,
     searchQuery,
     selectedCategory,
     sortBy,
-  }).map((app) => catalogApps.find((view) => view.id === app.id)).filter(Boolean) as DiscoverAppView[], [catalogApps, hideInstalled, installedAppIds, searchQuery, selectedCategory, sortBy]);
+  }) as DiscoverAppView[], [catalogApps, hideInstalled, searchQuery, selectedCategory, sortBy]);
   const selectedAppInstalling = Boolean(installJob && !terminalJob(installJob) && installJob.subjectId === selectedApp?.id);
   const selectedAppInstallLocked = Boolean(selectedApp && installJob && !terminalJob(installJob) && installJob.subjectId !== selectedApp.id);
   const installStatusMessage = selectedAppInstallLocked && installJob ? `${appNameForJob(installJob, apps)} is installing. Finish that install before starting another app.` : '';
@@ -385,7 +378,7 @@ function MarketplacePage() {
 
       <div className="grid items-start gap-6 2xl:grid-cols-[minmax(620px,1fr)_minmax(420px,560px)]">
         <MarketplaceAppList apps={visibleApps} modeLabel={showAdvancedMetrics ? 'All apps' : 'Starter apps'} onSelect={setSelectedAppId} onSortChange={setSortBy} selectedAppId={selectedApp.id} sortBy={sortBy} />
-        <MarketplaceAppDetail app={selectedApp} backupJob={backupJob?.subjectId === selectedApp.id ? backupJob : null} foundResource={selectedView?.foundResource ?? null} installJob={installJob?.subjectId === selectedApp.id ? installJob : null} installLocked={selectedAppInstallLocked} installOptions={installOptions ?? fallbackInstallOptions} installPreview={installPreview} installResult={null} installStatusMessage={installStatusMessage} installing={selectedAppInstalling} installPlan={installPlan} installedApp={selectedInstalledApp} onBack={() => { setSearchQuery(''); setSelectedCategory('All'); }} onCreateBackup={createFirstBackup} onInstall={(options) => installApp(selectedApp.id, options)} onReinstallCurrent={reinstallWithCurrentSettings} onRequestPlan={(options) => requestPlan(selectedApp.id, options)} onSetupAnswersChange={changeSetupAnswers} planLoading={planLoading} recoveryMode={recoveryAppId === selectedApp.id ? recoveryMode : null} setupAnswers={setupAnswers} setupReady={installPreview?.valid ?? true} setupSchema={selectedView.setupSchema} />
+        <MarketplaceAppDetail app={selectedApp} appView={selectedView} backupJob={backupJob?.subjectId === selectedApp.id ? backupJob : null} installJob={installJob?.subjectId === selectedApp.id ? installJob : null} installLocked={selectedAppInstallLocked} installOptions={installOptions ?? fallbackInstallOptions} installPreview={installPreview} installResult={null} installStatusMessage={installStatusMessage} installing={selectedAppInstalling} installPlan={installPlan} installedApp={selectedInstalledApp} onBack={() => { setSearchQuery(''); setSelectedCategory('All'); }} onCreateBackup={createFirstBackup} onInstall={(options) => installApp(selectedApp.id, options)} onReinstallCurrent={reinstallWithCurrentSettings} onRequestPlan={(options) => requestPlan(selectedApp.id, options)} onSetupAnswersChange={changeSetupAnswers} planLoading={planLoading} recoveryMode={recoveryAppId === selectedApp.id ? recoveryMode : null} setupAnswers={setupAnswers} setupReady={installPreview?.valid ?? true} setupSchema={selectedView.setupSchema} />
       </div>
     </PageShell>
   );

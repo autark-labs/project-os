@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   START_HERE_DISMISSAL_KEY,
-  discoverAppCardView,
+  marketplaceVisibleAppViews,
   marketplaceVisibleApps,
   optionsFromInstalledSettings,
   shouldShowStartHereSection,
@@ -48,6 +48,23 @@ test('marketplaceVisibleApps filters by category, installed state, and search qu
   });
 
   assert.deepEqual(visible.map((item) => item.id), ['vaultwarden']);
+});
+
+test('marketplaceVisibleAppViews hides only canonical current-instance installs', () => {
+  const views = [
+    { id: 'vaultwarden', name: 'Vaultwarden', state: 'installed_managed', app: app({ id: 'vaultwarden', category: 'Security' }) },
+    { id: 'jellyfin', name: 'Jellyfin', state: 'linked_service', app: app({ id: 'jellyfin', name: 'Jellyfin', category: 'Media' }) },
+    { id: 'homepage', name: 'Homepage', state: 'found_on_server', app: app({ id: 'homepage', name: 'Homepage', category: 'Utilities' }) },
+  ];
+
+  const visible = marketplaceVisibleAppViews({
+    views,
+    hideInstalled: true,
+    selectedCategory: 'All',
+    sortBy: 'Recommended',
+  });
+
+  assert.deepEqual(visible.map((view) => view.id), ['homepage', 'jellyfin']);
 });
 
 test('marketplaceVisibleApps applies supported sort modes', () => {
@@ -109,56 +126,6 @@ test('shouldShowStartHereSection hides dismissed or fully installed starter reco
   assert.equal(shouldShowStartHereSection(recommendations, false), true);
   assert.equal(shouldShowStartHereSection(recommendations, true), false);
   assert.equal(shouldShowStartHereSection(recommendations.map((recommendation) => ({ ...recommendation, installed: true })), false), false);
-});
-
-test('discoverAppCardView maps available and installed apps to user-facing card actions', () => {
-  const available = discoverAppCardView(app({ id: 'jellyfin', name: 'Jellyfin' }), {
-    foundResourcesByAppId: new Map(),
-    installedById: new Map(),
-  });
-  const installed = discoverAppCardView(app({ id: 'vaultwarden', name: 'Vaultwarden' }), {
-    foundResourcesByAppId: new Map(),
-    installedById: new Map([['vaultwarden', { accessUrl: 'http://vaultwarden.local' }]]),
-  });
-
-  assert.equal(available.state, 'available');
-  assert.equal(available.stateLabel, 'Available');
-  assert.equal(available.primaryAction, 'review_setup');
-  assert.equal(available.primaryActionLabel, 'Review setup');
-  assert.equal(installed.state, 'installed');
-  assert.equal(installed.stateLabel, 'Installed');
-  assert.equal(installed.primaryAction, 'manage');
-  assert.equal(installed.primaryActionLabel, 'Manage');
-});
-
-test('discoverAppCardView never labels non-owned resources as installed', () => {
-  const resource = (ownershipState, summary = 'A matching app exists on this server.') => ({
-    catalogAppId: 'jellyfin',
-    ownershipState,
-    summary,
-  });
-
-  assert.deepEqual(
-    [
-      discoverAppCardView(app({ id: 'jellyfin' }), {
-        foundResourcesByAppId: new Map([['jellyfin', resource('foreign_project_os')]]),
-        installedById: new Map(),
-      }),
-      discoverAppCardView(app({ id: 'jellyfin' }), {
-        foundResourcesByAppId: new Map([['jellyfin', resource('legacy_project_os')]]),
-        installedById: new Map(),
-      }),
-      discoverAppCardView(app({ id: 'jellyfin' }), {
-        foundResourcesByAppId: new Map([['jellyfin', resource('unknown_conflict')]]),
-        installedById: new Map(),
-      }),
-    ].map((view) => [view.state, view.stateLabel, view.primaryActionLabel]),
-    [
-      ['managed_elsewhere', 'Managed elsewhere', 'Resolve'],
-      ['found_on_server', 'Recoverable', 'Resolve'],
-      ['blocked', 'Blocked', 'Resolve'],
-    ],
-  );
 });
 
 test('starterCatalogForDiscover keeps the basic catalog focused on ready starter apps', () => {

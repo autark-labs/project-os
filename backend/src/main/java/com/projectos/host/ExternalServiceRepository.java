@@ -32,14 +32,15 @@ public class ExternalServiceRepository extends DatabaseBackedRepository {
     public void save(ExternalService service) {
         migrate();
         String sql = """
-                insert into external_services(id, name, url, category, access_scope, health_check_enabled, management_mode, created_at)
-                values(?, ?, ?, ?, ?, ?, ?, ?)
+                insert into external_services(id, name, url, category, access_scope, health_check_enabled, management_mode, catalog_app_id, created_at)
+                values(?, ?, ?, ?, ?, ?, ?, ?, ?)
                 on conflict(id) do update set
                     name = excluded.name,
                     url = excluded.url,
                     category = excluded.category,
                     access_scope = excluded.access_scope,
-                    health_check_enabled = excluded.health_check_enabled
+                    health_check_enabled = excluded.health_check_enabled,
+                    catalog_app_id = excluded.catalog_app_id
                 """;
         try (Connection connection = connection(); PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, service.id());
@@ -49,7 +50,8 @@ public class ExternalServiceRepository extends DatabaseBackedRepository {
             statement.setString(5, service.accessScope());
             statement.setInt(6, service.healthCheckEnabled() ? 1 : 0);
             statement.setString(7, service.managementMode());
-            statement.setString(8, service.createdAt().toString());
+            statement.setString(8, service.catalogAppId());
+            statement.setString(9, service.createdAt().toString());
             statement.executeUpdate();
         } catch (SQLException exception) {
             throw new InstallationException("Unable to save linked external service.", exception);
@@ -103,6 +105,7 @@ public class ExternalServiceRepository extends DatabaseBackedRepository {
                 resultSet.getString("access_scope"),
                 resultSet.getInt("health_check_enabled") == 1,
                 resultSet.getString("management_mode"),
+                resultSet.getString("catalog_app_id"),
                 Instant.parse(resultSet.getString("created_at")));
     }
 }

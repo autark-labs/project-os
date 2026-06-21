@@ -144,6 +144,7 @@ function ResolveExistingAppsPage() {
         category: 'External',
         accessScope: 'LAN',
         healthCheckEnabled: true,
+        catalogAppId: resource.catalogAppId || null,
       });
       showToast('success', 'Linked service added', `${service.name} will appear as a linked external service.`);
       setLinkedName('');

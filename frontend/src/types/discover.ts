@@ -1,4 +1,5 @@
-import type { HostInventoryResource } from './host';
+import type { ExternalService, HostInventoryResource } from './host';
+import type { AppOwnershipAction, AppOwnershipTone } from './appOwnership';
 import type { InstallOptions, InstallPlan, MarketplaceApp } from './marketplace';
 
 export type DiscoverSetupOption = {
@@ -45,14 +46,19 @@ export type DiscoverAppView = {
   serviceKindLabel: string;
   estimatedInstallTime: string;
   difficulty: string;
-  state: 'available' | 'installed' | 'found_on_server' | 'managed_elsewhere' | 'blocked' | 'coming_soon' | string;
+  state: 'available' | 'installed_managed' | 'linked_service' | 'found_on_server' | 'recoverable' | 'managed_elsewhere' | 'blocked' | 'coming_soon' | string;
   stateLabel: string;
   stateDescription: string;
-  primaryAction: 'review_setup' | 'manage' | 'resolve' | 'unavailable' | string;
-  primaryActionLabel: string;
+  statusTone: AppOwnershipTone;
+  ownedByCurrentInstance: boolean;
+  installCopyWarningRequired: boolean;
+  reviewExistingHref: string | null;
+  primaryAction: AppOwnershipAction;
+  availableActions: AppOwnershipAction[];
   installed: boolean;
   installedApp: DiscoverInstalledAppSummary | null;
   foundResource: HostInventoryResource | null;
+  linkedService: ExternalService | null;
   setupSchema: DiscoverSetupSchema;
 };
 

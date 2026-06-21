@@ -10,5 +10,6 @@ public record ExternalService(
         String accessScope,
         boolean healthCheckEnabled,
         String managementMode,
+        String catalogAppId,
         Instant createdAt) {
 }

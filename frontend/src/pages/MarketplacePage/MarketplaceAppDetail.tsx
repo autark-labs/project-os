@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,16 +17,17 @@ import {
 import { backupSafetyWarning } from '@/lib/backupSafety';
 import { poButtonClass } from '@/lib/projectOsStyleKit';
 import { cn } from '@/lib/utils';
-import type { DiscoverInstalledAppSummary, DiscoverInstallPreview, DiscoverSetupSchema } from '@/types/discover';
-import type { HostInventoryResource } from '@/types/host';
+import type { DiscoverAppView, DiscoverInstalledAppSummary, DiscoverInstallPreview, DiscoverSetupSchema } from '@/types/discover';
 import type { ProjectOsJob } from '@/types/jobs';
 import type { InstallOptions, InstallPlan, InstallResult, MarketplaceApp } from '@/types/marketplace';
 import { InstallWizard, TechnicalPlanCard } from './MarketplaceInstallWizard';
 import { AppImage, InfoCard, Stat, SupportBadge } from './MarketplacePage.shared';
 import { InstallPlanPreview, MarketplaceSetupPanel } from './MarketplaceSetupPanel';
+import { DuplicateInstallWarningDialog } from './DuplicateInstallWarningDialog';
 
 type AppDetailProps = {
   app: MarketplaceApp;
+  appView: DiscoverAppView;
   backupJob: ProjectOsJob | null;
   installJob: ProjectOsJob | null;
   installOptions: InstallOptions;
@@ -37,7 +38,6 @@ type AppDetailProps = {
   installing: boolean;
   installedApp: DiscoverInstalledAppSummary | null;
   installPreview: DiscoverInstallPreview | null;
-  foundResource?: HostInventoryResource | null;
   onBack: () => void;
   onCreateBackup: (appId: string) => Promise<void>;
   onInstall: (options: InstallOptions) => Promise<void>;
@@ -51,21 +51,21 @@ type AppDetailProps = {
   setupSchema: DiscoverSetupSchema;
 };
 
-export function MarketplaceAppDetail({ app, backupJob, foundResource = null, installJob, installedApp, installLocked, installOptions, installPlan, installPreview, installResult, installStatusMessage, installing, onBack, onCreateBackup, onInstall, onReinstallCurrent, onRequestPlan, onSetupAnswersChange, planLoading, recoveryMode, setupAnswers, setupReady, setupSchema }: AppDetailProps) {
-  const [conflictOpen, setConflictOpen] = useState(false);
+export function MarketplaceAppDetail({ app, appView, backupJob, installJob, installedApp, installLocked, installOptions, installPlan, installPreview, installResult, installStatusMessage, installing, onBack, onCreateBackup, onInstall, onReinstallCurrent, onRequestPlan, onSetupAnswersChange, planLoading, recoveryMode, setupAnswers, setupReady, setupSchema }: AppDetailProps) {
+  const [duplicateWarningOpen, setDuplicateWarningOpen] = useState(false);
   const [installReviewOpen, setInstallReviewOpen] = useState(false);
   const [technicalValidationOpen, setTechnicalValidationOpen] = useState(false);
   const isInstalled = Boolean(installedApp);
-  const installBlockedByFoundResource = Boolean(foundResource && !isInstalled);
+  const needsExistingServiceReview = !isInstalled && appView.installCopyWarningRequired;
   const showFreshInstallResult = installResult?.appId === app.id && (installResult.status === 'installed' || installResult.status === 'already_installed');
 
   function openInstallReview() {
-    if (installBlockedByFoundResource) {
-      setConflictOpen(true);
-      return;
-    }
     setInstallReviewOpen(true);
     void onRequestPlan(installOptions);
+  }
+
+  function openDuplicateWarning() {
+    setDuplicateWarningOpen(true);
   }
 
   return (
@@ -81,8 +81,7 @@ export function MarketplaceAppDetail({ app, backupJob, foundResource = null, ins
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2.5">
               <h3 className="text-2xl font-bold text-white">{app.name}</h3>
-              {isInstalled && <Badge className="border-emerald-300/25 bg-emerald-500/10 text-emerald-100" variant="outline">Installed</Badge>}
-              {installBlockedByFoundResource && <Badge className="border-amber-300/25 bg-amber-500/10 text-amber-100" variant="outline">{foundResourceLabel(foundResource)}</Badge>}
+              <Badge className={stateBadgeClass(appView.statusTone)} variant="outline">{appView.stateLabel}</Badge>
               <SupportBadge level={app.supportLevel} />
             </div>
             <p className="mt-2 text-sm text-slate-300">{app.description}</p>
@@ -118,13 +117,32 @@ export function MarketplaceAppDetail({ app, backupJob, foundResource = null, ins
                 View in My Apps
               </Link>
             </Button>
+          ) : needsExistingServiceReview ? (
+            <>
+              {appView.reviewExistingHref ? (
+                <Button asChild className="bg-amber-500 text-slate-950 hover:bg-amber-400">
+                  <Link to={appView.reviewExistingHref}>
+                    <TriangleAlert className="size-4" />
+                    Review existing service
+                  </Link>
+                </Button>
+              ) : (
+                <Button className="bg-amber-500 text-slate-950" disabled type="button">
+                  <TriangleAlert className="size-4" />
+                  Review existing service
+                </Button>
+              )}
+              <Button className={poButtonClass('quiet')} disabled={installing || installLocked || !setupReady} onClick={openDuplicateWarning} type="button" variant="outline">
+                Install second copy
+              </Button>
+            </>
           ) : (
-            <Button className={poButtonClass('primary')} disabled={installing || installLocked} onClick={openInstallReview} type="button">
+            <Button className={poButtonClass('primary')} disabled={installing || installLocked || !setupReady} onClick={openInstallReview} type="button">
               {installing ? <Loader2 className="size-4 animate-spin" /> : installResult?.status === 'installed' ? <CheckCircle2 className="size-4" /> : null}
-              {installing ? 'Installing...' : installLocked ? 'Install blocked' : installBlockedByFoundResource ? 'Resolve conflict' : !setupReady ? 'Finish setup' : installResult?.status === 'installed' ? 'Installed' : requiresInstallCaution(app) ? 'Review install' : 'Review install'}
+              {installing ? 'Installing...' : installLocked ? 'Install blocked' : !setupReady ? 'Finish setup' : installResult?.status === 'installed' ? 'Installed' : requiresInstallCaution(app) ? 'Review install' : 'Review install'}
             </Button>
           )}
-          {!isInstalled && !installBlockedByFoundResource && <InstallWizard app={app} installLocked={installLocked || !setupReady} installOptions={installOptions} installPlan={installPlan} installPreview={installPreview} installResult={installResult} installStatusMessage={!setupReady ? 'Finish the required setup choices before installing.' : installStatusMessage} installing={installing} onInstall={onInstall} onOpenChange={setInstallReviewOpen} onRequestPlan={onRequestPlan} open={installReviewOpen} planLoading={planLoading} setupAnswers={setupAnswers} setupSchema={setupSchema} triggerLabel="Customize" />}
+          {!isInstalled && <InstallWizard app={app} hideTrigger={needsExistingServiceReview} installLocked={installLocked || !setupReady} installOptions={installOptions} installPlan={installPlan} installPreview={installPreview} installResult={installResult} installStatusMessage={!setupReady ? 'Finish the required setup choices before installing.' : installStatusMessage} installing={installing} onInstall={onInstall} onOpenChange={setInstallReviewOpen} onRequestPlan={onRequestPlan} open={installReviewOpen} planLoading={planLoading} setupAnswers={setupAnswers} setupSchema={setupSchema} triggerLabel="Customize" />}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button className={poButtonClass('quiet')} type="button" variant="outline">
@@ -186,8 +204,8 @@ export function MarketplaceAppDetail({ app, backupJob, foundResource = null, ins
         </div>
 
         {installLocked && <InstallBlockedNotice message={installStatusMessage} />}
-        {installBlockedByFoundResource && <FoundResourceNotice resource={foundResource} />}
-        {foundResource && <FoundResourceConflictDialog appName={app.name} open={conflictOpen} resource={foundResource} onOpenChange={setConflictOpen} />}
+        {needsExistingServiceReview && <ExistingServiceNotice appView={appView} />}
+        <DuplicateInstallWarningDialog appName={app.name} onInstallCopy={openInstallReview} onOpenChange={setDuplicateWarningOpen} open={duplicateWarningOpen} reviewHref={appView.reviewExistingHref} />
         <TechnicalValidationDialog app={app} installPlan={installPlan} open={technicalValidationOpen} onOpenChange={setTechnicalValidationOpen} />
         {isInstalled && !showFreshInstallResult && <InstalledAppNotice app={installedApp} />}
         {isInstalled && recoveryMode && recoveryMode !== 'reset-reinstall' && (
@@ -238,83 +256,32 @@ export function MarketplaceAppDetail({ app, backupJob, foundResource = null, ins
   );
 }
 
-function FoundResourceNotice({ resource }: { resource: HostInventoryResource | null }) {
-  if (!resource) {
-    return null;
-  }
+function ExistingServiceNotice({ appView }: { appView: DiscoverAppView }) {
   return (
     <section className="rounded-lg border border-amber-300/25 bg-amber-500/10 p-4 text-sm text-amber-100">
       <div className="flex items-start gap-3">
         <TriangleAlert className="mt-0.5 size-5 shrink-0 text-amber-200" />
         <div>
-          <h4 className="font-bold text-white">{foundResourceLabel(resource)}</h4>
-          <p className="mt-1 leading-6 text-amber-100/80">{resource.summary}</p>
-          <Button asChild className="mt-3" size="sm" variant="outline">
-            <Link to={`/apps/found?resource=${encodeURIComponent(resource.id)}`}>Resolve existing app</Link>
-          </Button>
+          <h4 className="font-bold text-white">{appView.stateLabel}</h4>
+          <p className="mt-1 leading-6 text-amber-100/80">{appView.stateDescription}</p>
+          <p className="mt-2 leading-6 text-amber-100/80">Reviewing the existing service is recommended before creating another copy.</p>
+          {appView.reviewExistingHref && (
+            <Button asChild className="mt-3" size="sm" variant="outline">
+              <Link to={appView.reviewExistingHref}>Review existing service</Link>
+            </Button>
+          )}
         </div>
       </div>
     </section>
   );
 }
 
-function FoundResourceConflictDialog({
-  appName,
-  onOpenChange,
-  open,
-  resource,
-}: {
-  appName: string;
-  onOpenChange: (open: boolean) => void;
-  open: boolean;
-  resource: HostInventoryResource;
-}) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-slate-700 bg-slate-950 text-slate-100 sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{appName} already exists on this server</DialogTitle>
-          <DialogDescription className="text-slate-400">
-            Project OS found a matching resource before starting a new install. Resolve it first to avoid duplicate containers, duplicate ports, or split app data.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-3 text-sm">
-          <div className="rounded-lg border border-amber-300/25 bg-amber-500/10 p-3 text-amber-100">
-            <p className="m-0 font-bold text-white">{foundResourceLabel(resource)}</p>
-            <p className="m-0 mt-1 leading-6 text-amber-100/80">{resource.summary}</p>
-          </div>
-          <div className="grid gap-2 rounded-lg border border-slate-800 bg-slate-900/50 p-3">
-            <p className="m-0 font-semibold text-white">Recommended next step</p>
-            <p className="m-0 text-slate-400">{conflictRecommendation(resource)}</p>
-          </div>
-        </div>
-        <DialogFooter className="border-slate-800 bg-slate-900/60">
-          <Button onClick={() => onOpenChange(false)} type="button" variant="outline">Cancel</Button>
-          <Button asChild>
-            <Link to={`/apps/found?resource=${encodeURIComponent(resource.id)}`}>Resolve existing app</Link>
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function foundResourceLabel(resource: HostInventoryResource | null) {
-  if (!resource) return 'Found on server';
-  if (resource.ownershipState === 'foreign_project_os') return 'Owned by another Project OS';
-  if (resource.ownershipState === 'legacy_project_os') return 'Recoverable existing app';
-  if (resource.ownershipState === 'unknown_conflict') return 'Blocked by server conflict';
-  return 'Found on server';
-}
-
-function conflictRecommendation(resource: HostInventoryResource) {
-  if (resource.ownershipState === 'legacy_project_os') {
-    return 'Recover the existing app into this Project OS installation if it is the app you want to keep.';
-  }
-  if (resource.ownershipState === 'foreign_project_os') {
-    return 'Review the cleanup plan before removing the old container. Data deletion stays separate.';
-  }
-  return 'Open the found resource, add it as a linked service, ignore the prompt, or stop it manually before installing a managed copy.';
+function stateBadgeClass(tone: string) {
+  if (tone === 'success') return 'border-emerald-300/25 bg-emerald-500/10 text-emerald-100';
+  if (tone === 'warning') return 'border-amber-300/25 bg-amber-500/10 text-amber-100';
+  if (tone === 'danger') return 'border-red-300/25 bg-red-500/10 text-red-100';
+  if (tone === 'info') return 'border-sky-300/25 bg-sky-500/10 text-sky-100';
+  return 'border-slate-600 bg-slate-800/60 text-slate-300';
 }
 
 function InstallBlockedNotice({ message }: { message: string }) {

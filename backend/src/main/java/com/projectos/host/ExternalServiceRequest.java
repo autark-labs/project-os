@@ -5,5 +5,6 @@ public record ExternalServiceRequest(
         String url,
         String category,
         String accessScope,
-        boolean healthCheckEnabled) {
+        boolean healthCheckEnabled,
+        String catalogAppId) {
 }

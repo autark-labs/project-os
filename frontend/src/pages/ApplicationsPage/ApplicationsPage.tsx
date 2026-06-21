@@ -5,13 +5,13 @@ import { RefreshStatus } from '@/components/RefreshStatus';
 import { PageErrorState, PageLoadingState } from '@/components/project-os/PageState';
 import { PageShell } from '@/components/project-os/ProjectOSComponents';
 import { Button } from '@/components/ui/button';
-import { FoundResourcesBanner } from '@/components/project-os/FoundResourcesBanner';
-import { ExternalServiceAPIClient } from '@/api/ExternalServiceAPIClient';
-import { HostInventoryAPIClient } from '@/api/HostInventoryAPIClient';
+import { AppOwnershipAPIClient } from '@/api/AppOwnershipAPIClient';
 import { InstalledAppsAPIClient } from '@/api/InstalledAppsAPIClient';
 import { NetworkAPIClient } from '@/api/NetworkAPIClient';
+import { ExternalServiceAPIClient } from '@/api/ExternalServiceAPIClient';
+import { HostInventoryAPIClient } from '@/api/HostInventoryAPIClient';
 import type { AppAccessCheck, AppActionResult, AppHealthSnapshot, AppInstanceView, AppRuntimeView, AppTelemetry, AppUpdateResult, AppUpdateStatus, InstallSettings } from '@/types/app';
-import type { ExternalService, HostInventoryResource } from '@/types/host';
+import type { AppOwnershipView } from '@/types/appOwnership';
 import type { PrivateAccessReconciliationReport } from '@/types/network';
 import { ApplicationsDashboard, EmptyState } from './ApplicationsDashboard';
 import { ManageAppDialog } from './ApplicationsPageModal';
@@ -21,6 +21,7 @@ import {
   displayStatus,
   errorMessage,
 } from './extensions/ApplicationsPage.logic';
+import { splitOwnershipViews } from './extensions/ApplicationsPage.ownershipModel';
 import type { AppAction } from './extensions/ApplicationsPage.types';
 
 function ApplicationsPage() {
@@ -36,8 +37,7 @@ function ApplicationsPage() {
   const [accessByAppId, setAccessByAppId] = useState<Record<string, AppAccessCheck>>({});
   const [healthByAppId, setHealthByAppId] = useState<Record<string, AppHealthSnapshot>>({});
   const [updates, setUpdates] = useState<AppUpdateStatus[]>([]);
-  const [hostInventory, setHostInventory] = useState<HostInventoryResource[]>([]);
-  const [linkedServices, setLinkedServices] = useState<ExternalService[]>([]);
+  const [ownershipViews, setOwnershipViews] = useState<AppOwnershipView[]>([]);
   const [reconciliation, setReconciliation] = useState<PrivateAccessReconciliationReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionResult, setActionResult] = useState<AppActionResult | null>(null);
@@ -65,6 +65,7 @@ function ApplicationsPage() {
     unhealthy: apps.filter((app) => appNeedsAttention(app, telemetryByAppId[app.appId], accessByAppId[app.appId], healthByAppId[app.appId] || app.healthSnapshot)).length,
   }), [accessByAppId, apps, healthByAppId, telemetryByAppId]);
   const updatesByAppId = useMemo(() => Object.fromEntries(updates.map((update) => [update.appId, update])), [updates]);
+  const ownershipSplit = useMemo(() => splitOwnershipViews(ownershipViews), [ownershipViews]);
 
   const loadApps = useCallback(async ({ background = false, showRefreshing = false }: { background?: boolean; showRefreshing?: boolean } = {}) => {
     if (refreshInFlight.current) {
@@ -81,12 +82,7 @@ function ApplicationsPage() {
     try {
       const data = await InstalledAppsAPIClient.listAppInstances();
       setApps(data.map(appInstanceToRuntimeView));
-      const [inventory, externalServices] = await Promise.all([
-        HostInventoryAPIClient.list(false),
-        ExternalServiceAPIClient.list().catch(() => []),
-      ]);
-      setHostInventory(inventory);
-      setLinkedServices(externalServices);
+      setOwnershipViews(await AppOwnershipAPIClient.list());
       setUpdatedAt(new Date());
       setSelectedId((current) => current && !data.some((app) => app.catalogAppId === current) ? null : current);
     } catch (err) {
@@ -295,6 +291,28 @@ function ApplicationsPage() {
     return data;
   }
 
+  async function removeLinkedService(id: string) {
+    setError(null);
+    try {
+      const result = await ExternalServiceAPIClient.remove(id);
+      setActionResult({ message: result.message || result.title });
+      await loadApps({ background: true });
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  }
+
+  async function ignoreFoundResource(resourceId: string) {
+    setError(null);
+    try {
+      const result = await HostInventoryAPIClient.ignore(resourceId);
+      setActionResult({ message: result.message || result.title });
+      await loadApps({ background: true });
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  }
+
   return (
     <PageShell>
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -312,8 +330,6 @@ function ApplicationsPage() {
 
       {error && <PageErrorState message={error} onRetry={() => loadApps({ background: apps.length > 0, showRefreshing: true })} />}
 
-      <FoundResourcesBanner resources={hostInventory} />
-
       {actionResult && (
         <div className="flex items-center gap-3 rounded-lg border border-emerald-400/25 bg-emerald-500/10 p-4 text-sm text-emerald-100">
           <CheckCircle2 className="size-4" />
@@ -330,7 +346,7 @@ function ApplicationsPage() {
 
       {loading ? (
         <PageLoadingState label="Loading your apps" sublabel="Checking installed apps, health, private access, and available actions." />
-      ) : apps.length === 0 && linkedServices.length === 0 ? (
+      ) : apps.length === 0 && ownershipSplit.existing.length === 0 ? (
         <EmptyState />
       ) : (
         <ApplicationsDashboard
@@ -348,7 +364,9 @@ function ApplicationsPage() {
           selectedId={selectedId}
           summary={appSummary}
           healthByAppId={healthByAppId}
-          linkedServices={linkedServices}
+          existingServices={ownershipSplit.existing as AppOwnershipView[]}
+          onIgnoreFoundResource={ignoreFoundResource}
+          onRemoveLinkedService={removeLinkedService}
           reconciliation={reconciliation}
           telemetryByAppId={telemetryByAppId}
           updatesByAppId={updatesByAppId}

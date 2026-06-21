@@ -137,7 +137,11 @@ public class HostResourceActionService {
         String displayName = catalogName(resource).orElse(resourceDisplayName(resource));
         List<String> blockedReasons = new ArrayList<>();
         if (!"legacy_project_os".equals(resource.ownershipState())) {
-            blockedReasons.add("Only legacy Project OS resources can be recovered into this installation.");
+            if ("external_docker".equals(resource.ownershipState())) {
+                blockedReasons.add("Project OS can link this service or install a managed copy, but guided adoption for unmanaged Docker containers is not available yet.");
+            } else {
+                blockedReasons.add("Only legacy Project OS resources can be recovered into this installation.");
+            }
         }
         if (resource.catalogAppId() == null || resource.catalogAppId().isBlank()) {
             blockedReasons.add("This resource does not identify a catalog app.");

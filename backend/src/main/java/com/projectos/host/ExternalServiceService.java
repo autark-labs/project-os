@@ -37,6 +37,7 @@ public class ExternalServiceService {
                 cleanOrDefault(request.accessScope(), "LAN"),
                 request.healthCheckEnabled(),
                 "linked",
+                cleanToNull(request.catalogAppId()),
                 Instant.now());
         repository.save(service);
         return service;
@@ -62,5 +63,10 @@ public class ExternalServiceService {
 
     private String clean(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private String cleanToNull(String value) {
+        String cleaned = clean(value);
+        return cleaned.isBlank() ? null : cleaned;
     }
 }

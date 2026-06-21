@@ -18,6 +18,30 @@ export function marketplaceVisibleApps({
 }
 
 /**
+ * @param {{ views?: Array<{ app: unknown; state?: string }>; hideInstalled?: boolean; searchQuery?: string; selectedCategory?: string; sortBy?: string }} params
+ */
+export function marketplaceVisibleAppViews({
+  views = [],
+  hideInstalled = false,
+  searchQuery = '',
+  selectedCategory = 'All',
+  sortBy = 'Recommended',
+} = {}) {
+  const appOrder = new Map(marketplaceVisibleApps({
+    apps: views.map((view) => view.app),
+    hideInstalled: false,
+    searchQuery,
+    selectedCategory,
+    sortBy,
+  }).map((app, index) => [app.id, index]));
+
+  return views
+    .filter((view) => appOrder.has(view.app.id))
+    .filter((view) => !hideInstalled || view.state !== 'installed_managed')
+    .sort((left, right) => (appOrder.get(left.app.id) ?? 0) - (appOrder.get(right.app.id) ?? 0));
+}
+
+/**
  * @param {unknown[]} apps
  * @param {string[]} recommendedApps
  * @param {Map<string, unknown>} installedById
@@ -57,113 +81,6 @@ export function shouldShowStartHereSection(recommendations, dismissed) {
     return false;
   }
   return recommendations.some((recommendation) => !recommendation.installed);
-}
-
-export function discoverAppCardView(app, { foundResourcesByAppId = new Map(), installedById = new Map() } = {}) {
-  const installedApp = installedById.get(app.id) ?? null;
-  const foundResource = foundResourcesByAppId.get(app.id) ?? null;
-  const state = discoverAppState(app, installedApp, foundResource);
-  const stateLabel = discoverAppStateLabel(state, foundResource);
-  const primaryAction = discoverAppPrimaryAction(state);
-  return {
-    id: app.id,
-    app,
-    name: app.name,
-    image: app.image,
-    summary: app.shortValue || app.plainLanguage || app.description,
-    description: app.plainLanguage || app.description,
-    categoryLabel: app.category,
-    serviceKindLabel: serviceKindLabel(app.usage?.kind || ''),
-    estimatedInstallTime: app.installTime,
-    difficulty: app.difficulty,
-    state,
-    stateLabel,
-    stateDescription: discoverAppStateDescription(state, foundResource),
-    primaryAction,
-    primaryActionLabel: discoverAppPrimaryActionLabel(primaryAction),
-    installed: Boolean(installedApp),
-    installedApp,
-    foundResource,
-  };
-}
-
-function discoverAppState(app, installedApp, foundResource) {
-  if (installedApp) {
-    return 'installed';
-  }
-  if (foundResource?.ownershipState === 'unknown_conflict') {
-    return 'blocked';
-  }
-  if (foundResource?.ownershipState === 'foreign_project_os') {
-    return 'managed_elsewhere';
-  }
-  if (foundResource) {
-    return 'found_on_server';
-  }
-  if (app.installable === false || app.state === 'coming_soon') {
-    return 'coming_soon';
-  }
-  return 'available';
-}
-
-function discoverAppStateLabel(state, foundResource) {
-  switch (state) {
-    case 'installed':
-      return 'Installed';
-    case 'found_on_server':
-      return foundResource?.ownershipState === 'legacy_project_os' ? 'Recoverable' : 'Found on server';
-    case 'managed_elsewhere':
-      return 'Managed elsewhere';
-    case 'blocked':
-      return 'Blocked';
-    case 'coming_soon':
-      return 'Coming soon';
-    default:
-      return 'Available';
-  }
-}
-
-function discoverAppStateDescription(state, foundResource) {
-  switch (state) {
-    case 'installed':
-      return 'Managed by this Project OS installation.';
-    case 'found_on_server':
-    case 'managed_elsewhere':
-    case 'blocked':
-      return foundResource?.summary || 'Project OS found a matching app on this server.';
-    case 'coming_soon':
-      return 'This catalog entry is not installable yet.';
-    default:
-      return 'Ready to review before install.';
-  }
-}
-
-function discoverAppPrimaryAction(state) {
-  switch (state) {
-    case 'installed':
-      return 'manage';
-    case 'found_on_server':
-    case 'managed_elsewhere':
-    case 'blocked':
-      return 'resolve';
-    case 'coming_soon':
-      return 'unavailable';
-    default:
-      return 'review_setup';
-  }
-}
-
-function discoverAppPrimaryActionLabel(action) {
-  switch (action) {
-    case 'manage':
-      return 'Manage';
-    case 'resolve':
-      return 'Resolve';
-    case 'unavailable':
-      return 'Unavailable';
-    default:
-      return 'Review setup';
-  }
 }
 
 export function starterCatalogForDiscover(apps) {
@@ -218,17 +135,6 @@ export function marketplaceAppMatchesSearch(app, searchQuery) {
     ...app.bestFor,
     ...app.highlights,
   ].some((value) => value.toLowerCase().includes(query));
-}
-
-function serviceKindLabel(kind) {
-  const labels = {
-    'web-app': 'App',
-    'companion-service': 'Connect service',
-    'admin-service': 'Setup tool',
-    'background-service': 'Background',
-    infrastructure: 'Infrastructure',
-  };
-  return labels[kind] || kind.replaceAll('-', ' ');
 }
 
 export function sortMarketplaceApps(apps, sortBy) {

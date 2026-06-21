@@ -67,6 +67,7 @@ export type ExternalService = {
   accessScope: string;
   healthCheckEnabled: boolean;
   managementMode: 'linked' | string;
+  catalogAppId: string | null;
   createdAt: string;
 };
 
@@ -76,4 +77,5 @@ export type ExternalServiceRequest = {
   category: string;
   accessScope: string;
   healthCheckEnabled: boolean;
+  catalogAppId?: string | null;
 };
