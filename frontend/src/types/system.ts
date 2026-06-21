@@ -123,9 +123,39 @@ export type SystemSetupStatus = {
   backendContextPath: string;
   dockerVersion: string;
   tailscaleVersion: string;
+  instanceId: string;
+  instanceSlug: string;
+  existingInstall: SystemSetupExistingInstallReport;
   installCommand: string;
   checks: SystemSetupCheck[];
   checkedAt: string;
+};
+
+export type SystemSetupExistingInstallReport = {
+  conflict: boolean;
+  developmentInstanceAllowed: boolean;
+  severity: 'ok' | 'info' | 'warning' | 'error' | string;
+  headline: string;
+  summary: string;
+  resources: SystemSetupExistingInstallResource[];
+  actions: SystemSetupAction[];
+};
+
+export type SystemSetupExistingInstallResource = {
+  id: string;
+  label: string;
+  kind: string;
+  ownershipState: string;
+  ownerInstanceId: string;
+  summary: string;
+  route: string;
+};
+
+export type SystemSetupAction = {
+  id: string;
+  label: string;
+  route: string;
+  style: 'primary' | 'secondary' | string;
 };
 
 export type SystemDoctorStatus = {

@@ -8,7 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
-import type { OnboardingState } from '@/types/system';
+import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
+import type { OnboardingState, SystemSetupStatus } from '@/types/system';
+import { Link } from 'react-router-dom';
 
 type OnboardingWizardProps = {
   onComplete: () => void;
@@ -24,7 +26,9 @@ const starterApps = [
 ];
 
 function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
+  const { showAdvancedMetrics } = useProjectSettings();
   const [state, setState] = useState<OnboardingState | null>(null);
+  const [setupStatus, setSetupStatus] = useState<SystemSetupStatus | null>(null);
   const [deviceName, setDeviceName] = useState('Project OS');
   const [automaticBackups, setAutomaticBackups] = useState(true);
   const [backupPosture, setBackupPosture] = useState<BackupPosture>('routine');
@@ -37,11 +41,12 @@ function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
   useEffect(() => {
     let mounted = true;
-    SystemAPIClient.onboarding()
-      .then((next) => {
+    Promise.all([SystemAPIClient.onboarding(), SystemAPIClient.setupStatus()])
+      .then(([next, setup]) => {
         if (!mounted) {
           return;
         }
+        setSetupStatus(setup);
         setState(next);
         setDeviceName(next.deviceName || 'Project OS');
         setAutomaticBackups(next.automaticBackupsEnabled);
@@ -121,6 +126,8 @@ function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const tailscaleCheck = checks.find((check) => check.id === 'tailscale');
   const operatorCheck = checks.find((check) => check.id === 'tailscale-operator');
   const canFinish = readiness.canCompleteOnboarding && (!readiness.finishAnywayRequiresAdvanced || advancedFinish);
+  const existingInstall = setupStatus?.existingInstall;
+  const showExistingInstallWarning = Boolean(existingInstall?.conflict || (setupStatus?.devMode && existingInstall?.resources?.length));
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(124,58,237,0.26),transparent_34%),linear-gradient(135deg,#020617,#0f172a)] p-4 text-slate-100 md:p-8">
@@ -134,6 +141,48 @@ function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="grid gap-5">
+            {showExistingInstallWarning && (
+              <WizardCard
+                icon={AlertTriangle}
+                title={existingInstall?.headline || 'Existing Project OS install found'}
+                text={existingInstall?.summary || 'Review apps found on this server before continuing setup.'}
+              >
+                <div className={`rounded-lg border p-4 text-sm ${existingInstall?.conflict ? 'border-amber-300/25 bg-amber-500/10 text-amber-100' : 'border-sky-300/25 bg-sky-500/10 text-sky-100'}`}>
+                  <p className="font-semibold text-white">{existingInstall?.resources?.length || 0} item{existingInstall?.resources?.length === 1 ? '' : 's'} found on this server</p>
+                  <p className="mt-1 opacity-85">
+                    {existingInstall?.conflict
+                      ? 'Recover or review these apps before creating another production instance.'
+                      : `Development mode is using the isolated instance ${setupStatus?.instanceSlug || 'project-os-dev'}.`}
+                  </p>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button asChild className="bg-violet-600 text-white hover:bg-violet-500">
+                    <Link to="/resolve-existing-apps">Recover existing apps</Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link to="/home">Abort setup</Link>
+                  </Button>
+                  {setupStatus?.devMode && showAdvancedMetrics && (
+                    <Badge className="border-sky-300/25 bg-sky-500/10 px-3 py-2 text-sky-100" variant="outline">Separate development instance allowed</Badge>
+                  )}
+                </div>
+                {showAdvancedMetrics && Boolean(existingInstall?.resources?.length) && (
+                  <details className="mt-3 rounded-lg border border-white/10 bg-slate-950/55 p-4 text-sm text-slate-300">
+                    <summary className="cursor-pointer font-semibold text-white">Advanced found-app details</summary>
+                    <div className="mt-3 grid gap-2">
+                      {existingInstall?.resources.map((resource) => (
+                        <div className="rounded-lg border border-white/10 bg-slate-950/55 p-3" key={resource.id}>
+                          <p className="font-semibold text-white">{resource.label}</p>
+                          <p className="mt-1 text-slate-400">{resource.summary}</p>
+                          <p className="mt-1 text-xs text-slate-500">Owner: {resource.ownerInstanceId || 'Unknown'}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+              </WizardCard>
+            )}
+
             <WizardCard icon={ServerCog} title="Name this device" text="This name appears in Project OS and helps identify the box on your network.">
               <Input className="max-w-md border-slate-700 bg-slate-950/70 text-white" onChange={(event) => setDeviceName(event.target.value)} value={deviceName} />
             </WizardCard>

@@ -116,6 +116,9 @@ class SystemDoctorServiceTests {
                     "/",
                     "not installed",
                     "not installed",
+                    "current-instance",
+                    "homelab-box",
+                    new com.projectos.system.api.SystemSetupExistingInstallReport(false, false, "ok", "No existing Project OS install found", "No existing Project OS install found.", java.util.List.of(), java.util.List.of()),
                     "sudo install-project-os-service.sh",
                     checks,
                     java.time.Instant.now());

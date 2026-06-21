@@ -1,33 +1,50 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { AlertTriangle, ClipboardList, Copy, FileText, LifeBuoy, LockKeyhole, RefreshCw, ShieldCheck, TerminalSquare, Tags } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { AlertTriangle, ClipboardList, Copy, FileText, LifeBuoy, ListChecks, LockKeyhole, RefreshCw, Server, ShieldCheck, TerminalSquare } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { PageErrorState, PageLoadingState } from '@/components/project-os/PageState';
-import { PageShell, SurfaceFrame, SurfacePanel } from '@/components/project-os/ProjectOSComponents';
+import { Link } from 'react-router-dom';
+import { HostInventoryAPIClient } from '@/api/HostInventoryAPIClient';
 import { SystemAPIClient } from '@/api/SystemAPIClient';
 import { apiErrorMessage } from '@/api/httpClient';
+import { PageErrorState, PageLoadingState } from '@/components/project-os/PageState';
+import { PageShell, SurfaceFrame, SurfaceInset, SurfacePanel } from '@/components/project-os/ProjectOSComponents';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
 import { cn } from '@/lib/utils';
-import type { SupportBundle, SupportLogLine, SupportSummary, SystemDoctorStatus } from '@/types/system';
-import { BasicSupportCard, CommandCard, FindingCard, InfoLine, LogLine, RedactionRuleCard, RelatedLink, SectionHeader, SignalCard, statusIcon, statusTone } from './SupportPage.components';
+import { notify } from '@/lib/notifications';
+import type { HostInventoryResource } from '@/types/host';
+import type { SupportBundle, SupportLogLine, SupportSummary, SystemDoctorStatus, SystemSetupStatus } from '@/types/system';
+import { diagnosticsHeadline, diagnosticsSummaryRows, productionConflictSummary } from './SupportPage.diagnosticsModel';
 import { formatDate, humanize, shortSha, summaryFromBundle } from './SupportPage.logic';
+import { FindingCard, InfoLine, LogLine, RedactionRuleCard, RelatedLink, SectionHeader } from './SupportPage.components';
 
 type SupportState = {
   bundle: SupportBundle | null;
   doctor: SystemDoctorStatus | null;
+  hostInventory: HostInventoryResource[];
   logs: SupportLogLine[];
+  setup: SystemSetupStatus | null;
   summary: SupportSummary | null;
+};
+
+const initialState: SupportState = {
+  bundle: null,
+  doctor: null,
+  hostInventory: [],
+  logs: [],
+  setup: null,
+  summary: null,
 };
 
 function SupportPage() {
   const { showAdvancedMetrics } = useProjectSettings();
-  const [state, setState] = useState<SupportState>({ bundle: null, doctor: null, logs: [], summary: null });
+  const [state, setState] = useState<SupportState>(initialState);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [bundleBusy, setBundleBusy] = useState(false);
+  const [logsOpen, setLogsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState<string | null>(null);
 
   async function load(background = false) {
     if (background) {
@@ -37,23 +54,21 @@ function SupportPage() {
     }
     setError(null);
     try {
-      if (showAdvancedMetrics) {
-        const [logs, bundle, doctor] = await Promise.all([
-          SystemAPIClient.supportLogs(160),
-          SystemAPIClient.supportBundle(),
-          SystemAPIClient.doctor(),
-        ]);
-        setState({ bundle, doctor, logs, summary: summaryFromBundle(bundle) });
-      } else {
-        const [summary, logs, doctor] = await Promise.all([
-          SystemAPIClient.supportSummary(),
-          SystemAPIClient.supportLogs(80),
-          SystemAPIClient.doctor(),
-        ]);
-        setState({ bundle: null, doctor, logs, summary });
+      const [summary, doctor, setup, logs, hostInventory] = await Promise.all([
+        SystemAPIClient.supportSummary(),
+        SystemAPIClient.doctor(),
+        SystemAPIClient.setupStatus(),
+        SystemAPIClient.supportLogs(showAdvancedMetrics ? 160 : 50),
+        HostInventoryAPIClient.list(true),
+      ]);
+      setState((current) => ({ ...current, doctor, hostInventory, logs, setup, summary }));
+      if (background) {
+        notify({ severity: doctor.status === 'needs_attention' ? 'warning' : 'success', title: doctor.headline, message: doctor.summary });
       }
     } catch (err) {
-      setError(apiErrorMessage(err, 'Support data could not be loaded.'));
+      const message = apiErrorMessage(err, 'Diagnostics could not be loaded.');
+      setError(message);
+      notify({ severity: 'error', title: 'Diagnostics failed', message, sticky: true });
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -64,22 +79,44 @@ function SupportPage() {
     void load();
   }, [showAdvancedMetrics]);
 
-  async function copy(value: string, id: string) {
-    await navigator.clipboard.writeText(value);
-    setCopied(id);
-    window.setTimeout(() => setCopied(null), 1600);
+  async function generateBundle() {
+    setBundleBusy(true);
+    try {
+      const bundle = await SystemAPIClient.supportBundle();
+      setState((current) => ({ ...current, bundle, summary: summaryFromBundle(bundle), setup: bundle.setup || current.setup, logs: bundle.logs || current.logs }));
+      await navigator.clipboard.writeText(bundle.bundleText);
+      notify({ severity: 'success', title: 'Support bundle copied', message: 'Redacted diagnostics are ready to share.' });
+    } catch (err) {
+      notify({ severity: 'error', title: 'Support bundle failed', message: apiErrorMessage(err, 'Project OS could not generate the support bundle.'), sticky: true });
+    } finally {
+      setBundleBusy(false);
+    }
+  }
+
+  async function viewLogs() {
+    setLogsOpen(true);
+    try {
+      const logs = await SystemAPIClient.supportLogs(160);
+      setState((current) => ({ ...current, logs }));
+      notify({ severity: 'info', title: 'Technical logs loaded', message: 'Recent redacted log lines are available below.' });
+    } catch (err) {
+      notify({ severity: 'error', title: 'Logs could not load', message: apiErrorMessage(err), sticky: true });
+    }
   }
 
   const summary = state.summary;
-  const errorLogs = useMemo(() => state.logs.filter((line) => line.level === 'error').length, [state.logs]);
-  const warningLogs = useMemo(() => state.logs.filter((line) => line.level === 'warning').length, [state.logs]);
   const findings = summary?.findings || state.bundle?.findings || [];
   const redactionRules = summary?.redactionRules || state.bundle?.redactionRules || [];
+  const summaryRows = diagnosticsSummaryRows({ summary, doctor: state.doctor, setup: state.setup, hostInventory: state.hostInventory });
+  const headline = diagnosticsHeadline(summary, state.doctor);
+  const conflict = productionConflictSummary(state.setup);
+  const ownershipResources = useMemo(() => state.hostInventory.filter((resource) => resource.ownershipState !== 'owned_managed' || resource.ignored), [state.hostInventory]);
+  const dockerResources = useMemo(() => state.hostInventory.filter((resource) => resource.source === 'docker'), [state.hostInventory]);
+  const tailscaleCheck = state.setup?.checks.find((check) => check.id === 'tailscale');
+  const operatorCheck = state.setup?.checks.find((check) => check.id === 'tailscale-operator');
 
   if (loading) {
-    return (
-      <PageLoadingState label="Loading support console" sublabel="Collecting safe diagnostics, findings, and recent logs." />
-    );
+    return <PageLoadingState label="Loading diagnostics" sublabel="Checking health, setup state, found apps, and recent logs." />;
   }
 
   return (
@@ -88,139 +125,142 @@ function SupportPage() {
         <div className="border-b border-white/10 bg-po-hero-support p-6 md:p-7">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-black uppercase tracking-normal text-sky-300">Support Console</p>
-              <h1 className="mt-2 text-3xl font-black leading-none text-white md:text-5xl">Safe diagnostics</h1>
+              <p className="text-xs font-black uppercase tracking-normal text-sky-300">Diagnostics</p>
+              <h1 className="mt-2 text-3xl font-black leading-none text-white md:text-5xl">Project OS Diagnostics</h1>
               <p className="mt-3 max-w-3xl text-sm text-slate-300 md:text-base">
-                {showAdvancedMetrics
-                  ? 'Inspect Project OS behavior, copy a redacted support bundle, and use safe local commands without opening a browser shell.'
-                  : 'Check Project OS health and jump to the right page when something needs attention.'}
+                {headline === 'Ready' ? 'Ready. Health checks, support bundle, and technical logs are available when you need them.' : 'Needs attention. Start with health checks, then use the support bundle or logs if you need more detail.'}
               </p>
             </div>
-            <Button className="gap-2 border border-sky-300/20 bg-sky-500/15 text-sky-100 hover:bg-sky-500/25" disabled={refreshing} onClick={() => void load(true)}>
-              <RefreshCw className={cn('size-4', refreshing && 'animate-spin')} />
-              Refresh
-            </Button>
+            <StatusBadge ready={headline === 'Ready'}>{headline}</StatusBadge>
           </div>
         </div>
 
-        {error && <PageErrorState className="rounded-none border-x-0 border-t-0 px-6 py-4" message={error} onRetry={() => void load(true)} title="Support data could not refresh" />}
+        {error && <PageErrorState className="rounded-none border-x-0 border-t-0 px-6 py-4" message={error} onRetry={() => void load(true)} title="Diagnostics could not refresh" />}
 
-        <div className="grid gap-4 p-5 lg:grid-cols-5">
-          <SignalCard icon={statusIcon(summary?.status)} label="Support status" value={summary?.headline || 'Unknown'} detail={summary?.summary || 'Project OS could not load support status.'} tone={statusTone(summary?.status)} />
-          <SignalCard icon={Tags} label="Version" value={summary?.version?.version || 'Unknown'} detail={summary?.version?.buildSha ? `Build ${shortSha(summary.version.buildSha)}. Updates: ${summary.version.updateStatus}.` : 'Build metadata unavailable.'} tone="sky" />
-          <SignalCard icon={ShieldCheck} label="Readiness" value={state.doctor?.readiness.headline || summary?.backendHealth || 'Unknown'} detail={state.doctor?.readiness.summary || 'First-boot readiness status from Project OS doctor.'} tone={state.doctor?.readiness.canCompleteOnboarding ? 'green' : 'amber'} />
-          <SignalCard icon={AlertTriangle} label="Findings" value={`${findings.length}`} detail={`${errorLogs} error log line(s), ${warningLogs} warning line(s) in recent logs.`} tone={findings.length ? 'amber' : 'slate'} />
-          <SignalCard icon={LockKeyhole} label="Redaction" value={summary?.redacted ? 'Enabled' : 'Unknown'} detail="Secrets, credentials, and tailnet URLs are masked in support data." tone="violet" />
+        <div className="grid gap-3 p-5 md:grid-cols-5">
+          {summaryRows.map((row) => <SummaryRow key={row.id} label={row.label} tone={row.tone} value={row.value} />)}
         </div>
       </SurfaceFrame>
 
-      <SafeDiagnosticsOverview doctor={state.doctor} findings={findings} redactionRules={redactionRules} showAdvancedMetrics={showAdvancedMetrics} summary={summary} />
+      {conflict && (
+        <SurfacePanel className={conflict.tone === 'warning' ? 'border-amber-300/20 bg-amber-500/10' : 'border-sky-300/20 bg-sky-500/10'}>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-xl font-black text-white">{conflict.title}</h2>
+              <p className="mt-1 text-sm leading-6 text-slate-200">{conflict.message}</p>
+            </div>
+            <Button asChild className="shrink-0 bg-violet-600 text-white hover:bg-violet-500">
+              <Link to="/resolve-existing-apps">Recover existing apps</Link>
+            </Button>
+          </div>
+        </SurfacePanel>
+      )}
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
-        <div className="grid gap-5">
+      <section className="grid gap-4 md:grid-cols-3">
+        <DiagnosticAction
+          busy={refreshing}
+          detail="Refresh host setup, app readiness, Docker, Tailscale, storage, and backup checks."
+          icon={ListChecks}
+          label="Run health checks"
+          onClick={() => void load(true)}
+        />
+        <DiagnosticAction
+          busy={bundleBusy}
+          detail="Copy a redacted support bundle with version, setup, health, and recent failure context."
+          icon={ClipboardList}
+          label="Generate support bundle"
+          onClick={() => void generateBundle()}
+        />
+        <DiagnosticAction
+          detail="Open recent backend logs. Project OS masks secrets before showing them."
+          icon={TerminalSquare}
+          label="View technical logs"
+          onClick={() => void viewLogs()}
+        />
+      </section>
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="grid gap-4">
           <SurfacePanel>
-            <SectionHeader icon={LifeBuoy} title="Recommended next steps" description="Support findings link directly to the page that owns the fix." />
+            <SectionHeader icon={LifeBuoy} title="Recommended next steps" description="Support findings link to the page that owns the fix." />
             <div className="mt-4 grid gap-3">
               {findings.length ? findings.map((finding) => <FindingCard finding={finding} key={finding.id} />) : (
-                <div className="rounded-lg border border-emerald-300/20 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+                <SurfaceInset className="border-emerald-300/20 bg-emerald-500/10 text-sm text-emerald-100">
                   No support findings need attention right now.
-                </div>
+                </SurfaceInset>
               )}
             </div>
           </SurfacePanel>
 
-          <SurfacePanel>
-            {showAdvancedMetrics ? (
-              <>
-                <SectionHeader icon={FileText} title="Project OS logs" description="Recent backend logs are bounded and redacted before display." />
-                <div className="mt-4 max-h-[380px] overflow-y-auto rounded-lg border border-slate-800 bg-black/55 p-3 font-mono text-xs leading-5 text-slate-300">
-                  {state.logs.length ? state.logs.map((line, index) => <LogLine key={`${line.line}-${index}`} line={line} />) : <p className="text-slate-500">No logs were available. Recent activity will still appear in the support bundle.</p>}
-                </div>
-              </>
-            ) : (
-              <>
-                <SectionHeader icon={FileText} title="Recent problems" description="Project OS hides detailed logs in Basic mode and shows the important signals first." />
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <BasicSupportCard label="Errors" value={`${errorLogs}`} detail={errorLogs ? 'Review Monitoring or enable Advanced mode to inspect logs.' : 'No recent error lines found.'} tone={errorLogs ? 'red' : 'green'} />
-                  <BasicSupportCard label="Warnings" value={`${warningLogs}`} detail={warningLogs ? 'Some recent warnings were reported.' : 'No recent warnings found.'} tone={warningLogs ? 'amber' : 'green'} />
-                </div>
-                <div className="mt-4 rounded-lg border border-violet-300/20 bg-violet-500/10 p-4 text-sm text-violet-100">
-                  Support bundles, raw logs, and terminal commands are available in Advanced mode.
-                  <Button asChild className="ml-0 mt-3 border-violet-300/30 bg-slate-950/50 text-violet-100 hover:bg-slate-900 sm:ml-3 sm:mt-0" size="sm" type="button" variant="outline">
-                    <Link to="/settings">Open Settings</Link>
-                  </Button>
-                </div>
-              </>
-            )}
-          </SurfacePanel>
+          <AdvancedSection defaultOpen={false} icon={Server} title="App ownership details">
+            {ownershipResources.length ? ownershipResources.map((resource) => (
+              <ResourceLine key={resource.id} resource={resource} />
+            )) : <p className="text-sm text-slate-400">No found apps or ignored resources are currently visible.</p>}
+          </AdvancedSection>
 
-          {showAdvancedMetrics && <SurfacePanel>
-            <SectionHeader icon={ClipboardList} title="Support bundle" description="Copy this when you need to share troubleshooting context. It is redacted by the backend." />
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <Button className="bg-violet-600 text-white hover:bg-violet-500" disabled={!state.bundle?.bundleText} onClick={() => state.bundle?.bundleText && copy(state.bundle.bundleText, 'bundle')} type="button">
-                <Copy className="size-4" />
-                {copied === 'bundle' ? 'Copied' : 'Copy support bundle'}
-              </Button>
-              <Badge className="border-emerald-300/20 bg-emerald-500/10 text-emerald-200" variant="outline">Redaction enabled</Badge>
-              <span className="text-xs text-slate-500">Generated {formatDate(state.bundle?.generatedAt)}</span>
+          <AdvancedSection defaultOpen={false} icon={FileText} title="Docker resources">
+            {dockerResources.length ? dockerResources.map((resource) => (
+              <ResourceLine key={resource.id} resource={resource} technical />
+            )) : <p className="text-sm text-slate-400">No Docker resources were returned by the host inventory scan.</p>}
+          </AdvancedSection>
+
+          <AdvancedSection defaultOpen={false} icon={LockKeyhole} title="Tailscale details">
+            <div className="grid gap-3 md:grid-cols-2">
+              <InfoLine label="Tailscale" value={tailscaleCheck?.message || summary?.tailscaleStatus || 'Unknown'} />
+              <InfoLine label="Private access permission" value={operatorCheck?.message || 'Waiting for Tailscale status.'} />
+              <InfoLine label="Version" value={state.setup?.tailscaleVersion || 'Unknown'} />
+              <InfoLine label="Instance" value={state.setup?.instanceSlug || 'Unknown'} />
             </div>
-            <pre className="mt-4 max-h-[320px] overflow-auto whitespace-pre-wrap rounded-lg border border-slate-800 bg-slate-950/70 p-4 text-xs leading-5 text-slate-400">{state.bundle?.bundleText || 'Support bundle unavailable.'}</pre>
-          </SurfacePanel>}
+          </AdvancedSection>
+
+          <AdvancedSection defaultOpen={logsOpen} icon={TerminalSquare} title="Recent logs">
+            <div className="max-h-[380px] overflow-y-auto rounded-lg border border-slate-800 bg-black/55 p-3 font-mono text-xs leading-5 text-slate-300">
+              {state.logs.length ? state.logs.map((line, index) => <LogLine key={`${line.line}-${index}`} line={line} />) : <p className="text-slate-500">No logs were available.</p>}
+            </div>
+          </AdvancedSection>
+
+          <AdvancedSection defaultOpen={false} icon={ShieldCheck} title="Redaction rules">
+            <div className="grid gap-3 md:grid-cols-2">
+              {redactionRules.length ? redactionRules.map((rule) => <RedactionRuleCard rule={rule} key={rule.id} />) : <p className="text-sm text-slate-400">Redaction rules are unavailable.</p>}
+            </div>
+          </AdvancedSection>
         </div>
 
-        <aside className="grid gap-5">
+        <aside className="grid h-fit gap-5">
           <SurfacePanel>
-            <SectionHeader compact icon={LockKeyhole} title="Redaction review" description="What Project OS masks before showing support data." />
-            <div className="mt-4 grid gap-3">
-              {redactionRules.map((rule) => <RedactionRuleCard rule={rule} key={rule.id} />)}
-              {!redactionRules.length && <p className="text-sm text-slate-500">Redaction rules are unavailable.</p>}
-            </div>
-          </SurfacePanel>
-
-          <SurfacePanel>
-            <SectionHeader compact icon={Tags} title="Version and updates" description="Included in support context for troubleshooting." />
+            <SectionHeader compact icon={ShieldCheck} title="Instance" description="Useful when comparing production and development hosts." />
             <div className="mt-4 grid gap-2 text-sm">
-              <InfoLine label="Version" value={summary?.version?.version || state.bundle?.version?.version || 'Unknown'} />
-              <InfoLine label="Build" value={summary?.version?.buildSha || state.bundle?.version?.buildSha || 'Unknown'} />
-              <InfoLine label="Updates" value={summary?.version?.updateMessage || state.bundle?.version?.updateMessage || 'Update status unavailable.'} />
-              {showAdvancedMetrics && <InfoLine label="Install path" value={summary?.version?.installPath || state.bundle?.version?.installPath || 'Unknown'} />}
-              {showAdvancedMetrics && <InfoLine label="Runtime path" value={summary?.version?.runtimePath || state.bundle?.version?.runtimePath || 'Unknown'} />}
+              <InfoLine label="Name" value={state.setup?.instanceSlug || 'Unknown'} />
+              <InfoLine label="ID" value={state.setup?.instanceId || 'Unknown'} />
+              <InfoLine label="Mode" value={state.setup?.devMode ? 'Development' : 'Production'} />
+              <InfoLine label="Profiles" value={state.setup?.activeProfiles || 'default'} />
             </div>
           </SurfacePanel>
 
-          {showAdvancedMetrics && <SurfacePanel>
-            <SectionHeader compact icon={ClipboardList} title="Included areas" description="The support bundle includes high-level app, network, storage, and backup context." />
-            <div className="mt-4 grid gap-3">
-              {(state.bundle?.domainSummaries || []).map((area) => (
-                <div className="rounded-lg border border-slate-700/45 bg-slate-900/45 p-3" key={area.id}>
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="font-bold text-white">{area.label}</p>
-                    <Badge className="border-slate-600/60 bg-slate-950/60 text-slate-300" variant="outline">{humanize(area.status)}</Badge>
-                  </div>
-                  <p className="mt-2 text-sm text-slate-300">{area.headline}</p>
-                  <p className="mt-1 text-xs leading-5 text-slate-500">{area.summary}</p>
-                </div>
-              ))}
-              {!state.bundle?.domainSummaries?.length && <p className="text-sm text-slate-500">Support area summaries are unavailable.</p>}
+          <SurfacePanel>
+            <SectionHeader compact icon={FileText} title="Version" description="Included in support context." />
+            <div className="mt-4 grid gap-2 text-sm">
+              <InfoLine label="Version" value={summary?.version?.version || 'Unknown'} />
+              <InfoLine label="Build" value={summary?.version?.buildSha ? shortSha(summary.version.buildSha) : 'Unknown'} />
+              <InfoLine label="Updates" value={summary?.version?.updateMessage || 'Update status unavailable.'} />
+              <InfoLine label="Generated" value={formatDate(state.bundle?.generatedAt || summary?.checkedAt)} />
             </div>
-          </SurfacePanel>}
+          </SurfacePanel>
 
-          {showAdvancedMetrics && <SurfacePanel>
-            <SectionHeader compact icon={TerminalSquare} title="Safe commands" description="Copy-only commands for the local terminal. The browser does not execute them." />
-            <div className="mt-4 grid gap-3">
-              {(summary?.commands || []).map((command) => (
-                <CommandCard command={command.command} copied={copied} description={command.description} id={command.id} key={command.id} label={command.label} onCopy={copy} />
-              ))}
-            </div>
-          </SurfacePanel>}
+          {showAdvancedMetrics && (
+            <SurfacePanel>
+              <SectionHeader compact icon={Copy} title="Support bundle preview" description="Shown after you generate a bundle." />
+              <pre className="mt-4 max-h-[260px] overflow-auto whitespace-pre-wrap rounded-lg border border-slate-800 bg-slate-950/70 p-4 text-xs leading-5 text-slate-400">{state.bundle?.bundleText || 'Generate a support bundle to preview redacted details.'}</pre>
+            </SurfacePanel>
+          )}
 
           <SurfacePanel>
-            <SectionHeader compact icon={LifeBuoy} title="Related pages" description="Jump to focused views for common support tasks." />
+            <SectionHeader compact icon={LifeBuoy} title="Related pages" description="Focused views for common support tasks." />
             <div className="mt-4 grid gap-2">
-              <RelatedLink to="/monitoring" title="Monitoring" detail="Activity timeline, stability, and resource graphs." />
               <RelatedLink to="/settings" title="Settings" detail="Host setup checks and service-user guidance." />
-              <RelatedLink to="/apps" title="My Apps" detail="App health, repair actions, and connection details." />
-              <RelatedLink to="/access" title="Access" detail="Tailscale, private links, and network issues." />
+              <RelatedLink to="/resolve-existing-apps" title="Resolve Existing Apps" detail="Review apps found on this server." />
+              <RelatedLink to="/access" title="Access" detail="Tailscale, private links, and home network issues." />
+              {showAdvancedMetrics && <RelatedLink to="/activity" title="Activity Log" detail="Detailed system events for advanced troubleshooting." />}
             </div>
           </SurfacePanel>
         </aside>
@@ -229,60 +269,84 @@ function SupportPage() {
   );
 }
 
-function SafeDiagnosticsOverview({ doctor, findings, redactionRules, showAdvancedMetrics, summary }: { doctor: SystemDoctorStatus | null; findings: SupportSummary['findings']; redactionRules: SupportSummary['redactionRules']; showAdvancedMetrics: boolean; summary: SupportSummary | null }) {
+function StatusBadge({ children, ready }: { children: string; ready: boolean }) {
   return (
-    <section className="grid gap-4 lg:grid-cols-5">
-      <DiagnosticStep
-        icon={ClipboardList}
-        label="Checked"
-        text={doctor ? `${doctor.readiness.headline}: ${doctor.readiness.summary}` : summary ? `Backend: ${summary.backendHealth || 'unknown'}, Docker: ${summary.dockerStatus || 'unknown'}, Tailscale: ${summary.tailscaleStatus || 'unknown'}.` : 'Project OS could not load diagnostic checks yet.'}
-        tone="sky"
-      />
-      <DiagnosticStep
-        icon={findings.length ? AlertTriangle : ShieldCheck}
-        label="Found"
-        text={findings.length ? `${findings.length} finding${findings.length === 1 ? '' : 's'} need review. Start with recommended next steps.` : 'No support findings need attention right now.'}
-        tone={findings.length ? 'amber' : 'green'}
-      />
-      <DiagnosticStep
-        icon={LockKeyhole}
-        label="Redacted"
-        text={summary?.redacted ? `${redactionRules.length || 'Standard'} masking rules hide secrets before display.` : 'Redaction status is unavailable.'}
-        tone="violet"
-      />
-      <DiagnosticStep
-        icon={Copy}
-        label="Safe to share"
-        text={showAdvancedMetrics ? 'Use the redacted support bundle when you need to share troubleshooting context.' : 'Basic mode shows the summary only; enable Advanced to copy the redacted bundle.'}
-        tone="slate"
-      />
-      <DiagnosticStep
-        icon={LifeBuoy}
-        label="Next"
-        text={findings[0]?.actionLabel ? `${findings[0].actionLabel}: ${findings[0].title}` : 'No immediate support action is needed.'}
-        tone={findings.length ? 'amber' : 'green'}
-      />
-    </section>
+    <Badge className={cn('px-3 py-1.5 text-sm font-black', ready ? 'border-emerald-300/25 bg-emerald-500/15 text-emerald-100' : 'border-amber-300/25 bg-amber-500/15 text-amber-100')} variant="outline">
+      {ready ? <ShieldCheck className="size-4" /> : <AlertTriangle className="size-4" />}
+      {children}
+    </Badge>
   );
 }
 
-function DiagnosticStep({ icon: Icon, label, text, tone }: { icon: LucideIcon; label: string; text: string; tone: 'green' | 'amber' | 'sky' | 'slate' | 'violet' }) {
+function SummaryRow({ label, tone, value }: { label: string; tone: string; value: string }) {
   const tones = {
-    amber: 'border-amber-300/20 bg-amber-500/10 text-amber-100',
-    green: 'border-emerald-300/20 bg-emerald-500/10 text-emerald-100',
-    sky: 'border-sky-300/20 bg-sky-500/10 text-sky-100',
-    slate: 'border-slate-700/60 bg-slate-900/55 text-slate-300',
-    violet: 'border-violet-300/20 bg-violet-500/10 text-violet-100',
-  };
+    success: 'border-emerald-300/20 bg-emerald-500/10 text-emerald-100',
+    warning: 'border-amber-300/20 bg-amber-500/10 text-amber-100',
+    neutral: 'border-slate-700/60 bg-slate-900/55 text-slate-300',
+  } as Record<string, string>;
   return (
-    <div className={cn('rounded-lg border p-4', tones[tone])}>
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-bold uppercase text-current/70">{label}</p>
-        <Icon className="size-4" />
-      </div>
-      <p className="mt-3 text-sm leading-6 text-current/80">{text}</p>
+    <div className={cn('rounded-lg border p-4', tones[tone] || tones.neutral)}>
+      <p className="text-xs font-bold uppercase text-current/70">{label}</p>
+      <p className="mt-2 text-lg font-black text-white">{value}</p>
     </div>
   );
+}
+
+function DiagnosticAction({ busy = false, detail, icon: Icon, label, onClick }: { busy?: boolean; detail: string; icon: LucideIcon; label: string; onClick: () => void }) {
+  return (
+    <button className="rounded-lg border border-white/10 bg-slate-950/70 p-5 text-left shadow-po-panel transition hover:border-sky-300/30 hover:bg-slate-900/80" disabled={busy} onClick={onClick} type="button">
+      <div className="flex items-center justify-between gap-3">
+        <span className="grid size-10 place-items-center rounded-lg border border-sky-300/20 bg-sky-500/10 text-sky-100">
+          {busy ? <RefreshCw className="size-5 animate-spin" /> : <Icon className="size-5" />}
+        </span>
+        <span className="text-sm font-bold uppercase text-slate-500">Action</span>
+      </div>
+      <p className="mt-4 text-xl font-black text-white">{label}</p>
+      <p className="mt-2 text-sm leading-6 text-slate-400">{detail}</p>
+    </button>
+  );
+}
+
+function AdvancedSection({ children, defaultOpen, icon: Icon, title }: { children: ReactNode; defaultOpen: boolean; icon: LucideIcon; title: string }) {
+  return (
+    <details className="rounded-lg border border-white/10 bg-slate-950/70 p-5 shadow-po-panel" open={defaultOpen}>
+      <summary className="flex cursor-pointer list-none items-center gap-3 font-black text-white">
+        <span className="grid size-9 place-items-center rounded-lg border border-white/10 bg-slate-900 text-sky-300"><Icon className="size-4" /></span>
+        {title}
+      </summary>
+      <div className="mt-4 grid gap-3">{children}</div>
+    </details>
+  );
+}
+
+function ResourceLine({ resource, technical = false }: { resource: HostInventoryResource; technical?: boolean }) {
+  return (
+    <div className="rounded-lg border border-slate-700/45 bg-slate-900/45 p-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-bold text-white">{resource.displayName}</p>
+          <p className="mt-1 text-sm text-slate-400">{resource.summary}</p>
+        </div>
+        <Badge className="border-slate-600/60 bg-slate-950/60 text-slate-300" variant="outline">{labelForOwnership(resource.ownershipState)}</Badge>
+      </div>
+      {technical && (
+        <div className="mt-3 grid gap-2 text-xs text-slate-500 md:grid-cols-2">
+          <span>State: {resource.runtimeState || 'unknown'}</span>
+          <span>Owner: {resource.ownerInstanceId || 'Unknown'}</span>
+          <span>Source: {resource.source}</span>
+          <span>Actions: {resource.availableActions.map(humanize).join(', ') || 'None'}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function labelForOwnership(value: string) {
+  if (value === 'owned_managed') return 'Installed';
+  if (value === 'foreign_project_os') return 'Found on this server';
+  if (value === 'legacy_project_os') return 'Recoverable Project OS app';
+  if (value === 'external_docker') return 'Existing Docker app';
+  return humanize(value || 'unknown');
 }
 
 export default SupportPage;

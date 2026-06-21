@@ -111,6 +111,23 @@ class SystemSummaryServiceTests {
     }
 
     private SystemSetupStatus setupStatus(String status, String dockerVersion) {
-        return new SystemSetupStatus(status, "Setup", "Setup summary", "test", "projectos", true, "test", "8082", "/", dockerVersion, "not installed", "install", List.of(), Instant.parse("2026-06-20T12:00:00Z"));
+        return new SystemSetupStatus(
+                status,
+                "Setup",
+                "Setup summary",
+                "test",
+                "projectos",
+                true,
+                "test",
+                "8082",
+                "/",
+                dockerVersion,
+                "not installed",
+                "current-instance",
+                "homelab-box",
+                new com.projectos.system.api.SystemSetupExistingInstallReport(false, true, "ok", "No existing Project OS install found", "No existing Project OS install found.", List.of(), List.of()),
+                "install",
+                List.of(),
+                Instant.parse("2026-06-20T12:00:00Z"));
     }
 }

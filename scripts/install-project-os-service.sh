@@ -347,7 +347,10 @@ preflight_install_collision() {
   fi
 
   local env_file="${CONFIG_DIR}/project-os.env"
-  [[ -f "${env_file}" ]] || return 0
+  if [[ ! -f "${env_file}" ]]; then
+    preflight_stale_runtime_without_config
+    return 0
+  fi
 
   local existing_runtime existing_port
   existing_runtime="$(env_file_value "${env_file}" PROJECT_OS_RUNTIME_ROOT)"
@@ -359,6 +362,21 @@ preflight_install_collision() {
   if [[ -n "${existing_port}" && "${existing_port}" != "${SERVER_PORT}" ]]; then
     die "Existing Project OS config at ${env_file} uses port ${existing_port}, but this install requested ${SERVER_PORT}. Use the same port, choose a separate config/service name, or rerun with PROJECT_OS_ALLOW_INSTALL_COLLISION=1 if you intentionally want to replace this config."
   fi
+}
+
+preflight_stale_runtime_without_config() {
+  local identity_file="${RUNTIME_DIR}/config/identity.json"
+  local apps_dir="${RUNTIME_DIR}/apps"
+  local found_runtime=0
+  if [[ -f "${identity_file}" ]]; then
+    found_runtime=1
+  fi
+  if [[ -d "${apps_dir}" ]] && find "${apps_dir}" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null | grep -q .; then
+    found_runtime=1
+  fi
+  [[ "${found_runtime}" -eq 1 ]] || return 0
+
+  die "Existing Project OS runtime data was found at ${RUNTIME_DIR}, but no active config exists at ${CONFIG_DIR}/project-os.env. Recover existing apps from the setup page, repair the existing install with the same runtime path, choose a separate development service/config/runtime, or rerun with PROJECT_OS_ALLOW_INSTALL_COLLISION=1 if you intentionally want to replace this runtime."
 }
 
 build_sha() {

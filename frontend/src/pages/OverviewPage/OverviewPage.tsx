@@ -21,7 +21,9 @@ import {
 } from '@/components/project-os/ProjectOSComponents';
 import { FoundResourcesBanner } from '@/components/project-os/FoundResourcesBanner';
 import { Button } from '@/components/ui/button';
+import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
 import { homeMajorActivity } from './extensions/OverviewPage.activity';
+import { shouldShowActivityLogLink } from './extensions/OverviewPage.activityLink';
 import type { ActivityLog } from '@/types/activity';
 import type { AppInstanceView } from '@/types/app';
 import type { ExternalService, HostInventoryResource } from '@/types/host';
@@ -46,6 +48,7 @@ const initialState: OverviewState = {
 };
 
 function OverviewPage() {
+  const { viewMode } = useProjectSettings();
   const [state, setState] = useState<OverviewState>(initialState);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -91,6 +94,7 @@ function OverviewPage() {
 
   const readyApps = useMemo(() => state.apps.filter((app) => app.userStatus === 'Ready'), [state.apps]);
   const majorActivity = useMemo(() => homeMajorActivity(state.activity, 5) as ActivityLog[], [state.activity]);
+  const showActivityLogLink = shouldShowActivityLogLink(viewMode, majorActivity);
   const primaryAction = state.recommendedAction?.id === 'no-action-needed' ? null : state.recommendedAction;
   const deviceName = state.summary?.deviceName || 'Project OS';
 
@@ -211,7 +215,7 @@ function OverviewPage() {
           ) : null}
 
           <PageSection
-            action={<Button asChild size="sm" variant="outline"><Link to="/activity">Activity Log</Link></Button>}
+            action={showActivityLogLink ? <Button asChild size="sm" variant="outline"><Link to="/activity">Activity Log</Link></Button> : null}
             title="Recent Activity"
           >
             <ActivityTimeline

@@ -15,6 +15,9 @@ public record SystemSetupStatus(
         String backendContextPath,
         String dockerVersion,
         String tailscaleVersion,
+        String instanceId,
+        String instanceSlug,
+        SystemSetupExistingInstallReport existingInstall,
         String installCommand,
         List<SystemSetupCheck> checks,
         Instant checkedAt) {

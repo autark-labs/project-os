@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,9 +16,14 @@ import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 
 import com.projectos.marketplace.runtime.RuntimeLayout;
+import com.projectos.host.HostInventoryProvider;
+import com.projectos.host.HostInventoryResource;
 import com.projectos.network.tailscale.TailscaleService;
 import com.projectos.network.tailscale.TailscaleStatus;
+import com.projectos.system.api.SystemSetupAction;
 import com.projectos.system.api.SystemSetupCheck;
+import com.projectos.system.api.SystemSetupExistingInstallReport;
+import com.projectos.system.api.SystemSetupExistingInstallResource;
 import com.projectos.system.api.SystemSetupStatus;
 
 @Service
@@ -31,10 +37,12 @@ public class SystemSetupService {
     private final Function<List<String>, CommandResult> commandRunner;
     private final boolean devMode;
     private final Environment environment;
+    private final Supplier<ProjectOsIdentity> identitySupplier;
+    private final HostInventoryProvider hostInventoryProvider;
 
     @Autowired
-    public SystemSetupService(RuntimeLayout runtimeLayout, TailscaleService tailscaleService, @Value("${project-os.dev-mode:false}") boolean devMode, Environment environment) {
-        this(runtimeLayout, tailscaleService, SystemSetupService::runProcess, devMode, environment);
+    public SystemSetupService(RuntimeLayout runtimeLayout, TailscaleService tailscaleService, @Value("${project-os.dev-mode:false}") boolean devMode, Environment environment, InstanceIdentityService identityService, HostInventoryProvider hostInventoryProvider) {
+        this(runtimeLayout, tailscaleService, SystemSetupService::runProcess, devMode, environment, identityService::current, hostInventoryProvider);
     }
 
     SystemSetupService(RuntimeLayout runtimeLayout, TailscaleService tailscaleService, Function<List<String>, CommandResult> commandRunner) {
@@ -46,16 +54,36 @@ public class SystemSetupService {
     }
 
     SystemSetupService(RuntimeLayout runtimeLayout, TailscaleService tailscaleService, Function<List<String>, CommandResult> commandRunner, boolean devMode, Environment environment) {
+        this(runtimeLayout, tailscaleService, commandRunner, devMode, environment, () -> new ProjectOsIdentity("unknown", "project-os", "", "", Instant.EPOCH, 1), ignored -> List.of());
+    }
+
+    SystemSetupService(
+            RuntimeLayout runtimeLayout,
+            TailscaleService tailscaleService,
+            Function<List<String>, CommandResult> commandRunner,
+            boolean devMode,
+            Environment environment,
+            Supplier<ProjectOsIdentity> identitySupplier,
+            HostInventoryProvider hostInventoryProvider) {
         this.runtimeLayout = runtimeLayout;
         this.tailscaleService = tailscaleService;
         this.commandRunner = commandRunner;
         this.devMode = devMode;
         this.environment = environment;
+        this.identitySupplier = identitySupplier;
+        this.hostInventoryProvider = hostInventoryProvider;
     }
 
     public SystemSetupStatus status() {
         List<SystemSetupCheck> checks = new ArrayList<>();
         String runAsUser = System.getProperty("user.name", "unknown");
+        ProjectOsIdentity identity = identitySupplier.get();
+        SystemSetupExistingInstallReport existingInstall = existingInstallReport(identity);
+        if (existingInstall.conflict()) {
+            checks.add(warn("existing-install", "Existing Project OS install", existingInstall.headline(), existingInstall.summary(), "Recover existing apps", "/resolve-existing-apps"));
+        } else if (!existingInstall.resources().isEmpty()) {
+            checks.add(neutral("existing-install", "Development instance", existingInstall.headline(), existingInstall.summary(), null, null));
+        }
         checks.add(serviceUserCheck(runAsUser));
         checks.add(runtimeCheck());
         checks.add(dockerCheck());
@@ -76,6 +104,9 @@ public class SystemSetupService {
                 property("server.servlet.context-path", "/"),
                 commandVersion("docker", "version", "--format", "{{.Server.Version}}"),
                 commandVersion("tailscale", "version"),
+                identity.instanceId(),
+                identity.instanceSlug(),
+                existingInstall,
                 installCommand(),
                 checks,
                 Instant.now());
@@ -250,6 +281,66 @@ public class SystemSetupService {
             return "not available";
         }
         return firstLine(result);
+    }
+
+    private SystemSetupExistingInstallReport existingInstallReport(ProjectOsIdentity identity) {
+        List<SystemSetupExistingInstallResource> resources = hostInventoryProvider.inventory(true).stream()
+                .filter(resource -> !resource.ignored())
+                .filter(this::isExistingProjectOsResource)
+                .map(resource -> existingResource(resource, identity))
+                .toList();
+        if (resources.isEmpty()) {
+            return new SystemSetupExistingInstallReport(
+                    false,
+                    devMode,
+                    "ok",
+                    "No existing Project OS install found",
+                    "Setup did not find another Project OS-owned app on this server.",
+                    List.of(),
+                    List.of());
+        }
+        if (devMode) {
+            return new SystemSetupExistingInstallReport(
+                    false,
+                    true,
+                    "info",
+                    "Development instance detected",
+                    "Project OS found other Project OS resources, but this development instance is isolated as " + identity.instanceSlug() + ".",
+                    resources,
+                    List.of(new SystemSetupAction("review_existing_apps", "Review found apps", "/resolve-existing-apps", "secondary")));
+        }
+        return new SystemSetupExistingInstallReport(
+                true,
+                false,
+                "warning",
+                "Existing Project OS install found",
+                "Review apps found on this server before creating another production Project OS instance.",
+                resources,
+                List.of(
+                        new SystemSetupAction("recover_existing_apps", "Recover existing apps", "/resolve-existing-apps", "primary"),
+                        new SystemSetupAction("abort", "Abort setup", "/", "secondary")));
+    }
+
+    private boolean isExistingProjectOsResource(HostInventoryResource resource) {
+        return "foreign_project_os".equals(resource.ownershipState())
+                || "legacy_project_os".equals(resource.ownershipState())
+                || "unknown_conflict".equals(resource.ownershipState());
+    }
+
+    private SystemSetupExistingInstallResource existingResource(HostInventoryResource resource, ProjectOsIdentity identity) {
+        String kind = "legacy_project_os".equals(resource.ownershipState()) ? "recoverable_app" : "project_os_resource";
+        String owner = resource.ownerInstanceId();
+        if (owner == null || owner.isBlank()) {
+            owner = identity.instanceId();
+        }
+        return new SystemSetupExistingInstallResource(
+                resource.id(),
+                resource.displayName(),
+                kind,
+                resource.ownershipState(),
+                owner,
+                resource.summary(),
+                "/resolve-existing-apps");
     }
 
     record CommandResult(int exitCode, String output) {
