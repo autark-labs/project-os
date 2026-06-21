@@ -1,4 +1,4 @@
-import { useState, type Dispatch, type SetStateAction } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Archive, ArrowLeft, BookOpen, CheckCircle2, ChevronDown, ExternalLink, Loader2, TriangleAlert } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +14,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { backupSafetyWarning } from '@/lib/backupSafety';
 import { poButtonClass } from '@/lib/projectOsStyleKit';
 import { cn } from '@/lib/utils';
@@ -23,7 +22,8 @@ import type { HostInventoryResource } from '@/types/host';
 import type { ProjectOsJob } from '@/types/jobs';
 import type { InstallOptions, InstallPlan, InstallResult, MarketplaceApp } from '@/types/marketplace';
 import { InstallWizard, TechnicalPlanCard } from './MarketplaceInstallWizard';
-import { AppImage, Config, InfoCard, Stat, SupportBadge } from './MarketplacePage.shared';
+import { AppImage, InfoCard, Stat, SupportBadge } from './MarketplacePage.shared';
+import { InstallPlanPreview, MarketplaceSetupPanel } from './MarketplaceSetupPanel';
 
 type AppDetailProps = {
   app: MarketplaceApp;
@@ -40,15 +40,17 @@ type AppDetailProps = {
   onBack: () => void;
   onCreateBackup: (appId: string) => Promise<void>;
   onInstall: (options: InstallOptions) => Promise<void>;
-  onOptionsChange: Dispatch<SetStateAction<InstallOptions | null>>;
   onReinstallCurrent: () => void | Promise<void>;
   onRequestPlan: (options: InstallOptions) => Promise<void>;
   onResetReinstall: () => void | Promise<void>;
+  onSetupAnswersChange: (answers: Record<string, unknown>) => void;
   planLoading: boolean;
   recoveryMode?: string | null;
+  setupAnswers: Record<string, unknown>;
+  setupReady: boolean;
 };
 
-export function MarketplaceAppDetail({ app, backupJob, foundResource = null, installJob, installedApp, installLocked, installOptions, installPlan, installResult, installStatusMessage, installing, onBack, onCreateBackup, onInstall, onOptionsChange, onReinstallCurrent, onRequestPlan, onResetReinstall, planLoading, recoveryMode }: AppDetailProps) {
+export function MarketplaceAppDetail({ app, backupJob, foundResource = null, installJob, installedApp, installLocked, installOptions, installPlan, installResult, installStatusMessage, installing, onBack, onCreateBackup, onInstall, onReinstallCurrent, onRequestPlan, onResetReinstall, onSetupAnswersChange, planLoading, recoveryMode, setupAnswers, setupReady }: AppDetailProps) {
   const [conflictOpen, setConflictOpen] = useState(false);
   const [installReviewOpen, setInstallReviewOpen] = useState(false);
   const [technicalValidationOpen, setTechnicalValidationOpen] = useState(false);
@@ -118,10 +120,10 @@ export function MarketplaceAppDetail({ app, backupJob, foundResource = null, ins
           ) : (
             <Button className={poButtonClass('primary')} disabled={installing || installLocked} onClick={openInstallReview} type="button">
               {installing ? <Loader2 className="size-4 animate-spin" /> : installResult?.status === 'installed' ? <CheckCircle2 className="size-4" /> : null}
-              {installing ? 'Installing...' : installLocked ? 'Install blocked' : installBlockedByFoundResource ? 'Resolve conflict' : installResult?.status === 'installed' ? 'Installed' : requiresInstallCaution(app) ? 'Review install' : 'Install'}
+              {installing ? 'Installing...' : installLocked ? 'Install blocked' : installBlockedByFoundResource ? 'Resolve conflict' : !setupReady ? 'Finish setup' : installResult?.status === 'installed' ? 'Installed' : requiresInstallCaution(app) ? 'Review install' : 'Review install'}
             </Button>
           )}
-          {!isInstalled && !installBlockedByFoundResource && <InstallWizard app={app} installLocked={installLocked} installOptions={installOptions} installPlan={installPlan} installResult={installResult} installStatusMessage={installStatusMessage} installing={installing} onInstall={onInstall} onOpenChange={setInstallReviewOpen} onOptionsChange={onOptionsChange} onRequestPlan={onRequestPlan} open={installReviewOpen} planLoading={planLoading} triggerLabel="Customize" />}
+          {!isInstalled && !installBlockedByFoundResource && <InstallWizard app={app} installLocked={installLocked || !setupReady} installOptions={installOptions} installPlan={installPlan} installResult={installResult} installStatusMessage={!setupReady ? 'Finish the required setup choices before installing.' : installStatusMessage} installing={installing} onInstall={onInstall} onOpenChange={setInstallReviewOpen} onRequestPlan={onRequestPlan} open={installReviewOpen} planLoading={planLoading} setupAnswers={setupAnswers} triggerLabel="Customize" />}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button className={poButtonClass('quiet')} type="button" variant="outline">
@@ -201,116 +203,40 @@ export function MarketplaceAppDetail({ app, backupJob, foundResource = null, ins
         )}
         {(installJob || backupJob || installing || installResult) && <InlineInstallStatus app={app} backupJob={backupJob} installedApp={installedApp} installing={installing} job={installJob} onCreateBackup={onCreateBackup} result={installResult} />}
 
-        <Tabs className="gap-4" defaultValue="overview">
-          <TabsList className="w-full justify-start overflow-x-auto border-b border-slate-700/30 bg-transparent p-0" variant="line">
-            <TabsTrigger className="px-3 py-2 text-slate-400 data-active:text-white" value="overview">Overview</TabsTrigger>
-            <TabsTrigger className="px-3 py-2 text-slate-400 data-active:text-white" value="setup">Setup</TabsTrigger>
-            <TabsTrigger className="px-3 py-2 text-slate-400 data-active:text-white" value="details">Details</TabsTrigger>
-            <TabsTrigger className="px-3 py-2 text-slate-400 data-active:text-white" value="settings">Settings</TabsTrigger>
-            <TabsTrigger className="px-3 py-2 text-slate-400 data-active:text-white" value="changelog">Changelog</TabsTrigger>
-          </TabsList>
+        <section className="grid gap-4">
+          <section className="rounded-lg border border-slate-700/30 bg-slate-950/30 p-4">
+            <h4 className="font-bold text-white">About</h4>
+            <p className="mt-2 text-sm leading-6 text-slate-300">{app.plainLanguage}</p>
+          </section>
 
-          <TabsContent className="grid gap-4" value="overview">
-            <section className="rounded-lg border border-slate-700/30 bg-slate-950/30 p-4">
-              <h4 className="font-bold text-white">About</h4>
-              <p className="mt-2 text-sm leading-6 text-slate-300">{app.plainLanguage}</p>
-            </section>
+          <div className="grid gap-4 md:grid-cols-2">
             <InfoCard title="Key features" items={app.highlights} />
-            <div className="grid gap-4 md:grid-cols-2">
-              <InfoCard title="Best for" items={app.bestFor} />
-              <InfoCard title="Includes" items={app.includes} />
+            <InfoCard title="Best for" items={app.bestFor} />
+          </div>
+
+          <MarketplaceSetupPanel app={app} answers={setupAnswers} onAnswersChange={onSetupAnswersChange} />
+          <InstallPlanPreview app={app} answers={setupAnswers} />
+
+          <section className="rounded-lg border border-slate-700/30 bg-slate-950/30 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <Badge className="border-emerald-300/30 bg-emerald-400/10 text-emerald-200" variant="outline">
+                  {serviceKindLabel(app.usage.kind)}
+                </Badge>
+                <h4 className="mt-3 font-bold text-white">{app.usage.headline}</h4>
+              </div>
+              <span className="rounded-full border border-slate-700/40 px-3 py-1 text-xs font-semibold text-slate-300">{app.usage.openUrlLabel}</span>
             </div>
-          </TabsContent>
-
-          <TabsContent className="grid gap-4" value="setup">
-            <section className="rounded-lg border border-slate-700/30 bg-slate-950/30 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <Badge className="border-emerald-300/30 bg-emerald-400/10 text-emerald-200" variant="outline">
-                    {serviceKindLabel(app.usage.kind)}
-                  </Badge>
-                  <h4 className="mt-3 font-bold text-white">{app.usage.headline}</h4>
-                </div>
-                <span className="rounded-full border border-slate-700/40 px-3 py-1 text-xs font-semibold text-slate-300">{app.usage.openUrlLabel}</span>
-              </div>
-              <p className="mt-3 text-sm leading-6 text-slate-300">{app.usage.summary}</p>
-              <div className="mt-4 grid gap-3 rounded-lg border border-slate-700/30 bg-slate-900/45 p-3 sm:grid-cols-3">
-                <Stat label="Service type" value={serviceKindLabel(app.usage.kind)} />
-                <Stat label="Ready state" value={app.health.successLabel} />
-                <Stat label="Startup window" value={`${app.health.startupGraceSeconds}s`} />
-                <p className="text-sm leading-6 text-slate-400 sm:col-span-3">{app.health.description}</p>
-              </div>
-              <ol className="mt-4 grid gap-2 text-sm text-slate-300">
-                {app.usage.setupSteps.map((step, index) => (
-                  <li className="grid grid-cols-[24px_1fr] gap-2" key={step}>
-                    <span className="grid size-6 place-items-center rounded-full bg-slate-800 text-xs font-bold text-slate-300">{index + 1}</span>
-                    <span className="leading-6">{step}</span>
-                  </li>
-                ))}
-              </ol>
-            </section>
-            {hasMarketplaceSetup(app) && (
-              <section className="grid gap-3 rounded-lg border border-violet-300/20 bg-violet-500/5 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <Badge className="border-violet-300/30 bg-violet-400/10 text-violet-200" variant="outline">
-                      {setupKindLabel(app.setup.kind)}
-                    </Badge>
-                    <h4 className="mt-3 font-bold text-white">Setup help included</h4>
-                  </div>
-                  <span className="rounded-full border border-slate-700/40 px-3 py-1 text-xs font-semibold text-slate-300">{automationLabel(app.setup.automation)}</span>
-                </div>
-                {app.setup.automationCapabilities.length > 0 && <MiniList title="Project OS can prepare" items={app.setup.automationCapabilities} />}
-                {app.setup.userSteps.length > 0 && <MiniList title="You still control" items={app.setup.userSteps} />}
-                {app.setup.integrations.length > 0 && (
-                  <div className="grid gap-2">
-                    {app.setup.integrations.map((integration) => (
-                      <div className="rounded-lg border border-slate-700/30 bg-slate-950/35 p-3" key={integration.id}>
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <h5 className="text-sm font-bold text-white">{integration.name}</h5>
-                          {integration.requiresApproval && <span className="text-xs text-amber-200">approval required</span>}
-                        </div>
-                        <p className="mt-1 text-sm leading-6 text-slate-400">{integration.description}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </section>
-            )}
-            {app.usage.notes.length > 0 && <InfoCard title="Good to know" items={app.usage.notes} />}
-          </TabsContent>
-
-          <TabsContent className="grid gap-4" value="details">
-            <section className="grid gap-4 rounded-lg border border-slate-700/30 bg-slate-950/30 p-4 sm:grid-cols-2">
-              <Stat label="Catalog updated" value={app.lastUpdated} />
-              <Stat label="Size" value={app.size} />
-              <Stat label="Maintainer" value={app.maintainer} />
-              <Stat label="Source" value={app.source} />
-              <Stat label="Version" value={app.version} />
-              <Stat label="Support level" value={app.supportLevel} />
-            </section>
-            <CatalogConfidenceCard app={app} />
-            <InfoCard title="System requirements" items={app.requirements} />
-            {installPlan && <TechnicalPlanCard plan={installPlan} />}
-            <section className="rounded-lg border border-slate-700/30 bg-slate-950/30 p-4">
-              <h4 className="font-bold text-white">Template settings preview</h4>
-              <dl className="mt-3 grid gap-2 sm:grid-cols-[minmax(120px,0.7fr)_1fr]">
-                {app.configuration.map((item) => <Config key={item.label} label={item.label} value={item.value} />)}
-              </dl>
-            </section>
-          </TabsContent>
-
-          <TabsContent value="settings">
-            <InfoCard title="Choices you can review before install" items={['Where the app keeps its data', 'How you open it', 'Whether backups are on', 'Whether private remote access is requested']} />
-          </TabsContent>
-
-          <TabsContent value="changelog">
-            <section className="rounded-lg border border-slate-700/30 bg-slate-950/30 p-4">
-              <h4 className="font-bold text-white">Latest template update</h4>
-              <p className="mt-2 text-sm text-slate-400">Template version {app.version} was refreshed {app.lastUpdated}. Install behavior is connected to the local installer and catalog confidence is based on the checks above.</p>
-            </section>
-          </TabsContent>
-        </Tabs>
+            <p className="mt-3 text-sm leading-6 text-slate-300">{app.usage.summary}</p>
+            <div className="mt-4 grid gap-3 rounded-lg border border-slate-700/30 bg-slate-900/45 p-3 sm:grid-cols-3">
+              <Stat label="Service type" value={serviceKindLabel(app.usage.kind)} />
+              <Stat label="Ready state" value={app.health.successLabel} />
+              <Stat label="Startup window" value={`${app.health.startupGraceSeconds}s`} />
+              <p className="text-sm leading-6 text-slate-400 sm:col-span-3">{app.health.description}</p>
+            </div>
+            {app.usage.notes.length > 0 && <div className="mt-4"><InfoCard title="Good to know" items={app.usage.notes} /></div>}
+          </section>
+        </section>
       </CardContent>
     </Card>
   );
@@ -691,48 +617,6 @@ function smokeStatusTone(status: string) {
 
 function requiresInstallCaution(app: MarketplaceApp) {
   return ['Advanced', 'Needs testing', 'Experimental'].includes(app.supportLevel);
-}
-
-function hasMarketplaceSetup(app: MarketplaceApp) {
-  return app.setup.generatedValues.length > 0
-    || app.setup.copyableFields.length > 0
-    || app.setup.qrFields.length > 0
-    || app.setup.integrations.length > 0
-    || app.setup.userSteps.length > 0
-    || app.setup.automationCapabilities.length > 0;
-}
-
-function setupKindLabel(kind: string) {
-  const labels: Record<string, string> = {
-    basic: 'Basic setup',
-    companion: 'Device setup',
-    dashboard: 'Dashboard setup',
-    integration: 'Integration setup',
-    'media-stack': 'Media stack setup',
-    infrastructure: 'Infrastructure setup',
-  };
-  return labels[kind] || kind.replaceAll('-', ' ');
-}
-
-function automationLabel(automation: string) {
-  const labels: Record<string, string> = {
-    manual: 'Manual steps',
-    guided: 'Guided setup',
-    ready: 'Prepared setup',
-    planned: 'Future autowire',
-  };
-  return labels[automation] || automation.replaceAll('-', ' ');
-}
-
-function MiniList({ title, items }: { title: string; items: string[] }) {
-  return (
-    <div className="rounded-lg border border-slate-700/30 bg-slate-950/35 p-3">
-      <h5 className="text-sm font-bold text-white">{title}</h5>
-      <ul className="mt-2 grid gap-1 text-sm leading-6 text-slate-400">
-        {items.map((item) => <li key={item}>{item}</li>)}
-      </ul>
-    </div>
-  );
 }
 
 function serviceKindLabel(kind: string) {

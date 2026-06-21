@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
-import type { Dispatch, SetStateAction } from 'react';
 import { Check, Copy, ExternalLink, Eye, EyeOff, QrCode, ServerCog, TriangleAlert } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
 import { NetworkAPIClient } from '@/api/NetworkAPIClient';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Dialog,
@@ -14,13 +12,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { ApplicationsSetupGuide } from '@/pages/ApplicationsPage/ApplicationsSetupGuide';
 import { poButtonClass } from '@/lib/projectOsStyleKit';
 import { cn } from '@/lib/utils';
 import type { InstallOptions, InstallPlan, InstallResult, MarketplaceApp, MarketplaceUsageField, PostInstallGuide } from '@/types/marketplace';
-import { defaultHostPort, type InstallOptionsUpdater } from './extensions/MarketplacePage.installation';
 import { Config, FriendlyStat } from './MarketplacePage.shared';
+import { InstallPlanPreview, SetupSummaryList } from './MarketplaceSetupPanel';
 
 type InstallWizardProps = {
   app: MarketplaceApp;
@@ -32,17 +29,16 @@ type InstallWizardProps = {
   installStatusMessage: string;
   installing: boolean;
   onInstall: (options: InstallOptions) => Promise<void>;
-  onOptionsChange: Dispatch<SetStateAction<InstallOptions | null>>;
   onRequestPlan: (options: InstallOptions) => Promise<void>;
   onOpenChange?: (open: boolean) => void;
   open?: boolean;
   planLoading: boolean;
+  setupAnswers: Record<string, unknown>;
   triggerLabel?: string;
 };
 
-export function InstallWizard({ app, hideTrigger = false, installLocked, installOptions, installPlan, installResult, installStatusMessage, installing, onInstall, onOpenChange, onOptionsChange, onRequestPlan, open: controlledOpen, planLoading, triggerLabel = 'Customize' }: InstallWizardProps) {
+export function InstallWizard({ app, hideTrigger = false, installLocked, installOptions, installPlan, installResult, installStatusMessage, installing, onInstall, onOpenChange, onRequestPlan, open: controlledOpen, planLoading, setupAnswers, triggerLabel = 'Customize' }: InstallWizardProps) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const open = controlledOpen ?? uncontrolledOpen;
   const hasResult = Boolean(installResult);
   const currentStep = installing ? 2 : hasResult ? 3 : 1;
@@ -50,10 +46,6 @@ export function InstallWizard({ app, hideTrigger = false, installLocked, install
 
   async function startInstall() {
     await onInstall(installOptions);
-  }
-
-  function updateOptions(updater: InstallOptionsUpdater) {
-    onOptionsChange(updater(installOptions));
   }
 
   return (
@@ -75,7 +67,7 @@ export function InstallWizard({ app, hideTrigger = false, installLocked, install
           {requiresInstallCaution(app) && <InstallCaution app={app} />}
 
           <section className="rounded-lg border border-slate-700/40 bg-slate-900/70 p-4">
-            <h4 className="font-bold text-white">Quick review</h4>
+            <h4 className="font-bold text-white">Review setup</h4>
             <p className="mt-2 text-sm text-slate-300">{installPlan?.friendly.headline || app.plainLanguage}</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
               <FriendlyStat label="Type" value={serviceKindLabel(app.usage.kind)} />
@@ -83,23 +75,12 @@ export function InstallWizard({ app, hideTrigger = false, installLocked, install
               <FriendlyStat label="Support level" value={app.supportLevel} />
               <FriendlyStat label="Ready when" value={app.health.successLabel} />
             </div>
-            <p className="mt-3 rounded-md border border-slate-700/30 bg-slate-950/35 px-3 py-2 text-xs leading-5 text-slate-400">{expectedSetupText(app)}</p>
+            <div className="mt-4">
+              <SetupSummaryList app={app} answers={setupAnswers} />
+            </div>
           </section>
 
-          {installPlan && (
-            <section className="rounded-lg border border-slate-700/40 bg-slate-900/70 p-4">
-              <h4 className="font-bold text-white">Project OS will</h4>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <MiniList title="Create" items={installPlan.friendly.willCreate} />
-                <MiniList title="Expose" items={installPlan.friendly.willExpose} />
-                <MiniList title="Configure" items={installPlan.friendly.willConfigure} />
-                <MiniList title="Back up" items={installPlan.friendly.willBackUp} />
-              </div>
-              <p className="mt-3 rounded-md border border-emerald-300/20 bg-emerald-500/10 px-3 py-2 text-xs leading-5 text-emerald-100">
-                After install, create a first backup from Backups or My Apps.
-              </p>
-            </section>
-          )}
+          <InstallPlanPreview app={app} answers={setupAnswers} />
 
           {installPlan && (
             <Collapsible className="rounded-lg border border-slate-700/40 bg-slate-900/70 p-4">
@@ -111,55 +92,6 @@ export function InstallWizard({ app, hideTrigger = false, installLocked, install
               </CollapsibleContent>
             </Collapsible>
           )}
-
-          <section className="rounded-lg border border-slate-700/40 bg-slate-900/70 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h4 className="font-bold text-white">Choices</h4>
-                <p className="mt-1 text-sm text-slate-400">Leave these alone for the normal one-click setup, or change them for a specific port, folder, or backup plan.</p>
-              </div>
-              <Button className={poButtonClass('quiet')} onClick={() => setShowAdvanced((value) => !value)} type="button" variant="outline">
-                {showAdvanced ? 'Hide choices' : 'Show choices'}
-              </Button>
-            </div>
-
-            {showAdvanced && (
-              <div className="mt-4 grid gap-4">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="grid gap-1.5 text-sm">
-                    <span className="font-semibold text-slate-200">Local browser port</span>
-                    <Input className="border-slate-700/40 bg-slate-950/60 text-white" max="65535" min="1" onChange={(event) => updateOptions((options) => ({ ...options, ports: { hostPort: event.target.value ? Number(event.target.value) : null } }))} placeholder={`Auto (${defaultHostPort(app)})`} type="number" value={installOptions?.ports?.hostPort ?? ''} />
-                  </label>
-                  <label className="flex items-center justify-between gap-3 rounded-lg border border-slate-700/30 bg-slate-950/35 p-3 text-sm">
-                    <span>
-                      <span className="block font-semibold text-slate-200">Private remote access</span>
-                      <span className="text-slate-500">Save this preference for Tailscale support.</span>
-                    </span>
-                    <Checkbox checked={Boolean(installOptions?.access?.tailscaleEnabled)} onCheckedChange={(checked) => updateOptions((options) => ({ ...options, access: { tailscaleEnabled: Boolean(checked) } }))} />
-                  </label>
-                </div>
-
-                <div className="grid gap-3 rounded-lg border border-slate-700/30 bg-slate-950/35 p-3">
-                  <h5 className="font-bold text-white">Data folders</h5>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {Object.entries(installOptions?.storage?.subfolders ?? {}).map(([key, value]) => (
-                      <label className="grid gap-1.5 text-sm" key={key}>
-                        <span className="font-semibold text-slate-300">{key}</span>
-                        <Input className="border-slate-700/40 bg-slate-950/60 text-white" onChange={(event) => updateOptions((options) => ({ ...options, storage: { subfolders: { ...(options.storage?.subfolders ?? {}), [key]: event.target.value } } }))} value={value} />
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-slate-700/30 bg-slate-950/35 p-3">
-                  <p className="text-sm font-semibold text-slate-200">Backups</p>
-                  <p className="mt-1 text-xs leading-5 text-slate-500">
-                    New apps are included in Project OS backup protection by default. Routine timing and retention are managed globally from Backups and Settings.
-                  </p>
-                </div>
-              </div>
-            )}
-          </section>
 
           {installing && <InstallProgressCard />}
           {installResult && <InstallResultCard result={installResult} />}
@@ -273,8 +205,24 @@ function requiresInstallCaution(app: MarketplaceApp) {
 function InstallResultCard({ result }: { result: InstallResult }) {
   return (
     <section className={cn('rounded-lg border p-4', result.status === 'installed' ? 'border-emerald-400/25 bg-emerald-500/10' : 'border-red-400/25 bg-red-500/10')}>
-      <h4 className="font-bold text-white">{result.status === 'installed' ? 'Ready to use' : 'Install needs attention'}</h4>
+      <h4 className="font-bold text-white">{result.status === 'installed' ? `${result.appName} is ready` : 'Install needs attention'}</h4>
       <p className="mt-2 text-sm text-slate-300">{result.message}</p>
+      {result.status === 'installed' && (
+        <div className="mt-4 grid gap-3 rounded-lg border border-emerald-300/20 bg-slate-950/35 p-3 sm:grid-cols-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-normal text-emerald-200">Open</p>
+            <p className="mt-1 text-sm text-slate-300">Use My Apps for day-to-day access.</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-normal text-emerald-200">Protect</p>
+            <p className="mt-1 text-sm text-slate-300">Create a first restore point before experimenting.</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-normal text-emerald-200">Manage</p>
+            <p className="mt-1 text-sm text-slate-300">Settings and recovery stay in Project OS.</p>
+          </div>
+        </div>
+      )}
       {result.status !== 'installed' && privateHttpsFailed(result) && <PrivateHttpsSetupHint />}
       {result.status === 'installed' && result.postInstallGuide && <PostInstallGuideCard guide={result.postInstallGuide} accessUrl={result.accessUrl} />}
       {result.status === 'installed' && result.setupGuide && <div className="mt-4"><ApplicationsSetupGuide guide={result.setupGuide} /></div>}
@@ -303,19 +251,6 @@ function serviceKindLabel(kind: string) {
     infrastructure: 'Infrastructure',
   };
   return labels[kind] || kind.replaceAll('-', ' ');
-}
-
-function expectedSetupText(app: MarketplaceApp) {
-  if (app.usage.privateHttpsRequired) {
-    return 'Project OS will create a private HTTPS link and show copyable setup details after install.';
-  }
-  if (app.usage.kind === 'companion-service') {
-    return 'Project OS will start the service and then show connection details for your devices.';
-  }
-  if (app.health.type === 'no-web-ui' || app.health.type === 'container') {
-    return 'Project OS will check that the background service is running; there may not be a normal web page to open.';
-  }
-  return 'Project OS will start the app, check its local link, and keep watching it from My Apps.';
 }
 
 function privateHttpsFailed(result: InstallResult) {
@@ -472,17 +407,6 @@ function InstallTerminal({ logs }: { logs: string[] }) {
       <pre className="max-h-32 overflow-y-auto whitespace-pre-wrap px-3 py-2 font-mono text-[11px] leading-5 text-slate-400">
         {logs.slice(-80).join('\n')}
       </pre>
-    </div>
-  );
-}
-
-function MiniList({ title, items }: { title: string; items: string[] }) {
-  return (
-    <div className="rounded-lg border border-slate-700/30 bg-slate-950/30 p-3">
-      <h5 className="text-sm font-bold text-white">{title}</h5>
-      <ul className="mt-2 grid gap-1 text-sm text-slate-400">
-        {items.map((item) => <li key={item}>{item}</li>)}
-      </ul>
     </div>
   );
 }
