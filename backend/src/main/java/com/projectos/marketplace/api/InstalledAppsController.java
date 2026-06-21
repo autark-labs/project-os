@@ -1,6 +1,7 @@
 package com.projectos.marketplace.api;
 
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.projectos.apps.ApplicationStateService;
 import com.projectos.marketplace.install.AppActionResult;
 import com.projectos.marketplace.install.AppAccessCheck;
 import com.projectos.marketplace.install.AppLifecycleService;
@@ -36,33 +38,48 @@ public class InstalledAppsController {
     private final AppLifecycleService appLifecycleService;
     private final MonitoringMetricsService monitoringMetricsService;
     private final AppUpdateService appUpdateService;
+    private final ApplicationStateService applicationStateService;
 
-    public InstalledAppsController(AppLifecycleService appLifecycleService, MonitoringMetricsService monitoringMetricsService, AppUpdateService appUpdateService) {
+    public InstalledAppsController(AppLifecycleService appLifecycleService, MonitoringMetricsService monitoringMetricsService, AppUpdateService appUpdateService, ApplicationStateService applicationStateService) {
         this.appLifecycleService = appLifecycleService;
         this.monitoringMetricsService = monitoringMetricsService;
         this.appUpdateService = appUpdateService;
+        this.applicationStateService = applicationStateService;
     }
 
     @GetMapping
     public List<AppRuntimeView> apps() {
-        return appLifecycleService.listApps();
+        return applicationStateService.snapshot().runtimeApps();
     }
 
     @GetMapping("/access")
     public Map<String, AppAccessCheck> accessChecks() {
-        return appLifecycleService.accessChecks();
+        Map<String, AppAccessCheck> checks = new LinkedHashMap<>();
+        for (AppRuntimeView app : applicationStateService.snapshot().runtimeApps()) {
+            checks.put(app.appId(), cachedAccessCheck(app));
+        }
+        return checks;
     }
 
     @GetMapping("/telemetry")
     public Map<String, AppTelemetry> telemetry() {
-        Map<String, AppTelemetry> telemetry = appLifecycleService.telemetry();
+        Map<String, AppTelemetry> telemetry = new LinkedHashMap<>();
+        for (AppRuntimeView app : applicationStateService.snapshot().runtimeApps()) {
+            telemetry.put(app.appId(), app.telemetry() == null ? AppTelemetry.unavailable() : app.telemetry());
+        }
         monitoringMetricsService.recordApps(telemetry);
         return telemetry;
     }
 
     @GetMapping("/health")
     public Map<String, AppHealthSnapshot> healthSnapshots() {
-        return appLifecycleService.healthSnapshots();
+        Map<String, AppHealthSnapshot> snapshots = new LinkedHashMap<>();
+        for (AppRuntimeView app : applicationStateService.snapshot().runtimeApps()) {
+            if (app.healthSnapshot() != null) {
+                snapshots.put(app.appId(), app.healthSnapshot());
+            }
+        }
+        return snapshots;
     }
 
     @GetMapping("/reliability")
@@ -104,52 +121,52 @@ public class InstalledAppsController {
 
     @PostMapping("/{id}/start")
     public AppActionResult start(@PathVariable String id) {
-        return appLifecycleService.start(id);
+        return refreshAfter(appLifecycleService.start(id));
     }
 
     @PostMapping("/{id}/stop")
     public AppActionResult stop(@PathVariable String id) {
-        return appLifecycleService.stop(id);
+        return refreshAfter(appLifecycleService.stop(id));
     }
 
     @PostMapping("/{id}/restart")
     public AppActionResult restart(@PathVariable String id) {
-        return appLifecycleService.restart(id);
+        return refreshAfter(appLifecycleService.restart(id));
     }
 
     @PostMapping("/{id}/repair")
     public AppActionResult repair(@PathVariable String id) {
-        return appLifecycleService.repair(id);
+        return refreshAfter(appLifecycleService.repair(id));
     }
 
     @PostMapping("/{id}/update")
     public AppUpdateResult update(@PathVariable String id) {
-        return appUpdateService.update(id);
+        return refreshAfter(appUpdateService.update(id));
     }
 
     @PostMapping("/{id}/rollback")
     public AppUpdateResult rollback(@PathVariable String id) {
-        return appUpdateService.rollback(id);
+        return refreshAfter(appUpdateService.rollback(id));
     }
 
     @PostMapping("/{id}/private-access/enable")
     public AppActionResult enablePrivateAccess(@PathVariable String id) {
-        return appLifecycleService.enablePrivateAccess(id);
+        return refreshAfter(appLifecycleService.enablePrivateAccess(id));
     }
 
     @PostMapping("/{id}/private-access/repair")
     public AppActionResult repairPrivateAccess(@PathVariable String id) {
-        return appLifecycleService.enablePrivateAccess(id);
+        return refreshAfter(appLifecycleService.enablePrivateAccess(id));
     }
 
     @PostMapping("/{id}/private-access/disable")
     public AppActionResult disablePrivateAccess(@PathVariable String id) {
-        return appLifecycleService.disablePrivateAccess(id);
+        return refreshAfter(appLifecycleService.disablePrivateAccess(id));
     }
 
     @PutMapping("/{id}/settings")
     public AppRuntimeView updateSettings(@PathVariable String id, @RequestBody InstallSettings settings) {
-        return appLifecycleService.updateSettings(id, settings);
+        return refreshAfter(appLifecycleService.updateSettings(id, settings));
     }
 
     @PostMapping("/{id}/settings-plan")
@@ -159,6 +176,20 @@ public class InstalledAppsController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<AppActionResult> uninstall(@PathVariable String id) {
-        return ResponseEntity.ok(appLifecycleService.uninstall(id));
+        return ResponseEntity.ok(refreshAfter(appLifecycleService.uninstall(id)));
+    }
+
+    private <T> T refreshAfter(T result) {
+        applicationStateService.refreshNow();
+        return result;
+    }
+
+    private AppAccessCheck cachedAccessCheck(AppRuntimeView app) {
+        AppHealthSnapshot health = app.healthSnapshot();
+        if (health == null || health.localAccessStatus() == null || "not_configured".equals(health.localAccessStatus())) {
+            return AppAccessCheck.notConfigured(app.appId());
+        }
+        String message = "reachable".equals(health.localAccessStatus()) ? "App link is responding." : "App is running, but the link is not responding.";
+        return new AppAccessCheck(app.appId(), app.accessUrl(), health.localAccessStatus(), message, health.checkedAt());
     }
 }

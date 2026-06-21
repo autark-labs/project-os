@@ -3,8 +3,10 @@ package com.projectos.marketplace.install;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,6 +14,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import com.projectos.activity.ActivityLogService;
+import com.projectos.apps.ApplicationStateService;
 import com.projectos.automation.AutomationService;
 
 @Service
@@ -25,16 +28,22 @@ public class AppGuardianService {
     private final ActivityLogService activityLogService;
     private final AutomationService automationService;
     private final AppInstanceViewProvider appInstanceViewProvider;
+    private final ApplicationStateService applicationStateService;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     @Autowired
-    public AppGuardianService(InstalledAppRepository repository, AppLifecycleService appLifecycleService, @Value("${project-os.guardian.enabled:true}") boolean enabled, ActivityLogService activityLogService, AutomationService automationService, AppInstanceViewProvider appInstanceViewProvider) {
+    public AppGuardianService(InstalledAppRepository repository, AppLifecycleService appLifecycleService, @Value("${project-os.guardian.enabled:true}") boolean enabled, ActivityLogService activityLogService, AutomationService automationService, AppInstanceViewProvider appInstanceViewProvider, ApplicationStateService applicationStateService) {
         this.repository = repository;
         this.appLifecycleService = appLifecycleService;
         this.enabled = enabled;
         this.activityLogService = activityLogService;
         this.automationService = automationService;
         this.appInstanceViewProvider = appInstanceViewProvider;
+        this.applicationStateService = applicationStateService;
+    }
+
+    public AppGuardianService(InstalledAppRepository repository, AppLifecycleService appLifecycleService, @Value("${project-os.guardian.enabled:true}") boolean enabled, ActivityLogService activityLogService, AutomationService automationService, AppInstanceViewProvider appInstanceViewProvider) {
+        this(repository, appLifecycleService, enabled, activityLogService, automationService, appInstanceViewProvider, null);
     }
 
     public AppGuardianService(InstalledAppRepository repository, AppLifecycleService appLifecycleService, @Value("${project-os.guardian.enabled:true}") boolean enabled) {
@@ -67,8 +76,16 @@ public class AppGuardianService {
             return;
         }
         try {
-            for (InstalledApp app : managedInstalledApps()) {
-                inspectApp(app);
+            if (applicationStateService == null) {
+                for (InstalledApp app : managedInstalledApps()) {
+                    inspectApp(app);
+                }
+                return;
+            }
+            Map<String, AppRuntimeView> runtimeByAppId = applicationStateService.snapshot().runtimeApps().stream()
+                    .collect(Collectors.toMap(AppRuntimeView::appId, view -> view, (left, right) -> left));
+            for (InstalledApp app : managedInstalledAppsFromSnapshot(runtimeByAppId.keySet())) {
+                inspectCachedApp(app, runtimeByAppId.get(app.appId()));
             }
         } finally {
             running.set(false);
@@ -92,6 +109,40 @@ public class AppGuardianService {
             return;
         }
 
+        repository.recordEvent(app.appId(), "guardian_issue_detected", "Project OS noticed " + app.appName() + " needs attention: " + snapshot.message() + ".");
+        if (activityLogService != null) {
+            activityLogService.warning("stability", "guardian_issue_detected", app.appName() + " needs attention", snapshot.message(), app.appId());
+        }
+        Instant attemptAt = Instant.now();
+        saveGuardianState(app, settings, "guardian_repair_queued", attemptAt);
+        try {
+            appLifecycleService.repair(app.appId(), true);
+        } catch (RuntimeException exception) {
+            saveGuardianState(app, settings, blockedByOwnership(exception) ? "guardian_repair_blocked" : "guardian_repair_failed", attemptAt);
+            if (!hasRecentGuardianFailure(app.appId())) {
+                repository.recordEvent(app.appId(), "guardian_repair_failed", "Project OS could not repair " + app.appName() + ". Reason: " + failureReason(exception));
+                if (activityLogService != null) {
+                    activityLogService.error("stability", "guardian_repair_failed", "Automatic repair failed for " + app.appName(), failureReason(exception), app.appId(), exception);
+                }
+            }
+        }
+    }
+
+    private void inspectCachedApp(InstalledApp app, AppRuntimeView runtimeView) {
+        if (runtimeView == null || runtimeView.healthSnapshot() == null) {
+            return;
+        }
+        if (automationService != null && !automationService.recipeEnabled(AutomationService.RESTART_UNHEALTHY_APP)) {
+            return;
+        }
+        InstallSettings settings = repository.settingsFor(app.appId()).orElseGet(() -> InstallSettings.defaults(app.accessUrl()));
+        if (!settings.autoRepairEnabled()) {
+            return;
+        }
+        AppHealthSnapshot snapshot = runtimeView.healthSnapshot();
+        if (!shouldRepair(snapshot) || recentlyAttempted(settings)) {
+            return;
+        }
         repository.recordEvent(app.appId(), "guardian_issue_detected", "Project OS noticed " + app.appName() + " needs attention: " + snapshot.message() + ".");
         if (activityLogService != null) {
             activityLogService.warning("stability", "guardian_issue_detected", app.appName() + " needs attention", snapshot.message(), app.appId());
@@ -158,6 +209,12 @@ public class AppGuardianService {
                 .map(AppInstanceView::catalogAppId)
                 .filter(id -> id != null && !id.isBlank())
                 .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
+        return repository.findAll().stream()
+                .filter(app -> managedIds.contains(app.appId()))
+                .toList();
+    }
+
+    private List<InstalledApp> managedInstalledAppsFromSnapshot(Set<String> managedIds) {
         return repository.findAll().stream()
                 .filter(app -> managedIds.contains(app.appId()))
                 .toList();

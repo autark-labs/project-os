@@ -1,6 +1,7 @@
 package com.projectos.apps;
 
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -17,9 +18,11 @@ public class ApplicationStateController {
 
     @GetMapping
     public ApplicationState state(@RequestParam(defaultValue = "false") boolean refresh) {
-        if (refresh) {
-            service.invalidate();
-        }
         return service.snapshot();
+    }
+
+    @PostMapping("/refresh")
+    public ApplicationState refresh() {
+        return service.refreshNow();
     }
 }

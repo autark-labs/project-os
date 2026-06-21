@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -38,7 +41,7 @@ class ApplicationStateServiceTests {
                 null,
                 Instant::now);
 
-        ApplicationState state = service.snapshot();
+        ApplicationState state = service.refreshNow();
 
         assertThat(state.pinnedExternalServices())
                 .extracting(ObservedServiceView::id)
@@ -46,7 +49,7 @@ class ApplicationStateServiceTests {
     }
 
     @Test
-    void snapshotIsCachedForOneRequestWindow() {
+    void snapshotDoesNotRunLiveSuppliers() {
         AtomicInteger managedCalls = new AtomicInteger();
         ApplicationStateService service = new ApplicationStateService(
                 () -> {
@@ -61,7 +64,59 @@ class ApplicationStateServiceTests {
         service.snapshot();
         service.snapshot();
 
+        assertThat(managedCalls).hasValue(0);
+        assertThat(service.snapshot().refreshStatus()).isEqualTo("stale");
+    }
+
+    @Test
+    void explicitRefreshBuildsAndCachesProjection() {
+        AtomicInteger managedCalls = new AtomicInteger();
+        ApplicationStateService service = new ApplicationStateService(
+                () -> {
+                    managedCalls.incrementAndGet();
+                    return List.of(appInstance());
+                },
+                List::of,
+                new ObservedServiceService(repository(), noScan()),
+                null,
+                () -> Instant.parse("2026-06-21T12:00:00Z"));
+
+        ApplicationState refreshed = service.refreshNow();
+        ApplicationState cached = service.snapshot();
+
         assertThat(managedCalls).hasValue(1);
+        assertThat(refreshed.managedApps()).hasSize(1);
+        assertThat(cached).isSameAs(refreshed);
+        assertThat(cached.refreshStatus()).isEqualTo("idle");
+        assertThat(cached.stale()).isFalse();
+    }
+
+    @Test
+    void snapshotDuringRefreshReturnsPreviousProjectionWithoutWaiting() throws Exception {
+        CountDownLatch refreshStarted = new CountDownLatch(1);
+        CountDownLatch releaseRefresh = new CountDownLatch(1);
+        AtomicReference<List<AppInstanceView>> managed = new AtomicReference<>(List.of(appInstance()));
+        ApplicationStateService service = new ApplicationStateService(
+                () -> managed.get(),
+                List::of,
+                new ObservedServiceService(repository(), noScan()),
+                null,
+                () -> Instant.parse("2026-06-21T12:00:00Z"));
+        ApplicationState previous = service.refreshNow();
+        managed.set(List.of(blockingAppInstance(refreshStarted, releaseRefresh)));
+
+        Thread refreshThread = new Thread(service::refreshNow);
+        refreshThread.start();
+
+        assertThat(refreshStarted.await(2, TimeUnit.SECONDS)).isTrue();
+        ApplicationState duringRefresh = service.snapshot();
+        releaseRefresh.countDown();
+        refreshThread.join(2_000);
+
+        assertThat(duringRefresh).isSameAs(previous);
+        assertThat(service.snapshot().managedApps())
+                .extracting(AppInstanceView::catalogAppId)
+                .containsExactly("vaultwarden");
     }
 
     private ObservedServiceScanner noScan() {
@@ -113,6 +168,32 @@ class ApplicationStateServiceTests {
                 "local_ready",
                 "backup_disabled",
                 "http://localhost:3005",
+                null,
+                List.of(),
+                List.of(),
+                Instant.parse("2026-06-21T12:00:00Z"));
+    }
+
+    private AppInstanceView blockingAppInstance(CountDownLatch started, CountDownLatch release) {
+        started.countDown();
+        try {
+            release.await(2, TimeUnit.SECONDS);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+        }
+        return new AppInstanceView(
+                "appinst_vaultwarden",
+                "vaultwarden",
+                "Vaultwarden",
+                "Security",
+                "",
+                "Ready",
+                "ready",
+                "running",
+                "owned",
+                "local_ready",
+                "backup_disabled",
+                "http://localhost:3006",
                 null,
                 List.of(),
                 List.of(),

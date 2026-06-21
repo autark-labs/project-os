@@ -2,6 +2,7 @@ package com.projectos.network.diagnostics;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -37,7 +38,7 @@ public class NetworkDiagnosticsService {
         TailscaleStatus tailscale = tailscaleService.status();
         List<TailscaleDevice> devices = tailscaleService.devices();
         List<AppRuntimeView> apps = applicationStateService.snapshot().runtimeApps();
-        Map<String, AppAccessCheck> accessChecks = appLifecycleService.accessChecks();
+        Map<String, AppAccessCheck> accessChecks = cachedAccessChecks(apps);
         List<AppRuntimeView> privateApps = apps.stream()
                 .filter(app -> app.settings() != null && app.settings().tailscaleEnabled())
                 .toList();
@@ -69,6 +70,19 @@ public class NetworkDiagnosticsService {
                 checks,
                 combinedAppChecks,
                 Instant.now());
+    }
+
+    private Map<String, AppAccessCheck> cachedAccessChecks(List<AppRuntimeView> apps) {
+        Map<String, AppAccessCheck> checks = new LinkedHashMap<>();
+        for (AppRuntimeView app : apps) {
+            if (app.healthSnapshot() == null || app.healthSnapshot().localAccessStatus() == null || "not_configured".equals(app.healthSnapshot().localAccessStatus())) {
+                checks.put(app.appId(), AppAccessCheck.notConfigured(app.appId()));
+                continue;
+            }
+            String message = "reachable".equals(app.healthSnapshot().localAccessStatus()) ? "App link is responding." : "App is running, but the link is not responding.";
+            checks.put(app.appId(), new AppAccessCheck(app.appId(), app.accessUrl(), app.healthSnapshot().localAccessStatus(), message, app.healthSnapshot().checkedAt()));
+        }
+        return checks;
     }
 
     private NetworkDiagnosticItem installedCheck(TailscaleStatus tailscale) {

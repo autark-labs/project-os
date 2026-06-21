@@ -1,12 +1,16 @@
 package com.projectos.host;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import java.time.Instant;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.web.bind.annotation.DeleteMapping;
+
+import com.projectos.apps.ApplicationStateService;
 
 class ObservedServiceControllerTests {
 
@@ -21,6 +25,17 @@ class ObservedServiceControllerTests {
         assertThat(result.ok()).isTrue();
         assertThat(controller.list()).extracting(ObservedServiceView::id).containsExactly("obs_vaultwarden");
         assertThat(controller.list().getFirst().pinned()).isFalse();
+    }
+
+    @Test
+    void listDoesNotRefreshObservedServices() {
+        InMemoryObservedServiceService service = new InMemoryObservedServiceService();
+        service.current = observed("obs_service", "observed", null, null);
+        ObservedServiceController controller = new ObservedServiceController(service);
+
+        controller.list();
+
+        assertThat(service.refreshCalls).isZero();
     }
 
     @Test
@@ -39,6 +54,18 @@ class ObservedServiceControllerTests {
 
         assertThat(result.ok()).isTrue();
         assertThat(controller.get("obs_service").catalogAppId()).isEqualTo("vaultwarden");
+    }
+
+    @Test
+    void pinRefreshesCachedApplicationState() {
+        InMemoryObservedServiceService service = new InMemoryObservedServiceService();
+        service.current = observed("obs_service", "observed", null, null);
+        ApplicationStateService applicationStateService = mock(ApplicationStateService.class);
+        ObservedServiceController controller = new ObservedServiceController(service, applicationStateService);
+
+        controller.pin("obs_service");
+
+        verify(applicationStateService).refreshNow();
     }
 
     private static ObservedService observed(String id, String visibility, Instant pinnedAt, String catalogAppId) {
@@ -66,6 +93,7 @@ class ObservedServiceControllerTests {
 
     private static final class InMemoryObservedServiceService extends ObservedServiceService {
         private ObservedService current;
+        private int refreshCalls;
 
         private InMemoryObservedServiceService() {
             super(null, null);
@@ -78,12 +106,38 @@ class ObservedServiceControllerTests {
 
         @Override
         public List<ObservedServiceView> refresh() {
+            refreshCalls++;
             return list(true);
         }
 
         @Override
         public ObservedServiceView get(String id) {
             return view(current);
+        }
+
+        @Override
+        public ActionResult pin(String id) {
+            current = new ObservedService(
+                    current.id(),
+                    current.source(),
+                    current.fingerprint(),
+                    current.displayName(),
+                    current.url(),
+                    current.category(),
+                    current.accessScope(),
+                    current.catalogAppId(),
+                    current.catalogMatchConfidence(),
+                    current.ownershipState(),
+                    "pinned",
+                    current.runtimeState(),
+                    current.healthCheckEnabled(),
+                    current.projectOsInstanceId(),
+                    current.firstSeenAt(),
+                    current.lastSeenAt(),
+                    Instant.parse("2026-06-21T12:00:00Z"),
+                    current.ignoredAt(),
+                    current.metadataJson());
+            return new ActionResult(true, "success", "Service pinned", "The service now appears in My Apps.", id, "refresh_observed_services");
         }
 
         @Override
