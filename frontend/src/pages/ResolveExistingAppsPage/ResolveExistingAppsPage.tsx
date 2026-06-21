@@ -7,6 +7,7 @@ import { apiErrorMessage } from '@/api/httpClient';
 import { PageErrorState, PageLoadingState } from '@/components/project-os/PageState';
 import { PageSection, PageShell, SoftCard, StatusPill } from '@/components/project-os/ProjectOSComponents';
 import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -341,8 +342,9 @@ function ResourceDetails({
           </div>
         </div>
 
-        <details className="mt-4 rounded-lg border border-red-300/20 bg-red-500/5 p-4">
-          <summary className="cursor-pointer text-sm font-bold text-red-100">Advanced data deletion</summary>
+        <Collapsible className="mt-4 rounded-lg border border-red-300/20 bg-red-500/5 p-4">
+          <CollapsibleTrigger className="w-full cursor-pointer text-left text-sm font-bold text-red-100">Advanced data deletion</CollapsibleTrigger>
+          <CollapsibleContent>
           <p className="mt-2 text-sm leading-6 text-red-100/75">
             Data deletion is separate from cleanup and requires an exact typed confirmation. Use this only when you intentionally want old app files removed.
           </p>
@@ -351,14 +353,17 @@ function ResourceDetails({
             Plan data deletion
           </Button>
           {!hasKnownData && <p className="mt-2 text-xs text-red-100/60">No Project OS data-path labels were found for this resource.</p>}
-        </details>
+          </CollapsibleContent>
+        </Collapsible>
 
-        <details className="mt-4 rounded-lg border border-po-border bg-po-surface-inset p-4">
-          <summary className="cursor-pointer text-sm font-bold text-po-text">Technical details</summary>
+        <Collapsible className="mt-4 rounded-lg border border-po-border bg-po-surface-inset p-4">
+          <CollapsibleTrigger className="w-full cursor-pointer text-left text-sm font-bold text-po-text">Technical details</CollapsibleTrigger>
+          <CollapsibleContent>
           <dl className="mt-3 grid gap-2 text-sm">
             {Object.entries(resource.details).map(([key, value]) => <Detail key={key} label={key} value={value || 'Unknown'} />)}
           </dl>
-        </details>
+          </CollapsibleContent>
+        </Collapsible>
       </SoftCard>
     </PageSection>
   );

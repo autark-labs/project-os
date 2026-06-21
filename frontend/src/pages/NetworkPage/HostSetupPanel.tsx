@@ -23,6 +23,7 @@ export function HostSetupPanel({ setup }: { setup: SystemSetupStatus | null }) {
   }
 
   const needsSetup = setup.status === 'needs_admin_setup';
+  const checks = setup.checks ?? [];
 
   return (
     <Card className="border-white/10 bg-slate-950/55 text-slate-100">
@@ -44,7 +45,7 @@ export function HostSetupPanel({ setup }: { setup: SystemSetupStatus | null }) {
       </CardHeader>
       <CardContent className="grid gap-4">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {setup.checks.map((check) => <SetupCheckCard check={check} copied={copied} key={check.id} onCopy={copy} />)}
+          {checks.map((check) => <SetupCheckCard check={check} copied={copied} key={check.id} onCopy={copy} />)}
         </div>
         <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-3">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase text-slate-500">

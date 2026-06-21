@@ -33,6 +33,22 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PageErrorState, PageLoadingState } from '@/components/project-os/PageState';
 import { PageShell, surfaceFrameClass, surfacePanelClass } from '@/components/project-os/ProjectOSComponents';
+import {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Select as UiSelect,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
 import { poButtonClass, poCardClass, poNavItemClass } from '@/lib/projectOsStyleKit';
@@ -144,7 +160,6 @@ const settingHelp: Record<string, SettingHelp> = {
 function SettingsPage() {
   const { setProjectSettings } = useProjectSettings();
   const [activeGroup, setActiveGroup] = useState<SettingsGroupId>('general');
-  const [activeHelpId, setActiveHelpId] = useState('deviceName');
   const [state, setState] = useState<SettingsState>({ apps: [], backupRoot: null, doctor: null, metrics: null, projectSettings: null, setup: null, version: null });
   const [draft, setDraft] = useState<ProjectSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -188,9 +203,8 @@ function SettingsPage() {
     void load();
   }, []);
 
-  const requiredChecks = useMemo(() => state.setup?.checks.filter((check) => ['service-user', 'runtime-root', 'docker', 'tailscale', 'tailscale-operator'].includes(check.id)) ?? [], [state.setup]);
-  const advancedChecks = useMemo(() => state.setup?.checks.filter((check) => !requiredChecks.includes(check)) ?? [], [requiredChecks, state.setup]);
-  const help = settingHelp[activeHelpId] || settingHelp.deviceName;
+  const requiredChecks = useMemo(() => state.setup?.checks?.filter((check) => ['service-user', 'runtime-root', 'docker', 'tailscale', 'tailscale-operator'].includes(check.id)) ?? [], [state.setup]);
+  const advancedChecks = useMemo(() => state.setup?.checks?.filter((check) => !requiredChecks.includes(check)) ?? [], [requiredChecks, state.setup]);
   const activeGroupId = defaultSettingsGroup(activeGroup) as SettingsGroupId;
   const activeGroupMeta = topLevelSettingsGroups.find((group) => group.id === activeGroupId) || topLevelSettingsGroups[0];
   const ActiveGroupIcon = groupIcons[activeGroupId];
@@ -292,7 +306,7 @@ function SettingsPage() {
         })}
       </nav>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid gap-5">
         <main className={cn(surfacePanelClass, 'bg-slate-950/60 shadow-po-panel')}>
           <div className={poCardClass('normal', 'mb-5 bg-slate-900/40')}>
             <div className="flex items-start gap-3">
@@ -317,7 +331,6 @@ function SettingsPage() {
                 key={sectionId}
                 metrics={state.metrics}
                 onCopy={copy}
-                onHelp={setActiveHelpId}
                 onUpdate={updateDraft}
                 requiredChecks={requiredChecks}
                 sectionId={sectionId as SettingsSection}
@@ -327,53 +340,40 @@ function SettingsPage() {
             ))}
           </div>
         </main>
-
-        <aside className={cn(surfacePanelClass, 'bg-slate-950/60 shadow-po-panel')}>
-          <p className="text-xs font-black uppercase tracking-normal text-violet-300">Helper panel</p>
-          <h2 className="mt-3 text-xl font-black text-white">{help.title}</h2>
-          <p className="mt-4 text-sm leading-6 text-slate-300">{help.body}</p>
-          <p className="mt-6 text-sm font-bold text-white">Used for:</p>
-          <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-slate-300">
-            {help.usedFor.map((item) => <li key={item}>{item}</li>)}
-          </ul>
-          <p className="mt-6 text-sm leading-6 text-slate-400">
-            <span className="font-bold text-slate-200">Tip:</span> {help.tip}
-          </p>
-        </aside>
       </div>
     </PageShell>
   );
 }
 
-function GeneralPanel({ draft, onHelp, onUpdate }: PanelProps) {
+function GeneralPanel({ draft, onUpdate }: PanelProps) {
   return (
     <SettingsGroup description="Basic system settings and preferences." title="General">
-      <SettingRow helpId="deviceName" label="Device name" note="This name is used to identify your device on the network." onHelp={onHelp}>
+      <SettingRow helpId="deviceName" label="Device name" note="This name is used to identify your device on the network.">
         <Input className="max-w-md border-slate-700 bg-slate-950/70 text-slate-100" onChange={(event) => onUpdate({ deviceName: event.target.value })} value={draft.deviceName} />
       </SettingRow>
-      <SettingRow helpId="timeZone" label="Time zone" note="Used for system services, logs, and backup schedules." onHelp={onHelp}>
-        <Select value={draft.timeZone} onChange={(value) => onUpdate({ timeZone: value })} options={[['America/Chicago', '(UTC-06:00) Central Time'], ['America/New_York', '(UTC-05:00) Eastern Time'], ['America/Denver', '(UTC-07:00) Mountain Time'], ['America/Los_Angeles', '(UTC-08:00) Pacific Time'], ['UTC', 'UTC']]} />
+      <SettingRow helpId="timeZone" label="Time zone" note="Used for system services, logs, and backup schedules.">
+        <SettingsSelect value={draft.timeZone} onChange={(value) => onUpdate({ timeZone: value })} options={[['America/Chicago', '(UTC-06:00) Central Time'], ['America/New_York', '(UTC-05:00) Eastern Time'], ['America/Denver', '(UTC-07:00) Mountain Time'], ['America/Los_Angeles', '(UTC-08:00) Pacific Time'], ['UTC', 'UTC']]} />
       </SettingRow>
-      <SettingRow helpId="language" label="Language" note="Select the language for the Project OS interface." onHelp={onHelp}>
-        <Select value={draft.language} onChange={(value) => onUpdate({ language: value })} options={[['en-US', 'English (US)'], ['en-GB', 'English (UK)']]} />
+      <SettingRow helpId="language" label="Language" note="Select the language for the Project OS interface.">
+        <SettingsSelect value={draft.language} onChange={(value) => onUpdate({ language: value })} options={[['en-US', 'English (US)'], ['en-GB', 'English (UK)']]} />
       </SettingRow>
-      <SettingRow helpId="temperatureUnit" label="Temperature unit" note="Preferred unit for temperature displays." onHelp={onHelp}>
-        <Select value={draft.temperatureUnit} onChange={(value) => onUpdate({ temperatureUnit: value })} options={[['fahrenheit', 'Fahrenheit (°F)'], ['celsius', 'Celsius (°C)']]} />
+      <SettingRow helpId="temperatureUnit" label="Temperature unit" note="Preferred unit for temperature displays.">
+        <SettingsSelect value={draft.temperatureUnit} onChange={(value) => onUpdate({ temperatureUnit: value })} options={[['fahrenheit', 'Fahrenheit (°F)'], ['celsius', 'Celsius (°C)']]} />
       </SettingRow>
-      <SettingRow helpId="dateFormat" label="Date format" note="Choose how dates are displayed." onHelp={onHelp}>
-        <Select value={draft.dateFormat} onChange={(value) => onUpdate({ dateFormat: value })} options={[['MMM d, yyyy', 'Jan 5, 2026'], ['yyyy-MM-dd', '2026-01-05'], ['MM/dd/yyyy', '01/05/2026']]} />
+      <SettingRow helpId="dateFormat" label="Date format" note="Choose how dates are displayed.">
+        <SettingsSelect value={draft.dateFormat} onChange={(value) => onUpdate({ dateFormat: value })} options={[['MMM d, yyyy', 'Jan 5, 2026'], ['yyyy-MM-dd', '2026-01-05'], ['MM/dd/yyyy', '01/05/2026']]} />
       </SettingRow>
-      <SettingRow helpId="timeFormat" label="Time format" note="Choose 12 or 24 hour time format." onHelp={onHelp}>
-        <Select value={draft.timeFormat} onChange={(value) => onUpdate({ timeFormat: value })} options={[['12-hour', '12-hour'], ['24-hour', '24-hour']]} />
+      <SettingRow helpId="timeFormat" label="Time format" note="Choose 12 or 24 hour time format.">
+        <SettingsSelect value={draft.timeFormat} onChange={(value) => onUpdate({ timeFormat: value })} options={[['12-hour', '12-hour'], ['24-hour', '24-hour']]} />
       </SettingRow>
     </SettingsGroup>
   );
 }
 
-function SystemPanel({ checks, copied, doctor, metrics, onCopy, onHelp, onUpdate, settings, setup, version }: SystemPanelProps) {
+function SystemPanel({ checks, copied, doctor, metrics, onCopy, onUpdate, settings, setup, version }: SystemPanelProps) {
   return (
     <SettingsGroup description="Core service behavior and host readiness." title="System">
-      <SettingRow helpId="startOnBoot" label="Start Project OS on boot" note="Automatically start Project OS services when the system boots." onHelp={onHelp}>
+      <SettingRow helpId="startOnBoot" label="Start Project OS on boot" note="Automatically start Project OS services when the system boots.">
         <Switch checked={settings.startOnBoot} onCheckedChange={(checked) => onUpdate({ startOnBoot: checked })} />
       </SettingRow>
       <ReadOnlyRow label="Run mode" note={`Active profiles: ${setup?.activeProfiles || 'default'}`} value={setup?.devMode ? 'Development' : 'Production'} />
@@ -388,12 +388,12 @@ function SystemPanel({ checks, copied, doctor, metrics, onCopy, onHelp, onUpdate
   );
 }
 
-function NetworkPanel({ draft, onHelp, onUpdate, setup }: PanelProps & { setup: SystemSetupStatus | null }) {
+function NetworkPanel({ draft, onUpdate, setup }: PanelProps & { setup: SystemSetupStatus | null }) {
   return (
     <SettingsGroup description="Configure network behavior and local service defaults." title="Network">
       <ReadOnlyRow label="Tailscale" note="Used for private app links." value={setup?.tailscaleVersion || 'Not detected'} />
-      <SettingRow helpId="defaultInstallAccess" label="Default install access" note="Preferred access posture for new app installs." onHelp={onHelp}>
-        <Select value={draft.defaultInstallAccess} onChange={(value) => onUpdate({ defaultInstallAccess: value })} options={[['manifest-default', 'Manifest default'], ['local', 'Local only'], ['private', 'Private network'], ['local-and-private', 'Local and private']]} />
+      <SettingRow helpId="defaultInstallAccess" label="Default install access" note="Preferred access posture for new app installs.">
+        <SettingsSelect value={draft.defaultInstallAccess} onChange={(value) => onUpdate({ defaultInstallAccess: value })} options={[['manifest-default', 'Manifest default'], ['local', 'Local only'], ['private', 'Private network'], ['local-and-private', 'Local and private']]} />
       </SettingRow>
       <ReadOnlyRow label="Hostname (mDNS)" note="Local hostname for network discovery." value={draft.deviceName.toLowerCase().replaceAll(' ', '-') + '.local'} />
       <ReadOnlyRow label="Local access URL" note="Base URL used for local web access." value={apiOrigin(setup)} />
@@ -401,33 +401,33 @@ function NetworkPanel({ draft, onHelp, onUpdate, setup }: PanelProps & { setup: 
   );
 }
 
-function StoragePanel({ metrics, onHelp }: { metrics: SystemMetrics | null; onHelp: (id: string) => void }) {
+function StoragePanel({ metrics }: { metrics: SystemMetrics | null }) {
   return (
     <SettingsGroup description="Manage storage locations and thresholds." title="Storage">
       <ReadOnlyRow label="Data root" note="Location for app data and persistent storage." value={metrics?.runtimeRoot || 'Unknown'} />
       <ReadOnlyRow label="Runtime disk used" note="Project OS data usage on the runtime disk." value={percentLabel(metrics?.runtimeUsedPercent)} />
       <ReadOnlyRow label="Runtime disk free" note="Available space for app data and backups." value={formatBytes(metrics?.runtimeUsableBytes ?? 0)} />
-      <SettingRow helpId="advancedMetrics" label="Show advanced disk info" note="Show detailed disk usage and filesystem information." onHelp={onHelp}>
+      <SettingRow helpId="advancedMetrics" label="Show advanced disk info" note="Show detailed disk usage and filesystem information.">
         <Badge className="border-slate-700 bg-slate-950 text-slate-300">Coming soon</Badge>
       </SettingRow>
     </SettingsGroup>
   );
 }
 
-function BackupsPanel({ apps, backupRoot, draft, onHelp, onUpdate }: PanelProps & { apps: AppRuntimeView[]; backupRoot: string | null }) {
+function BackupsPanel({ apps, backupRoot, draft, onUpdate }: PanelProps & { apps: AppRuntimeView[]; backupRoot: string | null }) {
   const protectedApps = apps.filter((app) => settingsForApp(app).backup.enabled).length;
   return (
     <SettingsGroup description="Control automatic backup behavior for all app data." title="Backups">
-      <SettingRow helpId="automaticBackupsEnabled" label="Automatic backups" note="Back up all supported app data on a schedule." onHelp={onHelp}>
+      <SettingRow helpId="automaticBackupsEnabled" label="Automatic backups" note="Back up all supported app data on a schedule.">
         <Switch checked={draft.automaticBackupsEnabled} onCheckedChange={(checked) => onUpdate({ automaticBackupsEnabled: checked })} />
       </SettingRow>
-      <SettingRow helpId="automaticBackupsEnabled" label="Backup frequency" note="How often Project OS should create automatic backups." onHelp={onHelp}>
-        <Select value={draft.backupFrequency} onChange={(value) => onUpdate({ backupFrequency: value })} options={[['hourly', 'Hourly'], ['daily', 'Daily'], ['weekly', 'Weekly']]} />
+      <SettingRow helpId="automaticBackupsEnabled" label="Backup frequency" note="How often Project OS should create automatic backups.">
+        <SettingsSelect value={draft.backupFrequency} onChange={(value) => onUpdate({ backupFrequency: value })} options={[['hourly', 'Hourly'], ['daily', 'Daily'], ['weekly', 'Weekly']]} />
       </SettingRow>
-      <SettingRow helpId="automaticBackupsEnabled" label="Backup time" note="Preferred time for scheduled backups." onHelp={onHelp}>
+      <SettingRow helpId="automaticBackupsEnabled" label="Backup time" note="Preferred time for scheduled backups.">
         <Input className="max-w-40 border-slate-700 bg-slate-950/70 text-slate-100" onChange={(event) => onUpdate({ backupTime: event.target.value })} type="time" value={draft.backupTime} />
       </SettingRow>
-      <SettingRow helpId="automaticBackupsEnabled" label="Retention" note="How many days automatic backups should be kept." onHelp={onHelp}>
+      <SettingRow helpId="automaticBackupsEnabled" label="Retention" note="How many days automatic backups should be kept.">
         <Input className="max-w-28 border-slate-700 bg-slate-950/70 text-slate-100" max={90} min={1} onChange={(event) => onUpdate({ backupRetentionDays: Number(event.target.value) })} type="number" value={draft.backupRetentionDays} />
       </SettingRow>
       <ReadOnlyRow label="Backup folder" note="Current destination used by routine and manual restore points." value={backupRoot || 'Unavailable'} />
@@ -436,11 +436,11 @@ function BackupsPanel({ apps, backupRoot, draft, onHelp, onUpdate }: PanelProps 
   );
 }
 
-function ApplicationsPanel({ apps, draft, onHelp, onUpdate }: PanelProps & { apps: AppRuntimeView[] }) {
+function ApplicationsPanel({ apps, draft, onUpdate }: PanelProps & { apps: AppRuntimeView[] }) {
   const autoRepairApps = apps.filter((app) => settingsForApp(app).autoRepairEnabled ?? true).length;
   return (
     <SettingsGroup description="Configure app defaults and automatic management." title="Applications">
-      <SettingRow helpId="automaticRepairEnabled" label="Automatic fixes" note="Allow Project OS to try safe repairs when apps become unhealthy." onHelp={onHelp}>
+      <SettingRow helpId="automaticRepairEnabled" label="Automatic fixes" note="Allow Project OS to try safe repairs when apps become unhealthy.">
         <Switch checked={draft.automaticRepairEnabled} onCheckedChange={(checked) => onUpdate({ automaticRepairEnabled: checked })} />
       </SettingRow>
       <ReadOnlyRow label="Repair coverage" note="Installed apps currently allowing automatic fixes." value={`${autoRepairApps}/${apps.length}`} />
@@ -449,11 +449,11 @@ function ApplicationsPanel({ apps, draft, onHelp, onUpdate }: PanelProps & { app
   );
 }
 
-function SecurityPanel({ draft, onHelp, onUpdate, setup }: PanelProps & { setup: SystemSetupStatus | null }) {
+function SecurityPanel({ draft, onUpdate, setup }: PanelProps & { setup: SystemSetupStatus | null }) {
   return (
     <SettingsGroup description="Configure security and access options." title="Security">
       <ReadOnlyRow label="Service user" note="Recommended production user for backend operations." value={setup?.expectedUser || 'projectos'} />
-      <SettingRow helpId="advancedMetrics" label="Audit logging" note="Record important system and user actions." onHelp={onHelp}>
+      <SettingRow helpId="advancedMetrics" label="Audit logging" note="Record important system and user actions.">
         <Switch checked={draft.showAdvancedMetrics} onCheckedChange={(checked) => onUpdate({ showAdvancedMetrics: checked })} />
       </SettingRow>
       <ReadOnlyRow label="Docker socket access" note="Required for Project OS to manage containers." value={setup?.dockerVersion ? 'Available' : 'Not detected'} />
@@ -461,39 +461,39 @@ function SecurityPanel({ draft, onHelp, onUpdate, setup }: PanelProps & { setup:
   );
 }
 
-function UpdatesPanel({ draft, onHelp, onUpdate, version }: PanelProps & { version: ProjectVersionInfo | null }) {
+function UpdatesPanel({ draft, onUpdate, version }: PanelProps & { version: ProjectVersionInfo | null }) {
   return (
     <SettingsGroup description="Choose how Project OS should handle future updates." title="Updates">
       <ReadOnlyRow label="Installed version" note={version?.buildDate ? `Built ${version.buildDate}` : 'Current Project OS build.'} value={version?.version || 'Unknown'} />
       <ReadOnlyRow label="Build" note="Used when sharing support details." value={version?.buildSha || 'Unknown'} />
-      <SettingRow helpId="updateChannel" label="Update channel" note="Choose stable releases or preview functionality." onHelp={onHelp}>
-        <Select value={draft.updateChannel} onChange={(value) => onUpdate({ updateChannel: value })} options={[['stable', 'Stable'], ['preview', 'Preview']]} />
+      <SettingRow helpId="updateChannel" label="Update channel" note="Choose stable releases or preview functionality.">
+        <SettingsSelect value={draft.updateChannel} onChange={(value) => onUpdate({ updateChannel: value })} options={[['stable', 'Stable'], ['preview', 'Preview']]} />
       </SettingRow>
       <ReadOnlyRow label="Update checks" note={version?.updateMessage || 'Update delivery is not implemented yet.'} value={version?.updateStatus === 'unavailable' ? 'Unavailable until signed releases exist' : humanize(version?.updateStatus || 'unknown')} />
     </SettingsGroup>
   );
 }
 
-function RemoteAccessPanel({ apps, draft, onHelp, onUpdate, setup }: PanelProps & { apps: AppRuntimeView[]; setup: SystemSetupStatus | null }) {
+function RemoteAccessPanel({ apps, draft, onUpdate, setup }: PanelProps & { apps: AppRuntimeView[]; setup: SystemSetupStatus | null }) {
   const privateApps = apps.filter((app) => app.settings?.tailscaleEnabled || app.desiredAccess?.mode === 'private' || app.desiredAccess?.mode === 'local-and-private').length;
   return (
     <SettingsGroup description="Configure secure access from your private devices." title="Remote Access">
       <ReadOnlyRow label="Tailscale status" note="Private links require a connected Tailscale device." value={setup?.tailscaleVersion || 'Not detected'} />
       <ReadOnlyRow label="Private apps" note="Apps currently marked for private access." value={`${privateApps}`} />
-      <SettingRow helpId="defaultInstallAccess" label="Prefer private installs" note="Set default install access to private network." onHelp={onHelp}>
+      <SettingRow helpId="defaultInstallAccess" label="Prefer private installs" note="Set default install access to private network.">
         <Switch checked={draft.defaultInstallAccess === 'private'} onCheckedChange={(checked) => onUpdate({ defaultInstallAccess: checked ? 'private' : 'manifest-default' })} />
       </SettingRow>
     </SettingsGroup>
   );
 }
 
-function AdvancedPanel({ checks, copied, metrics, onCopy, onHelp, onUpdate, settings, setup, version }: SystemPanelProps) {
+function AdvancedPanel({ checks, copied, metrics, onCopy, onUpdate, settings, setup, version }: SystemPanelProps) {
   return (
     <SettingsGroup description="Low-level Project OS values for power users." title="Advanced">
       <div className="rounded-lg border border-violet-300/20 bg-violet-500/10 p-4 text-sm leading-6 text-violet-100">
         Advanced settings expose host details, raw paths, and instrumentation defaults. Keep these available for troubleshooting, but change them intentionally.
       </div>
-      <SettingRow helpId="advancedMetrics" label="Show advanced metrics" note="Default advanced instrumentation visibility." onHelp={onHelp}>
+      <SettingRow helpId="advancedMetrics" label="Show advanced metrics" note="Default advanced instrumentation visibility.">
         <Switch checked={settings.showAdvancedMetrics} onCheckedChange={(checked) => onUpdate({ showAdvancedMetrics: checked })} />
       </SettingRow>
       <ReadOnlyRow label="Backend port" note="Local API port." value={setup?.backendPort || '8082'} />
@@ -528,7 +528,6 @@ function SettingsStatusCard({ icon: Icon, label, tone, value }: { icon: LucideIc
 
 type PanelProps = {
   draft: ProjectSettings;
-  onHelp: (id: string) => void;
   onUpdate: (update: Partial<ProjectSettings>) => void;
 };
 
@@ -552,7 +551,6 @@ type SettingsPanelBySectionProps = {
   draft: ProjectSettings;
   metrics: SystemMetrics | null;
   onCopy: (value: string, id: string) => void;
-  onHelp: (id: string) => void;
   onUpdate: (update: Partial<ProjectSettings>) => void;
   requiredChecks: SystemSetupCheck[];
   sectionId: SettingsSection;
@@ -560,28 +558,28 @@ type SettingsPanelBySectionProps = {
   version: ProjectVersionInfo | null;
 };
 
-function SettingsPanelBySection({ advancedChecks, apps, backupRoot, copied, doctor, draft, metrics, onCopy, onHelp, onUpdate, requiredChecks, sectionId, setup, version }: SettingsPanelBySectionProps) {
+function SettingsPanelBySection({ advancedChecks, apps, backupRoot, copied, doctor, draft, metrics, onCopy, onUpdate, requiredChecks, sectionId, setup, version }: SettingsPanelBySectionProps) {
   switch (sectionId) {
     case 'general':
-      return <GeneralPanel draft={draft} onHelp={onHelp} onUpdate={onUpdate} />;
+      return <GeneralPanel draft={draft} onUpdate={onUpdate} />;
     case 'system':
-      return <SystemPanel checks={requiredChecks} copied={copied} doctor={doctor} draft={draft} metrics={metrics} onCopy={onCopy} onHelp={onHelp} onUpdate={onUpdate} settings={draft} setup={setup} version={version} />;
+      return <SystemPanel checks={requiredChecks} copied={copied} doctor={doctor} draft={draft} metrics={metrics} onCopy={onCopy} onUpdate={onUpdate} settings={draft} setup={setup} version={version} />;
     case 'applications':
-      return <ApplicationsPanel apps={apps} draft={draft} onHelp={onHelp} onUpdate={onUpdate} />;
+      return <ApplicationsPanel apps={apps} draft={draft} onUpdate={onUpdate} />;
     case 'backups':
-      return <BackupsPanel apps={apps} backupRoot={backupRoot} draft={draft} onHelp={onHelp} onUpdate={onUpdate} />;
+      return <BackupsPanel apps={apps} backupRoot={backupRoot} draft={draft} onUpdate={onUpdate} />;
     case 'storage':
-      return <StoragePanel metrics={metrics} onHelp={onHelp} />;
+      return <StoragePanel metrics={metrics} />;
     case 'network':
-      return <NetworkPanel draft={draft} onHelp={onHelp} onUpdate={onUpdate} setup={setup} />;
+      return <NetworkPanel draft={draft} onUpdate={onUpdate} setup={setup} />;
     case 'remote-access':
-      return <RemoteAccessPanel apps={apps} draft={draft} onHelp={onHelp} onUpdate={onUpdate} setup={setup} />;
+      return <RemoteAccessPanel apps={apps} draft={draft} onUpdate={onUpdate} setup={setup} />;
     case 'security':
-      return <SecurityPanel draft={draft} onHelp={onHelp} onUpdate={onUpdate} setup={setup} />;
+      return <SecurityPanel draft={draft} onUpdate={onUpdate} setup={setup} />;
     case 'updates':
-      return <UpdatesPanel draft={draft} onHelp={onHelp} onUpdate={onUpdate} version={version} />;
+      return <UpdatesPanel draft={draft} onUpdate={onUpdate} version={version} />;
     case 'advanced':
-      return <AdvancedPanel checks={advancedChecks} copied={copied} doctor={doctor} draft={draft} metrics={metrics} onCopy={onCopy} onHelp={onHelp} onUpdate={onUpdate} settings={draft} setup={setup} version={version} />;
+      return <AdvancedPanel checks={advancedChecks} copied={copied} doctor={doctor} draft={draft} metrics={metrics} onCopy={onCopy} onUpdate={onUpdate} settings={draft} setup={setup} version={version} />;
     default:
       return null;
   }
@@ -601,7 +599,8 @@ function SettingsGroup({ children, description, title }: { children: ReactNode; 
   );
 }
 
-function SettingRow({ children, helpId, label, note, onHelp }: { children: ReactNode; helpId: string; label: string; note: string; onHelp: (id: string) => void }) {
+function SettingRow({ children, helpId, label, note }: { children: ReactNode; helpId: string; label: string; note: string }) {
+  const help = settingHelp[helpId] || settingHelp.deviceName;
   return (
     <div className="grid gap-3 px-4 py-4 md:grid-cols-[minmax(0,1fr)_minmax(260px,360px)_32px] md:items-center">
       <div>
@@ -609,9 +608,26 @@ function SettingRow({ children, helpId, label, note, onHelp }: { children: React
         <p className="mt-1 text-xs leading-5 text-slate-400">{note}</p>
       </div>
       <div>{children}</div>
-      <button className="grid size-8 place-items-center rounded-full text-slate-500 transition hover:bg-slate-800 hover:text-violet-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/70" onClick={() => onHelp(helpId)} type="button" aria-label={`About ${label}`}>
-        <HelpCircle className="size-4" />
-      </button>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button aria-label={`About ${label}`} className="text-slate-500 hover:text-violet-200" size="icon" type="button" variant="ghost">
+            <HelpCircle data-icon="inline-start" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-80 border-po-border bg-po-surface-elevated p-3 text-po-text shadow-po-lg">
+          <PopoverHeader>
+            <PopoverTitle className="text-sm">{help.title}</PopoverTitle>
+            <PopoverDescription className="text-xs leading-5 text-po-text-muted">{help.body}</PopoverDescription>
+          </PopoverHeader>
+          <div className="mt-3 rounded-po-sm border border-po-border bg-po-surface-inset p-3 text-xs text-po-text-secondary">
+            <p className="font-bold text-po-text">Used for</p>
+            <ul className="mt-2 list-disc space-y-1 pl-4">
+              {help.usedFor.map((item) => <li key={item}>{item}</li>)}
+            </ul>
+            <p className="mt-3 text-po-text-muted"><span className="font-bold text-po-text-secondary">Tip:</span> {help.tip}</p>
+          </div>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }
@@ -629,11 +645,20 @@ function ReadOnlyRow({ label, note, value }: { label: string; note: string; valu
   );
 }
 
-function Select({ onChange, options, value }: { onChange: (value: string) => void; options: Array<[string, string]>; value: string }) {
+function SettingsSelect({ onChange, options, value }: { onChange: (value: string) => void; options: Array<[string, string]>; value: string }) {
   return (
-    <select className="h-10 w-full rounded-lg border border-slate-700 bg-slate-950/70 px-3 text-sm text-slate-100 outline-none transition focus:border-violet-400/60" onChange={(event) => onChange(event.target.value)} value={value}>
-      {options.map(([optionValue, label]) => <option key={optionValue} value={optionValue}>{label}</option>)}
-    </select>
+    <UiSelect onValueChange={onChange} value={value}>
+      <SelectTrigger className="h-10 w-full border-slate-700 bg-slate-950/70 text-slate-100">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent className="border-slate-700 bg-slate-950 text-slate-100">
+        <SelectGroup>
+          {options.map(([optionValue, label]) => (
+            <SelectItem className="focus:bg-slate-800 focus:text-white" key={optionValue} value={optionValue}>{label}</SelectItem>
+          ))}
+        </SelectGroup>
+      </SelectContent>
+    </UiSelect>
   );
 }
 

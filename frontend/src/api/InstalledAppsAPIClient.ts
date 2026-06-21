@@ -5,8 +5,8 @@ export type InstalledAppAction = 'start' | 'stop' | 'restart' | 'repair';
 
 export const InstalledAppsAPIClient = {
   async listApps() {
-    const response = await httpClient.get<AppRuntimeView[]>('/api/apps');
-    return response.data;
+    const response = await httpClient.get<unknown>('/api/apps');
+    return normalizeAppList(response.data);
   },
 
   async listAppInstances() {
@@ -104,3 +104,23 @@ export const InstalledAppsAPIClient = {
     return response.data;
   },
 };
+
+function normalizeAppList(data: unknown): AppRuntimeView[] {
+  if (Array.isArray(data)) {
+    return data as AppRuntimeView[];
+  }
+  if (data && typeof data === 'object') {
+    const candidate = data as { apps?: unknown; items?: unknown; content?: unknown };
+    if (Array.isArray(candidate.apps)) {
+      return candidate.apps as AppRuntimeView[];
+    }
+    if (Array.isArray(candidate.items)) {
+      return candidate.items as AppRuntimeView[];
+    }
+    if (Array.isArray(candidate.content)) {
+      return candidate.content as AppRuntimeView[];
+    }
+  }
+  console.warn('Project OS received an unexpected installed-apps response.', data);
+  return [];
+}

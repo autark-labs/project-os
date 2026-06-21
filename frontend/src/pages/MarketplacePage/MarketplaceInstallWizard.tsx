@@ -4,6 +4,8 @@ import { Check, Copy, ExternalLink, Eye, EyeOff, QrCode, ServerCog, TriangleAler
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
 import { NetworkAPIClient } from '@/api/NetworkAPIClient';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Dialog,
   DialogContent,
@@ -100,12 +102,14 @@ export function InstallWizard({ app, hideTrigger = false, installLocked, install
           )}
 
           {installPlan && (
-            <details className="rounded-lg border border-slate-700/40 bg-slate-900/70 p-4">
-              <summary className="cursor-pointer font-bold text-white">Technical details</summary>
+            <Collapsible className="rounded-lg border border-slate-700/40 bg-slate-900/70 p-4">
+              <CollapsibleTrigger className="w-full cursor-pointer text-left font-bold text-white">Technical details</CollapsibleTrigger>
+              <CollapsibleContent>
               <div className="mt-4">
                 <TechnicalPlanCard plan={installPlan} />
               </div>
-            </details>
+              </CollapsibleContent>
+            </Collapsible>
           )}
 
           <section className="rounded-lg border border-slate-700/40 bg-slate-900/70 p-4">
@@ -131,7 +135,7 @@ export function InstallWizard({ app, hideTrigger = false, installLocked, install
                       <span className="block font-semibold text-slate-200">Private remote access</span>
                       <span className="text-slate-500">Save this preference for Tailscale support.</span>
                     </span>
-                    <input checked={Boolean(installOptions?.access?.tailscaleEnabled)} onChange={(event) => updateOptions((options) => ({ ...options, access: { tailscaleEnabled: event.target.checked } }))} type="checkbox" />
+                    <Checkbox checked={Boolean(installOptions?.access?.tailscaleEnabled)} onCheckedChange={(checked) => updateOptions((options) => ({ ...options, access: { tailscaleEnabled: Boolean(checked) } }))} />
                   </label>
                 </div>
 

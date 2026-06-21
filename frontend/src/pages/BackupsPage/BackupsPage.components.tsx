@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SurfaceInset, SurfacePanel } from '@/components/project-os/ProjectOSComponents';
 import { cn } from '@/lib/utils';
 import type { AppBackupStatus, BackupReport, RestorePlan, RestorePoint } from '@/types/backup';
@@ -222,10 +223,19 @@ export function RestoreDialog({ appOptions, loading, onClose, onRestore, onTarge
         {point?.scope === 'full' && (
           <div className="rounded-lg border border-slate-800 bg-slate-900/45 p-3">
             <label className="text-xs font-bold uppercase text-slate-500" htmlFor="restore-target">Restore target</label>
-            <select className="mt-2 h-10 w-full rounded-lg border border-slate-700 bg-slate-950/70 px-3 text-sm text-slate-100" id="restore-target" onChange={(event) => onTargetChange(event.target.value || null)} value={targetAppId || ''}>
-              <option value="">Everything in this full backup</option>
-              {selectableApps.map((app) => <option key={app.appId} value={app.appId}>{app.appName} only</option>)}
-            </select>
+            <Select onValueChange={(value) => onTargetChange(value === 'all' ? null : value)} value={targetAppId || 'all'}>
+              <SelectTrigger className="mt-2 h-10 w-full border-slate-700 bg-slate-950/70 text-slate-100" id="restore-target">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="border-slate-700 bg-slate-950 text-slate-100">
+                <SelectGroup>
+                  <SelectItem className="focus:bg-slate-800 focus:text-white" value="all">Everything in this full backup</SelectItem>
+                  {selectableApps.map((app) => (
+                    <SelectItem className="focus:bg-slate-800 focus:text-white" key={app.appId} value={app.appId}>{app.appName} only</SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           </div>
         )}
         {plan && (

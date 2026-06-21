@@ -199,7 +199,7 @@ function NetworkPage() {
 
 function TailscaleAccessCard({ posture, setup, tailscale }: { posture: ReturnType<typeof buildNetworkPosture>; setup: SystemSetupStatus | null; tailscale: TailscaleStatus | null }) {
   const connected = Boolean(tailscale?.connected);
-  const check = setup?.checks.find((item) => item.id === 'tailscale') || null;
+  const check = setup?.checks?.find((item) => item.id === 'tailscale') || null;
   return (
     <section className="overflow-hidden rounded-2xl border border-sky-300/18 bg-po-hero-devices p-5 shadow-po-panel">
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">

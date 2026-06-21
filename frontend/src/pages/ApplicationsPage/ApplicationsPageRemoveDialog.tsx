@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Loader2, ShieldCheck, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -69,7 +70,7 @@ export function UninstallDialog({ app, disabled, iconOnly = false, onUninstall }
               <PlanList title="Will keep" items={plan.willKeep} />
             </div>
             <label className="flex items-start gap-3 rounded-lg border border-slate-700/40 bg-slate-900/70 p-3 text-sm text-slate-300">
-              <input checked={confirmed} className="mt-1" onChange={(event) => setConfirmed(event.target.checked)} type="checkbox" />
+              <Checkbox checked={confirmed} className="mt-1" onCheckedChange={(checked) => setConfirmed(Boolean(checked))} />
               <span>I understand Project OS will remove the running app, keep its data, and create a safety checkpoint when app data is present.</span>
             </label>
           </div>

@@ -4,6 +4,7 @@ import { Archive, ArrowLeft, BookOpen, CheckCircle2, ChevronDown, ExternalLink, 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   DropdownMenu,
@@ -508,12 +509,14 @@ function InlineInstallStatus({
               </div>
             )}
             {failed && (
-              <details className="mt-4 rounded-lg border border-red-300/20 bg-slate-950/35 p-3 text-sm text-red-100/80">
-                <summary className="cursor-pointer font-semibold text-white">View details</summary>
+              <Collapsible className="mt-4 rounded-lg border border-red-300/20 bg-slate-950/35 p-3 text-sm text-red-100/80">
+                <CollapsibleTrigger className="w-full cursor-pointer text-left font-semibold text-white">View details</CollapsibleTrigger>
+                <CollapsibleContent>
                 <div className="mt-2 grid gap-1">
                   {job.steps.map((step) => <p key={step.id}>{step.label}: {step.message || step.status}</p>)}
                 </div>
-              </details>
+                </CollapsibleContent>
+              </Collapsible>
             )}
           </div>
         </div>

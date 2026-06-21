@@ -102,7 +102,7 @@ function OverviewPage() {
   const deviceName = state.summary?.deviceName || 'Project OS';
 
   return (
-    <PageShell maxWidth="max-w-7xl">
+    <PageShell maxWidth="max-w-[90%]">
       <HomeHero
         deviceName={deviceName}
         linkedServices={state.externalServices.length}
@@ -280,37 +280,6 @@ function HomeHero({
                 </span>
               )}
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 rounded-po-md border border-white/10 bg-slate-950/45 p-3 shadow-po-panel backdrop-blur-xl xl:grid-cols-4">
-            <HomeHeroStat
-              detail={summary?.docker.summary || 'Checking Docker'}
-              icon={Boxes}
-              label={summary?.docker.ready ? 'Ready' : 'Needs setup'}
-              tone={summary?.docker.ready ? 'success' : 'warning'}
-              value="Docker"
-            />
-            <HomeHeroStat
-              detail={summary ? `${readyApps} ready to open` : 'Checking apps'}
-              icon={Monitor}
-              label={`${summary?.apps.running ?? 0} running`}
-              tone={summary?.apps.needsAttention ? 'warning' : 'brand'}
-              value="Apps"
-            />
-            <HomeHeroStat
-              detail={summary?.access.summary || 'Checking access'}
-              icon={LockKeyhole}
-              label={accessModeLabel(summary?.access.mode)}
-              tone={summary?.access.mode === 'private_ready' ? 'success' : 'info'}
-              value="Access"
-            />
-            <HomeHeroStat
-              detail={linkedServices ? `${linkedServices} linked service${linkedServices === 1 ? '' : 's'}` : backupStateLabel(summary?.backups.state)}
-              icon={linkedServices ? Link2 : ShieldCheck}
-              label={linkedServices ? 'Available' : backupStateLabel(summary?.backups.state)}
-              tone={summary?.backups.state === 'needs_restore_point' ? 'warning' : linkedServices ? 'info' : 'success'}
-              value={linkedServices ? 'Linked' : 'Backups'}
-            />
           </div>
         </div>
       </div>

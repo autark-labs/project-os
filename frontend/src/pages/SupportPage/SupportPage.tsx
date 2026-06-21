@@ -10,6 +10,7 @@ import { PageErrorState, PageLoadingState } from '@/components/project-os/PageSt
 import { PageShell, SurfaceFrame, SurfaceInset, SurfacePanel } from '@/components/project-os/ProjectOSComponents';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -113,8 +114,8 @@ function SupportPage() {
   const conflict = productionConflictSummary(state.setup);
   const ownershipResources = useMemo(() => state.hostInventory.filter((resource) => resource.ownershipState !== 'owned_managed' || resource.ignored), [state.hostInventory]);
   const dockerResources = useMemo(() => state.hostInventory.filter((resource) => resource.source === 'docker'), [state.hostInventory]);
-  const tailscaleCheck = state.setup?.checks.find((check) => check.id === 'tailscale');
-  const operatorCheck = state.setup?.checks.find((check) => check.id === 'tailscale-operator');
+  const tailscaleCheck = state.setup?.checks?.find((check) => check.id === 'tailscale');
+  const operatorCheck = state.setup?.checks?.find((check) => check.id === 'tailscale-operator');
 
   if (loading) {
     return <PageLoadingState label="Loading diagnostics" sublabel="Checking health, setup state, found apps, and recent logs." />;
@@ -310,13 +311,13 @@ function DiagnosticAction({ busy = false, detail, icon: Icon, label, onClick }: 
 
 function AdvancedSection({ children, defaultOpen, icon: Icon, title }: { children: ReactNode; defaultOpen: boolean; icon: LucideIcon; title: string }) {
   return (
-    <details className="rounded-lg border border-white/10 bg-slate-950/70 p-5 shadow-po-panel" open={defaultOpen}>
-      <summary className="flex cursor-pointer list-none items-center gap-3 font-black text-white">
+    <Collapsible className="rounded-lg border border-white/10 bg-slate-950/70 p-5 shadow-po-panel" defaultOpen={defaultOpen}>
+      <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-3 text-left font-black text-white">
         <span className="grid size-9 place-items-center rounded-lg border border-white/10 bg-slate-900 text-sky-300"><Icon className="size-4" /></span>
         {title}
-      </summary>
-      <div className="mt-4 grid gap-3">{children}</div>
-    </details>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="mt-4 grid gap-3">{children}</CollapsibleContent>
+    </Collapsible>
   );
 }
 

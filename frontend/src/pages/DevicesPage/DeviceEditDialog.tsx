@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import type { DeviceTrustUpdateRequest, TrustedDeviceView } from '@/types/network';
 import { displayName } from './DevicesPage.logic';
@@ -32,13 +33,18 @@ export function DeviceEditDialog({ deviceView, form, onChange, onClose, onSave, 
 
           <label className="grid gap-2 text-sm font-bold text-slate-200">
             Trust group
-            <select className="h-10 rounded-lg border border-slate-700 bg-slate-950/70 px-3 text-sm text-slate-100 outline-none focus:border-cyan-300/60" onChange={(event) => onChange({ ...form, trustGroup: event.target.value })} value={form.trustGroup}>
-              <option>Personal devices</option>
-              <option>Family devices</option>
-              <option>Admin devices</option>
-              <option>Guest devices</option>
-              <option>Project OS host</option>
-            </select>
+            <Select onValueChange={(trustGroup) => onChange({ ...form, trustGroup })} value={form.trustGroup}>
+              <SelectTrigger className="h-10 w-full border-slate-700 bg-slate-950/70 text-slate-100">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="border-slate-700 bg-slate-950 text-slate-100">
+                <SelectGroup>
+                  {['Personal devices', 'Family devices', 'Admin devices', 'Guest devices', 'Project OS host'].map((trustGroup) => (
+                    <SelectItem className="focus:bg-slate-800 focus:text-white" key={trustGroup} value={trustGroup}>{trustGroup}</SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           </label>
 
           <label className="flex items-start gap-3 rounded-lg border border-slate-800 bg-slate-900/40 p-3">

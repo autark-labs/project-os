@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
 import type { OnboardingState, SystemSetupStatus } from '@/types/system';
@@ -167,9 +168,9 @@ function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   )}
                 </div>
                 {showAdvancedMetrics && Boolean(existingInstall?.resources?.length) && (
-                  <details className="mt-3 rounded-lg border border-white/10 bg-slate-950/55 p-4 text-sm text-slate-300">
-                    <summary className="cursor-pointer font-semibold text-white">Advanced found-app details</summary>
-                    <div className="mt-3 grid gap-2">
+                  <Collapsible className="mt-3 rounded-lg border border-white/10 bg-slate-950/55 p-4 text-sm text-slate-300">
+                    <CollapsibleTrigger className="w-full cursor-pointer text-left font-semibold text-white">Advanced found-app details</CollapsibleTrigger>
+                    <CollapsibleContent className="mt-3 grid gap-2">
                       {existingInstall?.resources.map((resource) => (
                         <div className="rounded-lg border border-white/10 bg-slate-950/55 p-3" key={resource.id}>
                           <p className="font-semibold text-white">{resource.label}</p>
@@ -177,8 +178,8 @@ function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                           <p className="mt-1 text-xs text-slate-500">Owner: {resource.ownerInstanceId || 'Unknown'}</p>
                         </div>
                       ))}
-                    </div>
-                  </details>
+                    </CollapsibleContent>
+                  </Collapsible>
                 )}
               </WizardCard>
             )}
@@ -310,14 +311,14 @@ function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   </span>
                 </label>
               )}
-              <details className="mt-3 rounded-lg border border-white/10 bg-slate-950/45 p-4 text-sm text-slate-300">
-                <summary className="cursor-pointer font-semibold text-white">Advanced backup details</summary>
-                <div className="mt-3 grid gap-2 text-slate-400">
+              <Collapsible className="mt-3 rounded-lg border border-white/10 bg-slate-950/45 p-4 text-sm text-slate-300">
+                <CollapsibleTrigger className="w-full cursor-pointer text-left font-semibold text-white">Advanced backup details</CollapsibleTrigger>
+                <CollapsibleContent className="mt-3 grid gap-2 text-slate-400">
                   <p>Project OS runtime path: {state.runtimePath}</p>
                   <p>Default backup path: {defaultBackupDestination}</p>
                   <p>Same-device backups are useful restore points, but external backups are safer if the main drive fails.</p>
-                </div>
-              </details>
+                </CollapsibleContent>
+              </Collapsible>
             </WizardCard>
 
             <WizardCard icon={Sparkles} title="Recommended starter apps" text="These are suggestions only. Project OS will not install them until you confirm from Marketplace.">
@@ -342,13 +343,15 @@ function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               <SummaryLine label="Starter apps" value={`${selectedApps.length} selected`} />
             </div>
             {readiness.finishAnywayRequiresAdvanced && readiness.canCompleteOnboarding && (
-              <details className="mt-4 rounded-lg border border-white/10 bg-slate-950/55 p-3 text-sm text-slate-300">
-                <summary className="cursor-pointer font-semibold text-white">Advanced finish</summary>
-                <label className="mt-3 flex items-center gap-3">
+              <Collapsible className="mt-4 rounded-lg border border-white/10 bg-slate-950/55 p-3 text-sm text-slate-300">
+                <CollapsibleTrigger className="w-full cursor-pointer text-left font-semibold text-white">Advanced finish</CollapsibleTrigger>
+                <CollapsibleContent asChild>
+                  <label className="mt-3 flex items-center gap-3">
                   <Checkbox checked={advancedFinish} onCheckedChange={(checked) => setAdvancedFinish(Boolean(checked))} />
                   <span>Finish anyway and handle the remaining setup items later.</span>
-                </label>
-              </details>
+                  </label>
+                </CollapsibleContent>
+              </Collapsible>
             )}
             <Button className="mt-5 w-full bg-violet-600 text-white hover:bg-violet-500" disabled={saving || !canFinish} onClick={finish} type="button">
               {saving ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}

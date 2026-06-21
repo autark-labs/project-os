@@ -10,6 +10,7 @@ import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { backupSafetyChecklist } from '@/lib/backupSafety';
 import { cn } from '@/lib/utils';
@@ -205,8 +206,8 @@ function StoragePage() {
                     </ol>
                     <div className="rounded-lg border border-slate-800 bg-slate-950/45 p-3">
                       <label className="text-xs font-bold uppercase text-slate-500" htmlFor="runtime-migration-target">Target folder</label>
-                      <input
-                        className="mt-2 h-10 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 outline-none focus:border-emerald-300/50"
+                      <Input
+                        className="mt-2 border-slate-700 bg-slate-950 text-slate-100 focus:border-emerald-300/50"
                         id="runtime-migration-target"
                         onChange={(event) => setMigrationTarget(event.target.value)}
                         placeholder="/mnt/ssd/project-os"
@@ -460,8 +461,8 @@ function CleanupDialog({ confirmation, loading, onChange, onClose, onConfirm, ta
               {safetyChecklist[1]}
             </div>
             <label className="text-sm font-semibold text-slate-300" htmlFor="cleanup-confirmation">Type `{target.name}` to confirm</label>
-            <input
-              className="h-10 rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 outline-none focus:border-emerald-300/50"
+            <Input
+              className="border-slate-700 bg-slate-950 text-slate-100 focus:border-emerald-300/50"
               id="cleanup-confirmation"
               onChange={(event) => onChange(event.target.value)}
               value={confirmation}
