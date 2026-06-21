@@ -82,6 +82,26 @@ class AppInstanceViewServiceTests {
     }
 
     @Test
+    void adoptedLegacyContainerAppearsAsManagedApp() {
+        InstalledAppRepository repository = repository();
+        repository.save(installed("homepage", "Ready"));
+        repository.saveOwnershipMetadata(owned("homepage", "adopted"));
+        repository.saveSettings("homepage", new InstallSettings("http://localhost:3005", null, false, java.util.Map.of(), new BackupPolicy(false, "daily", 7)));
+        AppInstanceViewService service = service(repository, List.of(
+                new ManagedContainer("homepage", "project-os-homepage", "Up 2 minutes (healthy)", DockerResourceOwnership.LEGACY_UNSCOPED, "", "")));
+
+        assertThat(service.list())
+                .singleElement()
+                .satisfies(view -> {
+                    assertThat(view.catalogAppId()).isEqualTo("homepage");
+                    assertThat(view.name()).isEqualTo("Homepage");
+                    assertThat(view.userStatus()).isEqualTo("Ready");
+                    assertThat(view.ownershipState()).isEqualTo("owned");
+                    assertThat(view.localUrl()).isEqualTo("http://localhost:3005");
+                });
+    }
+
+    @Test
     void backupEnabledWithoutRestorePointIsNotProtected() {
         InstalledAppRepository repository = repository();
         repository.save(installed("vaultwarden", "Ready"));

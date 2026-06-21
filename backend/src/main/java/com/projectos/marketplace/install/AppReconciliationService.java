@@ -63,6 +63,10 @@ public class AppReconciliationService {
             return item(app.appId(), app.appName(), "Managed elsewhere", ownership, false, "Docker reports containers owned by another Project OS instance.");
         }
         if (ownership == DockerResourceOwnership.LEGACY_UNSCOPED) {
+            if (isExplicitlyAdopted(metadata)) {
+                String status = statusFromContainers(containers);
+                return item(app.appId(), app.appName(), status, DockerResourceOwnership.OWNED, lifecycleEligible(status, DockerResourceOwnership.OWNED), "Project OS explicitly adopted this legacy container.");
+            }
             return item(app.appId(), app.appName(), "Needs attention", ownership, false, "Docker reports legacy Project OS containers without instance ownership labels.");
         }
         String status = statusFromContainers(containers);
@@ -80,6 +84,14 @@ public class AppReconciliationService {
 
     private boolean isOwnedMetadata(InstalledAppOwnershipMetadata metadata) {
         return "owned".equalsIgnoreCase(metadata.ownershipStatus()) || metadata.ownershipStatus().isBlank();
+    }
+
+    private boolean isExplicitlyAdopted(InstalledAppOwnershipMetadata metadata) {
+        if (metadata == null || !isOwnedMetadata(metadata)) {
+            return false;
+        }
+        return "adopted".equalsIgnoreCase(metadata.installState())
+                || "recovered".equalsIgnoreCase(metadata.installState());
     }
 
     private DockerResourceOwnership ownershipFrom(InstalledAppOwnershipMetadata metadata) {
