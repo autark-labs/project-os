@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { AlertTriangle, ClipboardList, Copy, FileText, LifeBuoy, ListChecks, LockKeyhole, RefreshCw, Server, ShieldCheck, TerminalSquare } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { HostInventoryAPIClient } from '@/api/HostInventoryAPIClient';
+import { ApplicationStateAPIClient } from '@/api/ApplicationStateAPIClient';
 import { SystemAPIClient } from '@/api/SystemAPIClient';
 import { apiErrorMessage } from '@/api/httpClient';
 import { PageErrorState, PageLoadingState } from '@/components/project-os/PageState';
@@ -14,7 +14,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import type { HostInventoryResource } from '@/types/host';
+import type { ObservedServiceView } from '@/types/observedService';
 import type { SupportBundle, SupportLogLine, SupportSummary, SystemDoctorStatus, SystemSetupStatus } from '@/types/system';
 import { diagnosticsHeadline, diagnosticsSummaryRows, productionConflictSummary } from './SupportPage.diagnosticsModel';
 import { formatDate, humanize, shortSha, summaryFromBundle } from './SupportPage.logic';
@@ -23,7 +23,7 @@ import { FindingCard, InfoLine, LogLine, RedactionRuleCard, RelatedLink, Section
 type SupportState = {
   bundle: SupportBundle | null;
   doctor: SystemDoctorStatus | null;
-  hostInventory: HostInventoryResource[];
+  observedServices: ObservedServiceView[];
   logs: SupportLogLine[];
   setup: SystemSetupStatus | null;
   summary: SupportSummary | null;
@@ -32,7 +32,7 @@ type SupportState = {
 const initialState: SupportState = {
   bundle: null,
   doctor: null,
-  hostInventory: [],
+  observedServices: [],
   logs: [],
   setup: null,
   summary: null,
@@ -55,14 +55,14 @@ function SupportPage() {
     }
     setError(null);
     try {
-      const [summary, doctor, setup, logs, hostInventory] = await Promise.all([
+      const [summary, doctor, setup, logs, applicationState] = await Promise.all([
         SystemAPIClient.supportSummary(),
         SystemAPIClient.doctor(),
         SystemAPIClient.setupStatus(),
         SystemAPIClient.supportLogs(showAdvancedMetrics ? 160 : 50),
-        HostInventoryAPIClient.list(true),
+        ApplicationStateAPIClient.get(),
       ]);
-      setState((current) => ({ ...current, doctor, hostInventory, logs, setup, summary }));
+      setState((current) => ({ ...current, doctor, observedServices: applicationState.observedServices, logs, setup, summary }));
       if (background) {
         const showToast = doctor.status === 'needs_attention' ? toast.warning : toast.success;
         showToast(doctor.headline, { description: doctor.summary });
@@ -109,11 +109,11 @@ function SupportPage() {
   const summary = state.summary;
   const findings = summary?.findings || state.bundle?.findings || [];
   const redactionRules = summary?.redactionRules || state.bundle?.redactionRules || [];
-  const summaryRows = diagnosticsSummaryRows({ summary, doctor: state.doctor, setup: state.setup, hostInventory: state.hostInventory });
+  const summaryRows = diagnosticsSummaryRows({ summary, doctor: state.doctor, setup: state.setup, observedServices: state.observedServices });
   const headline = diagnosticsHeadline(summary, state.doctor);
   const conflict = productionConflictSummary(state.setup);
-  const ownershipResources = useMemo(() => state.hostInventory.filter((resource) => resource.ownershipState !== 'owned_managed' || resource.ignored), [state.hostInventory]);
-  const dockerResources = useMemo(() => state.hostInventory.filter((resource) => resource.source === 'docker'), [state.hostInventory]);
+  const ownershipResources = useMemo(() => state.observedServices.filter((service) => service.userStatus !== 'installed_managed'), [state.observedServices]);
+  const dockerResources = useMemo(() => state.observedServices.filter((service) => service.source === 'docker'), [state.observedServices]);
   const tailscaleCheck = state.setup?.checks?.find((check) => check.id === 'tailscale');
   const operatorCheck = state.setup?.checks?.find((check) => check.id === 'tailscale-operator');
 
@@ -321,22 +321,22 @@ function AdvancedSection({ children, defaultOpen, icon: Icon, title }: { childre
   );
 }
 
-function ResourceLine({ resource, technical = false }: { resource: HostInventoryResource; technical?: boolean }) {
+function ResourceLine({ resource, technical = false }: { resource: ObservedServiceView; technical?: boolean }) {
   return (
     <div className="rounded-lg border border-slate-700/45 bg-slate-900/45 p-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="font-bold text-white">{resource.displayName}</p>
-          <p className="mt-1 text-sm text-slate-400">{resource.summary}</p>
+          <p className="mt-1 text-sm text-slate-400">{resource.userStatusDescription}</p>
         </div>
-        <Badge className="border-slate-600/60 bg-slate-950/60 text-slate-300" variant="outline">{labelForOwnership(resource.ownershipState)}</Badge>
+        <Badge className="border-slate-600/60 bg-slate-950/60 text-slate-300" variant="outline">{resource.userStatusLabel || labelForOwnership(resource.ownershipState)}</Badge>
       </div>
       {technical && (
         <div className="mt-3 grid gap-2 text-xs text-slate-500 md:grid-cols-2">
           <span>State: {resource.runtimeState || 'unknown'}</span>
-          <span>Owner: {resource.ownerInstanceId || 'Unknown'}</span>
+          <span>Catalog: {resource.catalogAppId || 'Unknown'}</span>
           <span>Source: {resource.source}</span>
-          <span>Actions: {resource.availableActions.map(humanize).join(', ') || 'None'}</span>
+          <span>Actions: {resource.availableActions.map((action) => action.label || humanize(action.id)).join(', ') || 'None'}</span>
         </div>
       )}
     </div>

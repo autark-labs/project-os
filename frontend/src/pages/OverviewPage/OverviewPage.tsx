@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Boxes, CheckCircle2, Clock3, Database, Pin, LockKeyhole, ShieldCheck, Sparkles } from 'lucide-react';
+import { AlertTriangle, Boxes, CheckCircle2, Clock3, Database, Pin, LockKeyhole, ShieldCheck, Sparkles } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import { ActivityAPIClient } from '@/api/ActivityAPIClient';
-import { HostInventoryAPIClient } from '@/api/HostInventoryAPIClient';
-import { InstalledAppsAPIClient } from '@/api/InstalledAppsAPIClient';
-import { ObservedServicesAPIClient } from '@/api/ObservedServicesAPIClient';
+import { ApplicationStateAPIClient } from '@/api/ApplicationStateAPIClient';
 import { apiErrorMessage } from '@/api/httpClient';
 import { SystemAPIClient } from '@/api/SystemAPIClient';
 import {
@@ -20,7 +18,6 @@ import {
   SoftCard,
   StatusPill,
 } from '@/components/project-os/ProjectOSComponents';
-import { FoundResourcesBanner } from '@/components/project-os/FoundResourcesBanner';
 import { Button } from '@/components/ui/button';
 import overviewBackground from '@/assets/overviewBackground.png';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
@@ -29,14 +26,12 @@ import { homeMajorActivity } from './extensions/OverviewPage.activity';
 import { shouldShowActivityLogLink } from './extensions/OverviewPage.activityLink';
 import type { ActivityLog } from '@/types/activity';
 import type { AppInstanceView } from '@/types/app';
-import type { HostInventoryResource } from '@/types/host';
 import type { ObservedServiceView } from '@/types/observedService';
 import type { RecommendedAction, SystemSummary } from '@/types/system';
 
 type OverviewState = {
   activity: ActivityLog[];
   apps: AppInstanceView[];
-  hostInventory: HostInventoryResource[];
   observedServices: ObservedServiceView[];
   recommendedAction: RecommendedAction | null;
   summary: SystemSummary | null;
@@ -45,7 +40,6 @@ type OverviewState = {
 const initialState: OverviewState = {
   activity: [],
   apps: [],
-  hostInventory: [],
   observedServices: [],
   recommendedAction: null,
   summary: null,
@@ -62,26 +56,24 @@ function OverviewPage() {
 
     async function loadOverview() {
       setLoading(true);
-      const [summary, recommendedAction, apps, observedServices, activity, hostInventory] = await Promise.allSettled([
+      const [summary, recommendedAction, applicationState, activity] = await Promise.allSettled([
         SystemAPIClient.summary(),
         SystemAPIClient.recommendedAction(),
-        InstalledAppsAPIClient.listAppInstances(),
-        ObservedServicesAPIClient.list(),
+        ApplicationStateAPIClient.get(),
         ActivityAPIClient.recent({ limit: 5 }),
-        HostInventoryAPIClient.list(false),
       ]);
 
       if (cancelled) {
         return;
       }
 
-      const rejected = [summary, recommendedAction, apps, observedServices, activity, hostInventory].find((result) => result.status === 'rejected');
+      const rejected = [summary, recommendedAction, applicationState, activity].find((result) => result.status === 'rejected');
+      const appState = valueOr(applicationState, null);
       setError(rejected?.status === 'rejected' ? apiErrorMessage(rejected.reason, 'Home is missing some live data.') : null);
       setState({
         activity: valueOr(activity, []),
-        apps: valueOr(apps, []),
-        hostInventory: valueOr(hostInventory, []),
-        observedServices: valueOr(observedServices, []),
+        apps: appState?.managedApps ?? [],
+        observedServices: appState?.observedServices ?? [],
         recommendedAction: valueOr(recommendedAction, null),
         summary: valueOr(summary, null),
       });
@@ -97,8 +89,8 @@ function OverviewPage() {
   }, []);
 
   const readyApps = useMemo(() => state.apps.filter((app) => app.userStatus === 'Ready'), [state.apps]);
-  const pinnedServices = useMemo(() => state.observedServices.filter((service) => service.pinned), [state.observedServices]);
-  const observedNeedingReview = useMemo(() => state.observedServices.filter((service) => !service.managedByThisProjectOs && !service.pinned), [state.observedServices]);
+  const pinnedServices = useMemo(() => state.observedServices.filter((service) => service.userStatus === 'pinned_external'), [state.observedServices]);
+  const observedNeedingReview = useMemo(() => state.observedServices.filter((service) => !service.managedByThisProjectOs && service.userStatus !== 'pinned_external'), [state.observedServices]);
   const majorActivity = useMemo(() => homeMajorActivity(state.activity, 5) as ActivityLog[], [state.activity]);
   const showActivityLogLink = shouldShowActivityLogLink(viewMode, majorActivity);
   const primaryAction = state.recommendedAction?.id === 'no-action-needed' ? null : state.recommendedAction;
@@ -133,7 +125,26 @@ function OverviewPage() {
             />
           )}
 
-          <FoundResourcesBanner resources={state.hostInventory} />
+          {observedNeedingReview.length > 0 && (
+            <SoftCard className="border-amber-300/25 bg-amber-500/10">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex min-w-0 gap-3">
+                  <div className="grid size-9 shrink-0 place-items-center rounded-po-sm bg-amber-500/15 text-amber-200">
+                    <AlertTriangle className="size-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="m-0 text-sm font-bold text-white">Services found on this server</p>
+                    <p className="m-0 mt-1 text-sm leading-5 text-amber-100/80">
+                      Project OS found {observedNeedingReview.length} service{observedNeedingReview.length === 1 ? '' : 's'} that need review before they are treated as managed apps.
+                    </p>
+                  </div>
+                </div>
+                <Button asChild className="shrink-0" size="sm" variant="outline">
+                  <Link to="/apps/found">Review</Link>
+                </Button>
+              </div>
+            </SoftCard>
+          )}
 
           <PageSection
             action={<Button asChild variant="outline"><Link to="/apps">Manage apps</Link></Button>}

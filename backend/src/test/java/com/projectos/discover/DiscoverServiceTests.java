@@ -208,7 +208,7 @@ class DiscoverServiceTests {
         InstallCustomizationResolver customizationResolver = new InstallCustomizationResolver(new PortAllocator());
         return new DiscoverService(
                 catalogService(),
-                appOwnershipService(installedAppRepository, observedRepository),
+                () -> appOwnershipService(installedAppRepository, observedRepository).apps(),
                 setupService,
                 new DiscoverInstallPreviewService(new InstallPlanService(layout, customizationResolver), setupService));
     }
@@ -221,7 +221,7 @@ class DiscoverServiceTests {
         InstallCustomizationResolver customizationResolver = new InstallCustomizationResolver(new PortAllocator());
         return new DiscoverService(
                 catalogService(),
-                appOwnershipService(installedAppRepository, observedRepository),
+                () -> appOwnershipService(installedAppRepository, observedRepository).apps(),
                 setupService,
                 new DiscoverInstallPreviewService(new InstallPlanService(layout, customizationResolver), setupService),
                 installService,

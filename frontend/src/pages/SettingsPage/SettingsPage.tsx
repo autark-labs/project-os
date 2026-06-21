@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { ApplicationStateAPIClient } from '@/api/ApplicationStateAPIClient';
 import { BackupAPIClient } from '@/api/BackupAPIClient';
 import { InstalledAppsAPIClient } from '@/api/InstalledAppsAPIClient';
 import { apiErrorMessage } from '@/api/httpClient';
@@ -181,7 +182,7 @@ function SettingsPage() {
         SystemAPIClient.setupStatus(),
         SystemAPIClient.metrics(),
         SystemAPIClient.settings(),
-        InstalledAppsAPIClient.listApps(),
+        ApplicationStateAPIClient.get(),
         SystemAPIClient.version(),
         SystemAPIClient.doctor(),
         BackupAPIClient.report().catch((backupError) => {
@@ -189,7 +190,7 @@ function SettingsPage() {
           return null;
         }),
       ]);
-      setState({ apps, backupRoot: backupReport?.backupRoot ?? null, doctor, metrics, projectSettings, setup, version });
+      setState({ apps: apps.runtimeApps, backupRoot: backupReport?.backupRoot ?? null, doctor, metrics, projectSettings, setup, version });
       setDraft(projectSettings);
     } catch (loadError) {
       setError(apiErrorMessage(loadError, 'Settings could not be loaded.'));

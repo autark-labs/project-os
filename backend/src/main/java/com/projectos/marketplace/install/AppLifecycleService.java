@@ -59,6 +59,7 @@ public class AppLifecycleService {
     private final boolean devMode;
     private final ActivityLogService activityLogService;
     private final BackupRepository backupRepository;
+    private final AppInstanceViewProvider appInstanceViewProvider;
     private final AppRuntimeStatusResolver runtimeStatusResolver = new AppRuntimeStatusResolver();
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(ACCESS_CHECK_TIMEOUT)
@@ -66,7 +67,7 @@ public class AppLifecycleService {
             .build();
 
     @Autowired
-    public AppLifecycleService(InstalledAppRepository repository, DockerComposeExecutor composeExecutor, MarketplaceCatalogService catalogService, ManagedContainerDiscovery managedContainerDiscovery, RuntimeLayout runtimeLayout, PostInstallGuideBuilder postInstallGuideBuilder, TailscaleService tailscaleService, @Value("${project-os.dev-mode:false}") boolean devMode, ActivityLogService activityLogService, BackupRepository backupRepository) {
+    public AppLifecycleService(InstalledAppRepository repository, DockerComposeExecutor composeExecutor, MarketplaceCatalogService catalogService, ManagedContainerDiscovery managedContainerDiscovery, RuntimeLayout runtimeLayout, PostInstallGuideBuilder postInstallGuideBuilder, TailscaleService tailscaleService, @Value("${project-os.dev-mode:false}") boolean devMode, ActivityLogService activityLogService, BackupRepository backupRepository, AppInstanceViewProvider appInstanceViewProvider) {
         this.repository = repository;
         this.composeExecutor = composeExecutor;
         this.catalogService = catalogService;
@@ -77,6 +78,29 @@ public class AppLifecycleService {
         this.devMode = devMode;
         this.activityLogService = activityLogService;
         this.backupRepository = backupRepository;
+        this.appInstanceViewProvider = appInstanceViewProvider;
+    }
+
+    public AppLifecycleService(InstalledAppRepository repository, DockerComposeExecutor composeExecutor, MarketplaceCatalogService catalogService, ManagedContainerDiscovery managedContainerDiscovery, RuntimeLayout runtimeLayout, PostInstallGuideBuilder postInstallGuideBuilder, TailscaleService tailscaleService, @Value("${project-os.dev-mode:false}") boolean devMode, ActivityLogService activityLogService, BackupRepository backupRepository) {
+        this(repository, composeExecutor, catalogService, managedContainerDiscovery, runtimeLayout, postInstallGuideBuilder, tailscaleService, devMode, activityLogService, backupRepository, () -> repository.findAll().stream()
+                .map(app -> new AppInstanceView(
+                        app.appId(),
+                        app.appId(),
+                        app.appName(),
+                        "",
+                        "",
+                        app.status(),
+                        app.status(),
+                        app.status(),
+                        "owned",
+                        app.accessUrl() == null || app.accessUrl().isBlank() ? "not_ready" : "local_ready",
+                        "backup_disabled",
+                        app.accessUrl(),
+                        null,
+                        List.of(),
+                        List.of(),
+                        Instant.now()))
+                .toList());
     }
 
     public AppLifecycleService(InstalledAppRepository repository, DockerComposeExecutor composeExecutor, MarketplaceCatalogService catalogService, ManagedContainerDiscovery managedContainerDiscovery, RuntimeLayout runtimeLayout, PostInstallGuideBuilder postInstallGuideBuilder, TailscaleService tailscaleService, @Value("${project-os.dev-mode:false}") boolean devMode, ActivityLogService activityLogService) {
@@ -92,7 +116,7 @@ public class AppLifecycleService {
     }
 
     public List<AppRuntimeView> listApps() {
-        return repository.findAll().stream()
+        return managedInstalledApps().stream()
                 .map(this::refresh)
                 .toList();
     }
@@ -109,7 +133,7 @@ public class AppLifecycleService {
 
     public Map<String, AppTelemetry> telemetry() {
         Map<String, List<String>> containerNamesByAppId = new LinkedHashMap<>();
-        for (InstalledApp app : repository.findAll()) {
+        for (InstalledApp app : managedInstalledApps()) {
             List<String> names = runtimeStatusResolver.containerNames(composeExecutor.containers(composeFile(app), app.composeProject()));
             containerNamesByAppId.put(app.appId(), names);
         }
@@ -130,7 +154,7 @@ public class AppLifecycleService {
 
     public Map<String, AppAccessCheck> accessChecks() {
         Map<String, AppAccessCheck> checks = new LinkedHashMap<>();
-        for (InstalledApp app : repository.findAll()) {
+        for (InstalledApp app : managedInstalledApps()) {
             String accessUrl = repository.settingsFor(app.appId())
                     .map(InstallSettings::accessUrl)
                     .filter(url -> url != null && !url.isBlank())
@@ -142,7 +166,7 @@ public class AppLifecycleService {
 
     public Map<String, AppHealthSnapshot> healthSnapshots() {
         Map<String, AppHealthSnapshot> snapshots = new LinkedHashMap<>();
-        for (InstalledApp app : repository.findAll()) {
+        for (InstalledApp app : managedInstalledApps()) {
             AppHealthSnapshot snapshot = healthSnapshot(app);
             snapshots.put(app.appId(), snapshot);
         }
@@ -150,7 +174,7 @@ public class AppLifecycleService {
     }
 
     public AppReliabilitySummary reliabilitySummary() {
-        List<InstalledApp> apps = repository.findAll();
+        List<InstalledApp> apps = managedInstalledApps();
         Instant checkedAt = Instant.now();
         int ready = countByStatus(apps, "Ready");
         int starting = countByStatus(apps, "Starting");
@@ -1045,7 +1069,7 @@ public class AppLifecycleService {
                 accessUrl,
                 privateAccessUrl,
                 installedProvisioningValues(manifest),
-                repository.findAll().stream().map(InstalledApp::appId).collect(java.util.stream.Collectors.toSet()));
+                managedInstalledApps().stream().map(InstalledApp::appId).collect(java.util.stream.Collectors.toSet()));
     }
 
     private PostInstallProvisioningResult installedProvisioningValues(ApplicationManifest manifest) {
@@ -1331,8 +1355,26 @@ public class AppLifecycleService {
     }
 
     private InstalledApp installedApp(String appId) {
-        return repository.findById(appId)
+        InstalledApp app = repository.findById(appId)
                 .orElseThrow(() -> new InstallationException("Project-OS is not managing an app with id " + appId + "."));
+        if (!managedAppIds().contains(appId)) {
+            throw new InstallationException("Project OS is not managing an app with id " + appId + ".");
+        }
+        return app;
+    }
+
+    private List<InstalledApp> managedInstalledApps() {
+        Set<String> managedAppIds = managedAppIds();
+        return repository.findAll().stream()
+                .filter(app -> managedAppIds.contains(app.appId()))
+                .toList();
+    }
+
+    private Set<String> managedAppIds() {
+        return appInstanceViewProvider.list().stream()
+                .map(AppInstanceView::catalogAppId)
+                .filter(id -> id != null && !id.isBlank())
+                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
     }
 
     private void assertLifecycleEligible(InstalledApp app, String action) {

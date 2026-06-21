@@ -5,9 +5,12 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.projectos.apps.ApplicationStateService;
 import com.projectos.marketplace.catalog.MarketplaceCatalogService;
 import com.projectos.network.tailscale.TailscaleServeConfig;
 import com.projectos.network.tailscale.TailscaleServeMapping;
@@ -18,19 +21,28 @@ import com.projectos.network.tailscale.TailscaleStatus;
 @Service
 public class PrivateAccessReconciliationService {
 
-    private final AppLifecycleService appLifecycleService;
+    private final Supplier<List<AppRuntimeView>> runtimeApps;
     private final MarketplaceCatalogService catalogService;
     private final TailscaleService tailscaleService;
 
+    @Autowired
+    public PrivateAccessReconciliationService(ApplicationStateService applicationStateService, MarketplaceCatalogService catalogService, TailscaleService tailscaleService) {
+        this(() -> applicationStateService.snapshot().runtimeApps(), catalogService, tailscaleService);
+    }
+
     public PrivateAccessReconciliationService(AppLifecycleService appLifecycleService, MarketplaceCatalogService catalogService, TailscaleService tailscaleService) {
-        this.appLifecycleService = appLifecycleService;
+        this(appLifecycleService::listApps, catalogService, tailscaleService);
+    }
+
+    private PrivateAccessReconciliationService(Supplier<List<AppRuntimeView>> runtimeApps, MarketplaceCatalogService catalogService, TailscaleService tailscaleService) {
+        this.runtimeApps = runtimeApps;
         this.catalogService = catalogService;
         this.tailscaleService = tailscaleService;
     }
 
     public PrivateAccessReconciliationReport report() {
         TailscaleStatus status = tailscaleService.status();
-        List<AppRuntimeView> privateApps = appLifecycleService.listApps().stream()
+        List<AppRuntimeView> privateApps = runtimeApps.get().stream()
                 .filter(this::wantsPrivateAccess)
                 .toList();
         if (privateApps.isEmpty()) {
@@ -73,7 +85,7 @@ public class PrivateAccessReconciliationService {
         if (!knownProjectOsPorts().contains(httpsPort)) {
             throw new InstallationException("Project OS does not recognize this as one of its managed app ports.");
         }
-        boolean appStillExpectsPort = appLifecycleService.listApps().stream()
+        boolean appStillExpectsPort = runtimeApps.get().stream()
                 .filter(this::wantsPrivateAccess)
                 .map(this::expectedPort)
                 .filter(Objects::nonNull)
@@ -308,7 +320,7 @@ public class PrivateAccessReconciliationService {
     }
 
     private Set<Integer> knownProjectOsPorts() {
-        Set<Integer> ports = appLifecycleService.listApps().stream()
+        Set<Integer> ports = runtimeApps.get().stream()
                 .map(app -> app.observedAccess() == null ? null : app.observedAccess().localPort())
                 .filter(Objects::nonNull)
                 .collect(java.util.stream.Collectors.toSet());

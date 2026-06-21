@@ -7,6 +7,7 @@ import java.util.Map;
 
 import org.springframework.stereotype.Service;
 
+import com.projectos.apps.ApplicationStateService;
 import com.projectos.marketplace.install.AppAccessCheck;
 import com.projectos.marketplace.install.AppLifecycleService;
 import com.projectos.marketplace.install.AppRuntimeView;
@@ -21,11 +22,13 @@ import com.projectos.network.tailscale.TailscaleStatus;
 public class NetworkDiagnosticsService {
 
     private final TailscaleService tailscaleService;
+    private final ApplicationStateService applicationStateService;
     private final AppLifecycleService appLifecycleService;
     private final PrivateAccessReconciliationService reconciliationService;
 
-    public NetworkDiagnosticsService(TailscaleService tailscaleService, AppLifecycleService appLifecycleService, PrivateAccessReconciliationService reconciliationService) {
+    public NetworkDiagnosticsService(TailscaleService tailscaleService, ApplicationStateService applicationStateService, AppLifecycleService appLifecycleService, PrivateAccessReconciliationService reconciliationService) {
         this.tailscaleService = tailscaleService;
+        this.applicationStateService = applicationStateService;
         this.appLifecycleService = appLifecycleService;
         this.reconciliationService = reconciliationService;
     }
@@ -33,7 +36,7 @@ public class NetworkDiagnosticsService {
     public NetworkDiagnosticsReport report() {
         TailscaleStatus tailscale = tailscaleService.status();
         List<TailscaleDevice> devices = tailscaleService.devices();
-        List<AppRuntimeView> apps = appLifecycleService.listApps();
+        List<AppRuntimeView> apps = applicationStateService.snapshot().runtimeApps();
         Map<String, AppAccessCheck> accessChecks = appLifecycleService.accessChecks();
         List<AppRuntimeView> privateApps = apps.stream()
                 .filter(app -> app.settings() != null && app.settings().tailscaleEnabled())

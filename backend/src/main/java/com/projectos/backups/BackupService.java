@@ -31,6 +31,8 @@ import com.projectos.activity.ActivityLogService;
 import com.projectos.marketplace.catalog.MarketplaceCatalogService;
 import com.projectos.marketplace.install.AppActionResult;
 import com.projectos.marketplace.install.AppLifecycleService;
+import com.projectos.marketplace.install.AppInstanceView;
+import com.projectos.marketplace.install.AppInstanceViewProvider;
 import com.projectos.marketplace.install.BackupPolicy;
 import com.projectos.marketplace.install.InstallSettings;
 import com.projectos.marketplace.install.InstallationException;
@@ -58,14 +60,33 @@ public class BackupService {
     private final ProjectSettingsService projectSettingsService;
     private final AppLifecycleService appLifecycleService;
     private final MarketplaceCatalogService catalogService;
+    private final AppInstanceViewProvider appInstanceViewProvider;
     private final RuntimeFileOperations fileOperations;
 
     public BackupService(RuntimeLayout runtimeLayout, InstalledAppRepository installedAppRepository, BackupRepository backupRepository, ActivityLogService activityLogService, ProjectSettingsRepository settingsRepository, ProjectSettingsService projectSettingsService, AppLifecycleService appLifecycleService, MarketplaceCatalogService catalogService) {
-        this(runtimeLayout, installedAppRepository, backupRepository, activityLogService, settingsRepository, projectSettingsService, appLifecycleService, catalogService, new RuntimeFileOperations());
+        this(runtimeLayout, installedAppRepository, backupRepository, activityLogService, settingsRepository, projectSettingsService, appLifecycleService, catalogService, () -> installedAppRepository.findAll().stream()
+                .map(app -> new AppInstanceView(
+                        app.appId(),
+                        app.appId(),
+                        app.appName(),
+                        "",
+                        "",
+                        app.status(),
+                        app.status(),
+                        app.status(),
+                        "owned",
+                        app.accessUrl() == null || app.accessUrl().isBlank() ? "not_ready" : "local_ready",
+                        "backup_disabled",
+                        app.accessUrl(),
+                        null,
+                        List.of(),
+                        List.of(),
+                        Instant.now()))
+                .toList(), new RuntimeFileOperations());
     }
 
     @Autowired
-    public BackupService(RuntimeLayout runtimeLayout, InstalledAppRepository installedAppRepository, BackupRepository backupRepository, ActivityLogService activityLogService, ProjectSettingsRepository settingsRepository, ProjectSettingsService projectSettingsService, AppLifecycleService appLifecycleService, MarketplaceCatalogService catalogService, RuntimeFileOperations fileOperations) {
+    public BackupService(RuntimeLayout runtimeLayout, InstalledAppRepository installedAppRepository, BackupRepository backupRepository, ActivityLogService activityLogService, ProjectSettingsRepository settingsRepository, ProjectSettingsService projectSettingsService, AppLifecycleService appLifecycleService, MarketplaceCatalogService catalogService, AppInstanceViewProvider appInstanceViewProvider, RuntimeFileOperations fileOperations) {
         this.runtimeLayout = runtimeLayout;
         this.installedAppRepository = installedAppRepository;
         this.backupRepository = backupRepository;
@@ -74,11 +95,12 @@ public class BackupService {
         this.projectSettingsService = projectSettingsService;
         this.appLifecycleService = appLifecycleService;
         this.catalogService = catalogService;
+        this.appInstanceViewProvider = appInstanceViewProvider;
         this.fileOperations = fileOperations;
     }
 
     public BackupReport report() {
-        List<InstalledApp> installedApps = installedAppRepository.findAll();
+        List<InstalledApp> installedApps = managedInstalledApps();
         Map<String, ApplicationManifest> manifestsById = catalogService.findAll().stream()
                 .collect(java.util.stream.Collectors.toMap(ApplicationManifest::id, manifest -> manifest));
         List<AppBackupStatus> apps = installedApps.stream()
@@ -168,7 +190,7 @@ public class BackupService {
     }
 
     public BackupRunResult runFullBackup(String source) {
-        List<InstalledApp> apps = installedAppRepository.findAll();
+        List<InstalledApp> apps = managedInstalledApps();
         List<InstalledApp> protectedApps = apps.stream()
                 .filter(app -> installedAppRepository.settingsFor(app.appId()).map(InstallSettings::backup).orElse(BackupPolicy.defaults()).enabled())
                 .toList();
@@ -328,7 +350,7 @@ public class BackupService {
     }
 
     private List<InstalledApp> affectedApps(RestorePoint point, String targetAppId) {
-        Map<String, InstalledApp> installed = installedAppRepository.findAll().stream()
+        Map<String, InstalledApp> installed = managedInstalledApps().stream()
                 .collect(java.util.stream.Collectors.toMap(InstalledApp::appId, app -> app));
         if (targetAppId != null && !targetAppId.isBlank()) {
             InstalledApp app = installed.get(targetAppId);
@@ -352,6 +374,18 @@ public class BackupService {
         }
         String appName = affected.isEmpty() ? "selected app" : affected.getFirst().appName();
         return "Restore " + appName + " from a " + point.source() + " backup created " + point.createdAt() + ".";
+    }
+
+    private List<InstalledApp> managedInstalledApps() {
+        List<String> managedAppIds = appInstanceViewProvider.list().stream()
+                .map(AppInstanceView::catalogAppId)
+                .filter(id -> id != null && !id.isBlank())
+                .distinct()
+                .toList();
+        return managedAppIds.stream()
+                .map(installedAppRepository::findById)
+                .flatMap(Optional::stream)
+                .toList();
     }
 
     private void restoreApp(RestorePoint point, InstalledApp app, List<String> logs) {

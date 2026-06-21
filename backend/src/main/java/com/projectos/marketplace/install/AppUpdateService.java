@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.projectos.activity.ActivityLogService;
@@ -28,8 +29,32 @@ public class AppUpdateService {
     private final AppLifecycleService appLifecycleService;
     private final ActivityLogService activityLogService;
     private final ProjectSettingsService projectSettingsService;
+    private final AppInstanceViewProvider appInstanceViewProvider;
 
     public AppUpdateService(InstalledAppRepository repository, MarketplaceCatalogService catalogService, ComposeRenderer composeRenderer, DockerComposeExecutor composeExecutor, BackupService backupService, AppLifecycleService appLifecycleService, ActivityLogService activityLogService, ProjectSettingsService projectSettingsService) {
+        this(repository, catalogService, composeRenderer, composeExecutor, backupService, appLifecycleService, activityLogService, projectSettingsService, () -> repository.findAll().stream()
+                .map(app -> new AppInstanceView(
+                        app.appId(),
+                        app.appId(),
+                        app.appName(),
+                        "",
+                        "",
+                        app.status(),
+                        app.status(),
+                        app.status(),
+                        "owned",
+                        app.accessUrl() == null || app.accessUrl().isBlank() ? "not_ready" : "local_ready",
+                        "backup_disabled",
+                        app.accessUrl(),
+                        null,
+                        List.of(),
+                        List.of(),
+                        Instant.now()))
+                .toList());
+    }
+
+    @Autowired
+    public AppUpdateService(InstalledAppRepository repository, MarketplaceCatalogService catalogService, ComposeRenderer composeRenderer, DockerComposeExecutor composeExecutor, BackupService backupService, AppLifecycleService appLifecycleService, ActivityLogService activityLogService, ProjectSettingsService projectSettingsService, AppInstanceViewProvider appInstanceViewProvider) {
         this.repository = repository;
         this.catalogService = catalogService;
         this.composeRenderer = composeRenderer;
@@ -38,10 +63,11 @@ public class AppUpdateService {
         this.appLifecycleService = appLifecycleService;
         this.activityLogService = activityLogService;
         this.projectSettingsService = projectSettingsService;
+        this.appInstanceViewProvider = appInstanceViewProvider;
     }
 
     public List<AppUpdateStatus> statuses() {
-        return repository.findAll().stream().map(this::status).toList();
+        return managedInstalledApps().stream().map(this::status).toList();
     }
 
     public AppUpdatePlan plan(String appId) {
@@ -224,7 +250,24 @@ public class AppUpdateService {
     }
 
     private InstalledApp installedApp(String appId) {
+        if (!managedAppIds().contains(appId)) {
+            throw new InstallationException("Project OS is not managing an app with id " + appId + ".");
+        }
         return repository.findById(appId).orElseThrow(() -> new InstallationException("Project OS is not managing an app with id " + appId + "."));
+    }
+
+    private List<InstalledApp> managedInstalledApps() {
+        java.util.Set<String> managedAppIds = managedAppIds();
+        return repository.findAll().stream()
+                .filter(app -> managedAppIds.contains(app.appId()))
+                .toList();
+    }
+
+    private java.util.Set<String> managedAppIds() {
+        return appInstanceViewProvider.list().stream()
+                .map(AppInstanceView::catalogAppId)
+                .filter(id -> id != null && !id.isBlank())
+                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
     }
 
     private String userMessage(Exception exception) {

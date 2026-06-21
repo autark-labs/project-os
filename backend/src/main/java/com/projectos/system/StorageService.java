@@ -18,6 +18,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.projectos.activity.ActivityLogService;
+import com.projectos.marketplace.install.AppInstanceView;
+import com.projectos.marketplace.install.AppInstanceViewProvider;
 import com.projectos.marketplace.install.InstallSettings;
 import com.projectos.marketplace.install.InstalledApp;
 import com.projectos.marketplace.install.InstalledAppRepository;
@@ -36,6 +38,7 @@ public class StorageService {
     private final InstalledAppRepository installedAppRepository;
     private final ActivityLogService activityLogService;
     private final StorageSampleRepository storageSampleRepository;
+    private final AppInstanceViewProvider appInstanceViewProvider;
     private final RuntimeFileOperations fileOperations;
     private Instant lastWarningLoggedAt = Instant.EPOCH;
     private String lastWarningStatus = "";
@@ -44,12 +47,35 @@ public class StorageService {
         this(runtimeLayout, installedAppRepository, activityLogService, storageSampleRepository, new RuntimeFileOperations());
     }
 
-    @Autowired
     public StorageService(RuntimeLayout runtimeLayout, InstalledAppRepository installedAppRepository, ActivityLogService activityLogService, StorageSampleRepository storageSampleRepository, RuntimeFileOperations fileOperations) {
+        this(runtimeLayout, installedAppRepository, activityLogService, storageSampleRepository, () -> installedAppRepository.findAll().stream()
+                .map(app -> new AppInstanceView(
+                        app.appId(),
+                        app.appId(),
+                        app.appName(),
+                        "",
+                        "",
+                        app.status(),
+                        app.status(),
+                        app.status(),
+                        "owned",
+                        app.accessUrl() == null || app.accessUrl().isBlank() ? "not_ready" : "local_ready",
+                        "backup_disabled",
+                        app.accessUrl(),
+                        null,
+                        List.of(),
+                        List.of(),
+                        Instant.now()))
+                .toList(), fileOperations);
+    }
+
+    @Autowired
+    public StorageService(RuntimeLayout runtimeLayout, InstalledAppRepository installedAppRepository, ActivityLogService activityLogService, StorageSampleRepository storageSampleRepository, AppInstanceViewProvider appInstanceViewProvider, RuntimeFileOperations fileOperations) {
         this.runtimeLayout = runtimeLayout;
         this.installedAppRepository = installedAppRepository;
         this.activityLogService = activityLogService;
         this.storageSampleRepository = storageSampleRepository;
+        this.appInstanceViewProvider = appInstanceViewProvider;
         this.fileOperations = fileOperations;
     }
 
@@ -59,7 +85,7 @@ public class StorageService {
         Path backupsRoot = runtimeRoot.resolve("backups").normalize();
         ensure(runtimeRoot);
 
-        List<InstalledApp> installedApps = installedAppRepository.findAll();
+        List<InstalledApp> installedApps = managedInstalledApps();
         Set<String> installedIds = installedApps.stream().map(InstalledApp::appId).collect(HashSet::new, Set::add, Set::addAll);
         StorageUsage hostDisk = diskUsage("Host disk", runtimeRoot);
         StorageUsage runtimeDisk = directoryUsage("Project OS data", runtimeRoot, hostDisk.totalBytes(), hostDisk.usableBytes());
@@ -97,7 +123,7 @@ public class StorageService {
         if (!orphanPath.startsWith(appsRoot) || !Files.isDirectory(orphanPath)) {
             throw new com.projectos.marketplace.install.InstallationException("Project OS could not find that unused app data folder.");
         }
-        Set<String> installedIds = installedAppRepository.findAll().stream().map(InstalledApp::appId).collect(HashSet::new, Set::add, Set::addAll);
+        Set<String> installedIds = managedInstalledApps().stream().map(InstalledApp::appId).collect(HashSet::new, Set::add, Set::addAll);
         if (installedIds.contains(safeName)) {
             throw new com.projectos.marketplace.install.InstallationException("Project OS will not remove data for an installed app.");
         }
@@ -237,6 +263,16 @@ public class StorageService {
         } catch (IOException exception) {
             return List.of();
         }
+    }
+
+    private List<InstalledApp> managedInstalledApps() {
+        Set<String> managedIds = appInstanceViewProvider.list().stream()
+                .map(AppInstanceView::catalogAppId)
+                .filter(id -> id != null && !id.isBlank())
+                .collect(HashSet::new, Set::add, Set::addAll);
+        return installedAppRepository.findAll().stream()
+                .filter(app -> managedIds.contains(app.appId()))
+                .toList();
     }
 
     private StorageUsage diskUsage(String label, Path path) {

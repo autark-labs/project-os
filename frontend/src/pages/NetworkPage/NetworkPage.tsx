@@ -6,8 +6,8 @@ import { PageErrorState, PageLoadingState } from '@/components/project-os/PageSt
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { InstalledAppsAPIClient } from '@/api/InstalledAppsAPIClient';
+import { ApplicationStateAPIClient } from '@/api/ApplicationStateAPIClient';
 import { NetworkAPIClient } from '@/api/NetworkAPIClient';
-import { ObservedServicesAPIClient } from '@/api/ObservedServicesAPIClient';
 import { apiErrorMessage } from '@/api/httpClient';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
 import { toast } from 'sonner';
@@ -47,7 +47,7 @@ function NetworkPage() {
   const [appActionLoading, setAppActionLoading] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string | null>(null);
 
-  const loadNetwork = useCallback(async ({ background = false } = {}) => {
+  const loadNetwork = useCallback(async ({ background = false, forceRefresh = false } = {}) => {
     if (!background) {
       setLoading(true);
     } else {
@@ -55,15 +55,14 @@ function NetworkPage() {
     }
     setError(null);
     try {
-      const [status, devices, diagnosticsReport, connectGuide, hostSetup, reconciliationReport, installedApps, nextObservedServices] = await Promise.all([
+      const [status, devices, diagnosticsReport, connectGuide, hostSetup, reconciliationReport, applicationState] = await Promise.all([
         NetworkAPIClient.tailscaleStatus(),
         NetworkAPIClient.tailscaleDevices(),
         NetworkAPIClient.diagnostics(),
         NetworkAPIClient.connectGuide(),
         NetworkAPIClient.setupStatus(),
         NetworkAPIClient.privateAccessReconciliation(),
-        InstalledAppsAPIClient.listApps(),
-        ObservedServicesAPIClient.list().catch(() => []),
+        ApplicationStateAPIClient.get({ refresh: forceRefresh || !background }),
       ]);
       setTailscale(status);
       setTailnetDevices(devices);
@@ -71,8 +70,8 @@ function NetworkPage() {
       setReconciliation(reconciliationReport);
       setGuide(connectGuide);
       setSetupStatus(hostSetup);
-      setApps(installedApps);
-      setObservedServices(nextObservedServices);
+      setApps(applicationState.runtimeApps);
+      setObservedServices(applicationState.observedServices);
       setUpdatedAt(new Date());
     } catch (err) {
       setError(apiErrorMessage(err, 'Unable to load network status.'));
@@ -92,7 +91,7 @@ function NetworkPage() {
   const runningApps = useMemo(() => apps.filter((app) => app.friendlyStatus === 'Ready'), [apps]);
   const devices = useMemo(() => buildDeviceViews(tailscale, tailnetDevices), [tailnetDevices, tailscale]);
   const exposureGroups = useMemo(() => buildAppExposureGroups(apps, tailscale, reconciliation), [apps, reconciliation, tailscale]);
-  const pinnedExternalServices = useMemo(() => observedServices.filter((service) => service.pinned), [observedServices]);
+  const pinnedExternalServices = useMemo(() => observedServices.filter((service) => service.userStatus === 'pinned_external'), [observedServices]);
   const accessZones = useMemo(() => buildAccessZones(exposureGroups, pinnedExternalServices), [exposureGroups, pinnedExternalServices]);
   const posture = useMemo(() => buildNetworkPosture({ devices, diagnostics, privateApps, reconciliation, tailscale }), [devices, diagnostics, privateApps, reconciliation, tailscale]);
   const issues = useMemo(() => buildNetworkIssues(diagnostics, reconciliation), [diagnostics, reconciliation]);
@@ -117,7 +116,7 @@ function NetworkPage() {
       } else {
         await InstalledAppsAPIClient.disablePrivateAccess(app.appId);
       }
-      await loadNetwork({ background: true });
+      await loadNetwork({ background: true, forceRefresh: true });
     } catch (err) {
       setError(apiErrorMessage(err, 'Unable to update private access for this app.'));
     } finally {
@@ -130,7 +129,7 @@ function NetworkPage() {
     setError(null);
     try {
       await NetworkAPIClient.removeStalePrivateAccess(port);
-      await loadNetwork({ background: true });
+      await loadNetwork({ background: true, forceRefresh: true });
     } catch (err) {
       setError(apiErrorMessage(err, 'Unable to remove this stale private link.'));
     } finally {
@@ -145,7 +144,7 @@ function NetworkPage() {
           <h2 className="text-2xl font-bold leading-none text-white md:text-3xl">Access</h2>
           <p className="mt-2 max-w-2xl text-sm text-slate-400">Open local links, review private Tailscale links, and fix access issues from one place.</p>
         </div>
-        <RefreshStatus intervalLabel="Auto-updates every 5s" onRefresh={() => loadNetwork({ background: true })} refreshing={refreshing} updatedAt={updatedAt} />
+        <RefreshStatus intervalLabel="Auto-updates every 5s" onRefresh={() => loadNetwork({ background: true, forceRefresh: true })} refreshing={refreshing} updatedAt={updatedAt} />
       </header>
 
       {error && <PageErrorState message={error} onRetry={() => loadNetwork({ background: false })} title="Access status could not load" />}

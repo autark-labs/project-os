@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ChevronRight, Loader2, MonitorSmartphone, Network, ShieldCheck, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { InstalledAppsAPIClient } from '@/api/InstalledAppsAPIClient';
+import { ApplicationStateAPIClient } from '@/api/ApplicationStateAPIClient';
 import { apiErrorMessage } from '@/api/httpClient';
 import { NetworkAPIClient } from '@/api/NetworkAPIClient';
 import { RefreshStatus } from '@/components/RefreshStatus';
@@ -46,13 +46,13 @@ function DevicesPage() {
     }
     setError(null);
     try {
-      const [accessReport, apps] = await Promise.all([
+      const [accessReport, applicationState] = await Promise.all([
         NetworkAPIClient.deviceAccessReport(),
-        InstalledAppsAPIClient.listApps(),
+        ApplicationStateAPIClient.get(),
       ]);
       const devices = accessReport.devices.map((view) => view.device);
       setState({
-        apps,
+        apps: applicationState.runtimeApps,
         devices,
         deviceViews: accessReport.devices,
         reconciliation: accessReport.privateAccess,

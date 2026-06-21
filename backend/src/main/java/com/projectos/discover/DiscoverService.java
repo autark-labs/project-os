@@ -5,8 +5,10 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
-import com.projectos.apps.AppOwnershipService;
+import com.projectos.apps.AppOwnershipState;
+import com.projectos.apps.ApplicationStateService;
 import com.projectos.apps.AppOwnershipView;
 import com.projectos.jobs.ProjectOsJob;
 import com.projectos.jobs.ProjectOsJobOutcome;
@@ -26,48 +28,73 @@ import org.springframework.stereotype.Service;
 public class DiscoverService {
 
     private final MarketplaceCatalogService catalogService;
-    private final AppOwnershipService appOwnershipService;
+    private final Supplier<List<AppOwnershipView>> ownershipViews;
     private final DiscoverSetupService setupService;
     private final DiscoverInstallPreviewService previewService;
     private final MarketplaceInstallService marketplaceInstallService;
     private final ProjectOsJobService jobService;
+    private final Runnable invalidateApplicationState;
 
     @Autowired
     public DiscoverService(
             MarketplaceCatalogService catalogService,
-            AppOwnershipService appOwnershipService,
+            ApplicationStateService applicationStateService,
             DiscoverSetupService setupService,
             DiscoverInstallPreviewService previewService,
             MarketplaceInstallService marketplaceInstallService,
             ProjectOsJobService jobService) {
-        this.catalogService = catalogService;
-        this.appOwnershipService = appOwnershipService;
-        this.setupService = setupService;
-        this.previewService = previewService;
-        this.marketplaceInstallService = marketplaceInstallService;
-        this.jobService = jobService;
+        this(catalogService, () -> applicationStateService.snapshot().ownershipViews(), setupService, previewService, marketplaceInstallService, jobService, applicationStateService::invalidate);
     }
 
     public DiscoverService(
             MarketplaceCatalogService catalogService,
-            AppOwnershipService appOwnershipService,
+            Supplier<List<AppOwnershipView>> ownershipViews,
             DiscoverSetupService setupService,
             DiscoverInstallPreviewService previewService) {
-        this(catalogService, appOwnershipService, setupService, previewService, null, null);
+        this(catalogService, ownershipViews, setupService, previewService, null, null, () -> {});
+    }
+
+    public DiscoverService(
+            MarketplaceCatalogService catalogService,
+            Supplier<List<AppOwnershipView>> ownershipViews,
+            DiscoverSetupService setupService,
+            DiscoverInstallPreviewService previewService,
+            MarketplaceInstallService marketplaceInstallService,
+            ProjectOsJobService jobService) {
+        this(catalogService, ownershipViews, setupService, previewService, marketplaceInstallService, jobService, () -> {});
+    }
+
+    private DiscoverService(
+            MarketplaceCatalogService catalogService,
+            Supplier<List<AppOwnershipView>> ownershipViews,
+            DiscoverSetupService setupService,
+            DiscoverInstallPreviewService previewService,
+            MarketplaceInstallService marketplaceInstallService,
+            ProjectOsJobService jobService,
+            Runnable invalidateApplicationState) {
+        this.catalogService = catalogService;
+        this.ownershipViews = ownershipViews;
+        this.setupService = setupService;
+        this.previewService = previewService;
+        this.marketplaceInstallService = marketplaceInstallService;
+        this.jobService = jobService;
+        this.invalidateApplicationState = invalidateApplicationState;
     }
 
     public List<DiscoverAppView> apps() {
-        Map<String, AppOwnershipView> ownershipByAppId = appOwnershipService.apps().stream()
+        Map<String, AppOwnershipView> ownershipByAppId = ownershipViews.get().stream()
                 .collect(java.util.stream.Collectors.toMap(AppOwnershipView::catalogAppId, view -> view, (left, right) -> left));
         return catalogService.findAll().stream()
-                .map(manifest -> appView(manifest, ownershipByAppId.get(manifest.id())))
+                .map(manifest -> appView(manifest, ownershipOrAvailable(manifest, ownershipByAppId.get(manifest.id()))))
                 .sorted(Comparator.comparing(DiscoverAppView::name, String.CASE_INSENSITIVE_ORDER))
                 .toList();
     }
 
     public Optional<DiscoverAppView> app(String appId) {
+        Map<String, AppOwnershipView> ownershipByAppId = ownershipViews.get().stream()
+                .collect(java.util.stream.Collectors.toMap(AppOwnershipView::catalogAppId, view -> view, (left, right) -> left));
         return catalogService.findById(appId)
-                .flatMap(manifest -> appOwnershipService.app(appId).map(ownership -> appView(manifest, ownership)));
+                .map(manifest -> appView(manifest, ownershipOrAvailable(manifest, ownershipByAppId.get(manifest.id()))));
     }
 
     public DiscoverSetupSchema setupSchema(String appId) {
@@ -99,6 +126,7 @@ public class DiscoverService {
                 liveSteps.add(installStep(step));
                 jobService.recordProgress(job.jobId(), List.copyOf(liveSteps));
             });
+            invalidateApplicationState.run();
             return installOutcome(result);
         });
     }
@@ -142,6 +170,34 @@ public class DiscoverService {
                 setupService.schema(manifest));
     }
 
+    private AppOwnershipView ownershipOrAvailable(ApplicationManifest manifest, AppOwnershipView ownership) {
+        if (ownership != null) {
+            return ownership;
+        }
+        AppOwnershipState state = AppOwnershipState.AVAILABLE;
+        return new AppOwnershipView(
+                manifest.id(),
+                manifest.name(),
+                manifest.category(),
+                manifest.image(),
+                firstPresent(manifest.shortValue(), manifest.plainLanguage(), manifest.description()),
+                firstPresent(manifest.plainLanguage(), manifest.description()),
+                state,
+                "Available",
+                "Ready to review before install.",
+                "neutral",
+                "neutral",
+                false,
+                false,
+                false,
+                null,
+                new com.projectos.apps.AppOwnershipAction("review_setup", "Review setup", "route", "/discover?app=" + encode(manifest.id()), null, false, ""),
+                List.of(new com.projectos.apps.AppOwnershipAction("review_setup", "Review setup", "route", "/discover?app=" + encode(manifest.id()), null, false, "")),
+                null,
+                null,
+                null);
+    }
+
     private String serviceKindLabel(String kind) {
         return switch (kind) {
             case "web-app" -> "App you open";
@@ -160,6 +216,10 @@ public class DiscoverService {
             }
         }
         return "";
+    }
+
+    private String encode(String value) {
+        return java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8);
     }
 
     private List<ProjectOsJobStep> installJobSteps(String appName) {

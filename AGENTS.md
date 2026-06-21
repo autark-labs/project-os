@@ -52,6 +52,21 @@ A good slice includes:
 
 Avoid landing invisible infrastructure unless it directly unlocks the current slice.
 
+### No partial state-model implementations
+
+When a request is to consolidate, replace, or make a single source of truth for a product concept, the work is not done until every active backend and frontend consumer uses that source or the user has explicitly approved a temporary exception.
+
+Required behavior:
+
+- Identify every endpoint, service, page, component, and client that reads or derives the affected state before editing.
+- Add regression coverage for the exact cross-page or cross-endpoint mismatch being fixed.
+- Migrate all active consumers in the same corrective pass.
+- Do not leave parallel interpretation paths that can produce different user-facing answers.
+- Do not call an implementation complete because the primary page works while secondary pages still compose state independently.
+- If full migration is too large or risky, stop and ask before landing a partial implementation.
+
+For application state specifically, Home, My Apps, Discover, Access, Backups, Storage, Monitoring, Settings, Support, and onboarding/setup must not independently decide what is installed, pinned, found, recoverable, or managed. Those states must come from the canonical application-state model.
+
 ### Prefer additive refactors over broad rewrites
 
 Refactor behind stable APIs/components when possible. Do not churn unrelated files. Preserve working behavior while simplifying the implementation.

@@ -2,6 +2,8 @@ package com.projectos.marketplace.install;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,19 +24,39 @@ public class AppGuardianService {
     private final boolean enabled;
     private final ActivityLogService activityLogService;
     private final AutomationService automationService;
+    private final AppInstanceViewProvider appInstanceViewProvider;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     @Autowired
-    public AppGuardianService(InstalledAppRepository repository, AppLifecycleService appLifecycleService, @Value("${project-os.guardian.enabled:true}") boolean enabled, ActivityLogService activityLogService, AutomationService automationService) {
+    public AppGuardianService(InstalledAppRepository repository, AppLifecycleService appLifecycleService, @Value("${project-os.guardian.enabled:true}") boolean enabled, ActivityLogService activityLogService, AutomationService automationService, AppInstanceViewProvider appInstanceViewProvider) {
         this.repository = repository;
         this.appLifecycleService = appLifecycleService;
         this.enabled = enabled;
         this.activityLogService = activityLogService;
         this.automationService = automationService;
+        this.appInstanceViewProvider = appInstanceViewProvider;
     }
 
     public AppGuardianService(InstalledAppRepository repository, AppLifecycleService appLifecycleService, @Value("${project-os.guardian.enabled:true}") boolean enabled) {
-        this(repository, appLifecycleService, enabled, null, null);
+        this(repository, appLifecycleService, enabled, null, null, () -> repository.findAll().stream()
+                .map(app -> new AppInstanceView(
+                        app.appId(),
+                        app.appId(),
+                        app.appName(),
+                        "",
+                        "",
+                        app.status(),
+                        app.status(),
+                        app.status(),
+                        "owned",
+                        app.accessUrl() == null || app.accessUrl().isBlank() ? "not_ready" : "local_ready",
+                        "backup_disabled",
+                        app.accessUrl(),
+                        null,
+                        List.of(),
+                        List.of(),
+                        Instant.now()))
+                .toList());
     }
 
     @Scheduled(
@@ -45,7 +67,7 @@ public class AppGuardianService {
             return;
         }
         try {
-            for (InstalledApp app : repository.findAll()) {
+            for (InstalledApp app : managedInstalledApps()) {
                 inspectApp(app);
             }
         } finally {
@@ -129,5 +151,15 @@ public class AppGuardianService {
         Instant cutoff = Instant.now().minusSeconds(10);
         return repository.eventsFor(appId, 5).stream()
                 .anyMatch(event -> "guardian_repair_failed".equals(event.type()) && event.createdAt().isAfter(cutoff));
+    }
+
+    private List<InstalledApp> managedInstalledApps() {
+        Set<String> managedIds = appInstanceViewProvider.list().stream()
+                .map(AppInstanceView::catalogAppId)
+                .filter(id -> id != null && !id.isBlank())
+                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
+        return repository.findAll().stream()
+                .filter(app -> managedIds.contains(app.appId()))
+                .toList();
     }
 }

@@ -11,10 +11,10 @@ test('Diagnostics summary includes apps found on the server without treating own
   const rows = diagnosticsSummaryRows({
     summary: { dockerStatus: 'Ready', tailscaleStatus: 'Ready', findings: [] },
     doctor: { checks: [{ id: 'docker', status: 'ok' }, { id: 'tailscale', status: 'ok' }] },
-    hostInventory: [
-      { id: 'docker:owned', ownershipState: 'owned_managed', ignored: false },
-      { id: 'docker:legacy', ownershipState: 'legacy_project_os', ignored: false },
-      { id: 'docker:ignored', ownershipState: 'external_docker', ignored: true },
+    observedServices: [
+      { id: 'docker:owned', userStatus: 'installed_managed' },
+      { id: 'docker:legacy', userStatus: 'recoverable' },
+      { id: 'docker:pinned', userStatus: 'pinned_external' },
     ],
   });
 
@@ -22,7 +22,7 @@ test('Diagnostics summary includes apps found on the server without treating own
   assert.deepEqual(rows.find((row) => row.id === 'apps'), {
     id: 'apps',
     label: 'Apps',
-    value: '1 found on this server',
+    value: '2 found on this server',
     tone: 'warning',
   });
 });

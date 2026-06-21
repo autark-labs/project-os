@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Archive, CheckCircle2, ExternalLink, GitBranch, History, Loader2, RefreshCw, RotateCcw, ShieldCheck, UploadCloud } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { ApplicationStateAPIClient } from '@/api/ApplicationStateAPIClient';
 import { InstalledAppsAPIClient } from '@/api/InstalledAppsAPIClient';
 import { apiErrorMessage } from '@/api/httpClient';
 import { RefreshStatus } from '@/components/RefreshStatus';
@@ -43,11 +44,11 @@ function UpdatesPage() {
     }
     setError(null);
     try {
-      const [appsData, updateData] = await Promise.all([
-        InstalledAppsAPIClient.listApps(),
+      const [applicationState, updateData] = await Promise.all([
+        ApplicationStateAPIClient.get(),
         InstalledAppsAPIClient.updates(),
       ]);
-      setApps(appsData);
+      setApps(applicationState.runtimeApps);
       setUpdates(updateData);
       setSelectedAppId((current) => {
         if (current && updateData.some((update) => update.appId === current)) return current;

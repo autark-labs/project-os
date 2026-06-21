@@ -39,7 +39,10 @@ public class AppOwnershipService implements AppOwnershipProvider {
 
     @Override
     public List<AppOwnershipView> apps() {
-        List<ObservedService> observedServices = refreshedObservedServices();
+        return apps(refreshedObservedServices());
+    }
+
+    public List<AppOwnershipView> apps(List<ObservedService> observedServices) {
         return catalogService.findAll().stream()
                 .map(manifest -> appView(manifest, observedServices))
                 .sorted(Comparator.comparing(AppOwnershipView::name, String.CASE_INSENSITIVE_ORDER))

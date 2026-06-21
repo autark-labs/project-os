@@ -69,6 +69,45 @@ export function observedServicesWithoutOwnership(observedServices = [], ownershi
     }));
 }
 
+export function pinnedExternalViewsFromObservedServices(observedServices = []) {
+  return observedServices
+    .filter((service) => service.userStatus === 'pinned_external')
+    .map((service) => observedServiceOwnershipView(service));
+}
+
+function observedServiceOwnershipView(service) {
+  return {
+    catalogAppId: service.catalogAppId || '',
+    name: service.displayName,
+    category: service.category || 'External',
+    image: '',
+    summary: service.userStatusDescription || 'Pinned external service',
+    description: service.userStatusDescription || 'Pinned external service',
+    state: service.userStatus,
+    stateLabel: service.userStatusLabel || 'Pinned',
+    stateDescription: service.userStatusDescription || 'Pinned to My Apps. Project OS can open it but does not manage its runtime.',
+    statusTone: 'info',
+    cardTone: 'info',
+    installed: false,
+    ownedByCurrentInstance: false,
+    installCopyWarningRequired: Boolean(service.catalogAppId || service.duplicateInstallWarningRequired),
+    reviewExistingHref: `/apps?service=${encodeURIComponent(service.id)}`,
+    primaryAction: {
+      id: 'review_existing',
+      label: 'Review existing service',
+      kind: 'route',
+      href: `/apps?service=${encodeURIComponent(service.id)}`,
+      method: null,
+      disabled: false,
+      reason: '',
+    },
+    availableActions: service.availableActions || [],
+    installedApp: null,
+    foundResource: null,
+    observedService: service,
+  };
+}
+
 function serviceTone(service) {
   if (service.userStatus === 'managed_elsewhere' || service.userStatus === 'blocked') return 'danger';
   if (service.userStatus === 'recoverable') return 'warning';

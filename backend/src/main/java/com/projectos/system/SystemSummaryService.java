@@ -7,11 +7,11 @@ import java.util.function.Supplier;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.projectos.apps.ApplicationStateService;
 import com.projectos.api.ProjectOsAction;
 import com.projectos.api.ProjectOsIssue;
 import com.projectos.api.ProjectOsIssueFactory;
 import com.projectos.marketplace.install.AppInstanceView;
-import com.projectos.marketplace.install.AppInstanceViewProvider;
 import com.projectos.system.api.SystemSetupStatus;
 
 @Service
@@ -27,12 +27,12 @@ public class SystemSummaryService implements SystemSummaryProvider {
 
     @Autowired
     public SystemSummaryService(
-            AppInstanceViewProvider appInstanceViewProvider,
+            ApplicationStateService applicationStateService,
             ProjectSettingsService settingsService,
             InstanceIdentityService identityService,
             SystemSetupService setupService,
             SetupProgressService setupProgressService) {
-        this(appInstanceViewProvider::list, settingsService::current, identityService::current, setupService::status, setupProgressService::status, () -> "http://localhost:8082", Instant::now);
+        this(() -> applicationStateService.snapshot().managedApps(), settingsService::current, identityService::current, setupService::status, setupProgressService::status, () -> "http://localhost:8082", Instant::now);
     }
 
     public SystemSummaryService(

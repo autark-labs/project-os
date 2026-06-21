@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { observedServicesWithoutOwnership, splitOwnershipViews } from './ApplicationsPage.ownershipModel.js';
+import { observedServicesWithoutOwnership, pinnedExternalViewsFromObservedServices, splitOwnershipViews } from './ApplicationsPage.ownershipModel.js';
 
 test('splitOwnershipViews separates managed, pinned, and observed services', () => {
   const split = splitOwnershipViews([
@@ -32,4 +32,17 @@ test('observedServicesWithoutOwnership keeps unmatched observed services visible
   ]);
   assert.equal(unmatched[0].state, 'found_on_server');
   assert.equal(unmatched[0].installCopyWarningRequired, false);
+});
+
+test('pinnedExternalViewsFromObservedServices includes pinned services without catalog matches', () => {
+  const pinned = pinnedExternalViewsFromObservedServices([
+    { id: 'manual:gitlab', displayName: 'gitlab', url: 'http://localhost:2224', category: 'External', accessScope: 'LAN', catalogAppId: null, userStatus: 'pinned_external', userStatusLabel: 'Pinned', userStatusDescription: 'Pinned to My Apps.', availableActions: [] },
+    { id: 'docker:uptime-kuma', displayName: 'uptime-kuma', url: 'http://localhost:3001', category: 'External', accessScope: 'LAN', catalogAppId: 'uptime-kuma', userStatus: 'pinned_external', userStatusLabel: 'Pinned', userStatusDescription: 'Pinned to My Apps.', availableActions: [] },
+    { id: 'docker:vaultwarden', displayName: 'vaultwarden', catalogAppId: 'vaultwarden', userStatus: 'recoverable', userStatusLabel: 'Recoverable', userStatusDescription: 'Recoverable.', availableActions: [] },
+  ]);
+
+  assert.deepEqual(pinned.map((view) => [view.observedService.id, view.name, view.state]), [
+    ['manual:gitlab', 'gitlab', 'pinned_external'],
+    ['docker:uptime-kuma', 'uptime-kuma', 'pinned_external'],
+  ]);
 });

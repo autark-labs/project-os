@@ -5,12 +5,10 @@ import { RefreshStatus } from '@/components/RefreshStatus';
 import { PageErrorState, PageLoadingState } from '@/components/project-os/PageState';
 import { PageShell } from '@/components/project-os/ProjectOSComponents';
 import { Button } from '@/components/ui/button';
-import { AppOwnershipAPIClient } from '@/api/AppOwnershipAPIClient';
+import { ApplicationStateAPIClient } from '@/api/ApplicationStateAPIClient';
 import { InstalledAppsAPIClient } from '@/api/InstalledAppsAPIClient';
 import { NetworkAPIClient } from '@/api/NetworkAPIClient';
-import { ObservedServicesAPIClient } from '@/api/ObservedServicesAPIClient';
 import type { AppAccessCheck, AppActionResult, AppHealthSnapshot, AppInstanceView, AppRuntimeView, AppTelemetry, AppUpdateResult, AppUpdateStatus, InstallSettings } from '@/types/app';
-import type { AppOwnershipView } from '@/types/appOwnership';
 import type { ObservedServiceActionResult, ObservedServiceView } from '@/types/observedService';
 import type { PrivateAccessReconciliationReport } from '@/types/network';
 import { ApplicationsDashboard, EmptyState } from './ApplicationsDashboard';
@@ -22,8 +20,13 @@ import {
   displayStatus,
   errorMessage,
 } from './extensions/ApplicationsPage.logic';
-import { splitOwnershipViews } from './extensions/ApplicationsPage.ownershipModel';
+import { pinnedExternalViewsFromObservedServices } from './extensions/ApplicationsPage.ownershipModel';
 import type { AppAction } from './extensions/ApplicationsPage.types';
+
+const APP_STATE_REFRESH_MS = 5000;
+const APP_TELEMETRY_REFRESH_MS = 5000;
+const APP_STATUS_REFRESH_MS = 10000;
+const APP_UPDATES_REFRESH_MS = 30000;
 
 function ApplicationsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -39,7 +42,6 @@ function ApplicationsPage() {
   const [accessByAppId, setAccessByAppId] = useState<Record<string, AppAccessCheck>>({});
   const [healthByAppId, setHealthByAppId] = useState<Record<string, AppHealthSnapshot>>({});
   const [updates, setUpdates] = useState<AppUpdateStatus[]>([]);
-  const [ownershipViews, setOwnershipViews] = useState<AppOwnershipView[]>([]);
   const [observedServices, setObservedServices] = useState<ObservedServiceView[]>([]);
   const [reconciliation, setReconciliation] = useState<PrivateAccessReconciliationReport | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -68,11 +70,11 @@ function ApplicationsPage() {
     unhealthy: apps.filter((app) => appNeedsAttention(app, telemetryByAppId[app.appId], accessByAppId[app.appId], healthByAppId[app.appId] || app.healthSnapshot)).length,
   }), [accessByAppId, apps, healthByAppId, telemetryByAppId]);
   const updatesByAppId = useMemo(() => Object.fromEntries(updates.map((update) => [update.appId, update])), [updates]);
-  const ownershipSplit = useMemo(() => splitOwnershipViews(ownershipViews), [ownershipViews]);
+  const pinnedExternalViews = useMemo(() => pinnedExternalViewsFromObservedServices(observedServices), [observedServices]);
   const selectedServiceId = searchParams.get('service');
   const selectedObservedService = useMemo(() => observedServices.find((service) => service.id === selectedServiceId) || null, [observedServices, selectedServiceId]);
 
-  const loadApps = useCallback(async ({ background = false, showRefreshing = false }: { background?: boolean; showRefreshing?: boolean } = {}) => {
+  const loadApps = useCallback(async ({ background = false, showRefreshing = false, forceRefresh = false }: { background?: boolean; showRefreshing?: boolean; forceRefresh?: boolean } = {}) => {
     if (refreshInFlight.current) {
       return;
     }
@@ -85,16 +87,12 @@ function ApplicationsPage() {
       setError(null);
     }
     try {
-      const data = await InstalledAppsAPIClient.listAppInstances();
-      setApps(data.map(appInstanceToRuntimeView));
-      const [nextOwnershipViews, nextObservedServices] = await Promise.all([
-        AppOwnershipAPIClient.list(),
-        ObservedServicesAPIClient.list().catch(() => []),
-      ]);
-      setOwnershipViews(nextOwnershipViews);
-      setObservedServices(nextObservedServices);
+      const state = await ApplicationStateAPIClient.get({ refresh: forceRefresh || showRefreshing || !background });
+      const nextApps = state.runtimeApps.length ? state.runtimeApps : state.managedApps.map(appInstanceToRuntimeView);
+      setApps(nextApps);
+      setObservedServices(state.observedServices);
       setUpdatedAt(new Date());
-      setSelectedId((current) => current && !data.some((app) => app.catalogAppId === current) ? null : current);
+      setSelectedId((current) => current && !nextApps.some((app) => app.appId === current) ? null : current);
     } catch (err) {
       if (!background) {
         setError(errorMessage(err));
@@ -116,7 +114,7 @@ function ApplicationsPage() {
     loadApps();
     const interval = window.setInterval(() => {
       loadApps({ background: true });
-    }, 1500);
+    }, APP_STATE_REFRESH_MS);
     return () => window.clearInterval(interval);
   }, [loadApps]);
 
@@ -137,7 +135,7 @@ function ApplicationsPage() {
 
   useEffect(() => {
     loadTelemetry();
-    const interval = window.setInterval(loadTelemetry, 1500);
+    const interval = window.setInterval(loadTelemetry, APP_TELEMETRY_REFRESH_MS);
     return () => window.clearInterval(interval);
   }, [loadTelemetry]);
 
@@ -158,7 +156,7 @@ function ApplicationsPage() {
 
   useEffect(() => {
     loadAccessChecks();
-    const interval = window.setInterval(loadAccessChecks, 5000);
+    const interval = window.setInterval(loadAccessChecks, APP_STATUS_REFRESH_MS);
     return () => window.clearInterval(interval);
   }, [loadAccessChecks]);
 
@@ -179,7 +177,7 @@ function ApplicationsPage() {
 
   useEffect(() => {
     loadHealthSnapshots();
-    const interval = window.setInterval(loadHealthSnapshots, 5000);
+    const interval = window.setInterval(loadHealthSnapshots, APP_STATUS_REFRESH_MS);
     return () => window.clearInterval(interval);
   }, [loadHealthSnapshots]);
 
@@ -200,7 +198,7 @@ function ApplicationsPage() {
 
   useEffect(() => {
     loadReconciliation();
-    const interval = window.setInterval(loadReconciliation, 5000);
+    const interval = window.setInterval(loadReconciliation, APP_STATUS_REFRESH_MS);
     return () => window.clearInterval(interval);
   }, [loadReconciliation]);
 
@@ -220,7 +218,7 @@ function ApplicationsPage() {
 
   useEffect(() => {
     loadUpdates();
-    const interval = window.setInterval(loadUpdates, 30000);
+    const interval = window.setInterval(loadUpdates, APP_UPDATES_REFRESH_MS);
     return () => window.clearInterval(interval);
   }, [loadUpdates]);
 
@@ -233,7 +231,7 @@ function ApplicationsPage() {
       const data = await InstalledAppsAPIClient.runAction(appId, action);
       setActionResult(data);
       await Promise.all([
-        loadApps({ background: true }),
+        loadApps({ background: true, forceRefresh: true }),
         loadAccessChecks(),
         loadHealthSnapshots(),
         loadReconciliation(),
@@ -253,7 +251,7 @@ function ApplicationsPage() {
     try {
       const data = await InstalledAppsAPIClient.uninstall(appId);
       setActionResult(data);
-      await loadApps({ background: true });
+      await loadApps({ background: true, forceRefresh: true });
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -269,7 +267,7 @@ function ApplicationsPage() {
     try {
       const data = await InstalledAppsAPIClient.updateApp(appId);
       setUpdateResult(data);
-      await Promise.all([loadApps({ background: true }), loadHealthSnapshots(), loadUpdates()]);
+      await Promise.all([loadApps({ background: true, forceRefresh: true }), loadHealthSnapshots(), loadUpdates()]);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -285,7 +283,7 @@ function ApplicationsPage() {
     try {
       const data = await InstalledAppsAPIClient.rollbackApp(appId);
       setUpdateResult(data);
-      await Promise.all([loadApps({ background: true }), loadHealthSnapshots(), loadUpdates()]);
+      await Promise.all([loadApps({ background: true, forceRefresh: true }), loadHealthSnapshots(), loadUpdates()]);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -302,7 +300,7 @@ function ApplicationsPage() {
   }
 
   async function refreshObservedServices() {
-    await loadApps({ background: true });
+    await loadApps({ background: true, forceRefresh: true });
   }
 
   function reviewObservedService(id: string) {
@@ -329,7 +327,7 @@ function ApplicationsPage() {
           <p className="mt-2 max-w-2xl text-sm text-slate-400">Open apps, review issues, and manage safe repair actions from one place.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <RefreshStatus intervalLabel="Auto-updates every 2s" onRefresh={() => loadApps({ background: apps.length > 0, showRefreshing: true })} refreshing={refreshing} updatedAt={updatedAt} />
+          <RefreshStatus intervalLabel="Auto-updates every 5s" onRefresh={() => loadApps({ background: apps.length > 0, showRefreshing: true })} refreshing={refreshing} updatedAt={updatedAt} />
           <Button asChild className="bg-gradient-to-br from-violet-600 to-indigo-600 text-white hover:from-violet-500 hover:to-indigo-500">
             <Link to="/discover">Add app</Link>
           </Button>
@@ -354,7 +352,7 @@ function ApplicationsPage() {
 
       {loading ? (
         <PageLoadingState label="Loading your apps" sublabel="Checking installed apps, health, private access, and available actions." />
-      ) : apps.length === 0 && ownershipSplit.pinned.length === 0 && observedServices.length === 0 ? (
+      ) : apps.length === 0 && pinnedExternalViews.length === 0 && observedServices.length === 0 ? (
         <EmptyState />
       ) : (
         <ApplicationsDashboard
@@ -374,7 +372,7 @@ function ApplicationsPage() {
           healthByAppId={healthByAppId}
           observedServices={observedServices}
           onReviewService={reviewObservedService}
-          pinnedApps={ownershipSplit.pinned}
+          pinnedApps={pinnedExternalViews}
           reconciliation={reconciliation}
           telemetryByAppId={telemetryByAppId}
           updatesByAppId={updatesByAppId}

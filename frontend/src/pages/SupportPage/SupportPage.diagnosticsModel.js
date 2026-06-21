@@ -6,13 +6,13 @@ export function diagnosticsHeadline(summary, doctor) {
 }
 
 /**
- * @param {{ summary?: any, doctor?: any, setup?: any, hostInventory?: any[] }} params
+ * @param {{ summary?: any, doctor?: any, setup?: any, observedServices?: any[] }} params
  */
-export function diagnosticsSummaryRows({ summary, doctor, setup, hostInventory = [] }) {
+export function diagnosticsSummaryRows({ summary, doctor, setup, observedServices = [] }) {
   const checks = new Map((doctor?.checks || setup?.checks || []).map((check) => [check.id, check]));
   const rows = {
     docker: statusRow('Docker', checkLabel(checks.get('docker'), summary?.dockerStatus)),
-    apps: appRow(hostInventory),
+    apps: appRow(observedServices),
     tailscale: statusRow('Tailscale', checkLabel(checks.get('tailscale'), summary?.tailscaleStatus)),
     backups: statusRow('Backups', backupLabel(summary)),
     storage: statusRow('Storage', storageLabel(summary)),
@@ -46,8 +46,8 @@ function statusRow(label, value) {
   return { label, value: value || 'Unknown', tone };
 }
 
-function appRow(hostInventory) {
-  const issues = (hostInventory || []).filter((resource) => !resource.ignored && resource.ownershipState !== 'owned_managed');
+function appRow(observedServices) {
+  const issues = (observedServices || []).filter((service) => service.userStatus !== 'installed_managed');
   if (!issues.length) {
     return { label: 'Apps', value: 'Ready', tone: 'success' };
   }
