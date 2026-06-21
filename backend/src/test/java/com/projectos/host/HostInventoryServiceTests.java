@@ -41,7 +41,7 @@ class HostInventoryServiceTests {
                 .satisfies(resource -> {
                     assertThat(resource.managementMode()).isEqualTo("observed");
                     assertThat(resource.catalogAppId()).isEqualTo("jellyfin");
-                    assertThat(resource.availableActions()).containsExactly("view_details", "open", "ignore");
+                    assertThat(resource.availableActions()).containsExactly("view_details", "open", "cleanup", "ignore");
                 });
     }
 

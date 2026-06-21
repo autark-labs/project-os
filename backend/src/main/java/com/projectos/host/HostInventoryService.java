@@ -17,6 +17,8 @@ import com.projectos.system.ProjectOsIdentity;
 @Service
 public class HostInventoryService implements HostInventoryProvider {
 
+    public static final String DATA_PATHS_LABEL = "project-os.data-paths";
+
     private final HostDockerContainerDiscovery containerDiscovery;
     private final DockerOwnershipService ownershipService;
     private final HostInventoryIgnoreRepository ignoreRepository;
@@ -52,6 +54,12 @@ public class HostInventoryService implements HostInventoryProvider {
         return new ActionResult(true, "success", "Found app restored", "Project OS will include this resource in found app prompts again.", resourceId, "review_existing_apps");
     }
 
+    public java.util.Optional<HostInventoryResource> findById(String resourceId) {
+        return inventory(true).stream()
+                .filter(resource -> resource.id().equals(resourceId))
+                .findFirst();
+    }
+
     private HostInventoryResource resource(HostDockerContainer container, ProjectOsIdentity identity, boolean ignored) {
         DockerResourceClassification classification = ownershipService.classify(container.name(), container.labels());
         String ownershipState = ownershipState(classification.ownership());
@@ -69,7 +77,7 @@ public class HostInventoryService implements HostInventoryProvider {
                 runtimeState(container.status()),
                 urls,
                 "docker",
-                actions(urls),
+                actions(classification.ownership(), urls, !clean(container.labels().get(DATA_PATHS_LABEL)).isBlank()),
                 ignored,
                 riskLevel(classification.ownership()),
                 summary(classification.ownership(), container.name()),
@@ -84,14 +92,27 @@ public class HostInventoryService implements HostInventoryProvider {
         details.put("ports", container.ports());
         details.put("appInstanceId", clean(classification.appInstanceId()));
         details.put("composeProject", clean(classification.composeProject()));
+        details.put("dataPaths", clean(container.labels().get(DATA_PATHS_LABEL)));
         return details;
     }
 
-    private List<String> actions(List<String> urls) {
+    private List<String> actions(DockerResourceOwnership ownership, List<String> urls, boolean hasDataPaths) {
         List<String> actions = new ArrayList<>();
         actions.add("view_details");
         if (!urls.isEmpty()) {
             actions.add("open");
+        }
+        if (ownership == DockerResourceOwnership.LEGACY_UNSCOPED) {
+            actions.add("recover");
+        }
+        if (ownership == DockerResourceOwnership.FOREIGN) {
+            actions.add("cleanup");
+        }
+        if (ownership == DockerResourceOwnership.UNMANAGED && !urls.isEmpty()) {
+            actions.add("link_external_service");
+        }
+        if (hasDataPaths) {
+            actions.add("delete_data");
         }
         actions.add("ignore");
         return actions;

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Boxes, CheckCircle2, Database, LockKeyhole, ShieldCheck, Sparkles } from 'lucide-react';
+import { Boxes, CheckCircle2, Database, Link2, LockKeyhole, ShieldCheck, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import { ActivityAPIClient } from '@/api/ActivityAPIClient';
+import { ExternalServiceAPIClient } from '@/api/ExternalServiceAPIClient';
 import { HostInventoryAPIClient } from '@/api/HostInventoryAPIClient';
 import { InstalledAppsAPIClient } from '@/api/InstalledAppsAPIClient';
 import { apiErrorMessage } from '@/api/httpClient';
@@ -22,12 +23,13 @@ import { FoundResourcesBanner } from '@/components/project-os/FoundResourcesBann
 import { Button } from '@/components/ui/button';
 import type { ActivityLog } from '@/types/activity';
 import type { AppInstanceView } from '@/types/app';
-import type { HostInventoryResource } from '@/types/host';
+import type { ExternalService, HostInventoryResource } from '@/types/host';
 import type { RecommendedAction, SystemSummary } from '@/types/system';
 
 type OverviewState = {
   activity: ActivityLog[];
   apps: AppInstanceView[];
+  externalServices: ExternalService[];
   hostInventory: HostInventoryResource[];
   recommendedAction: RecommendedAction | null;
   summary: SystemSummary | null;
@@ -36,6 +38,7 @@ type OverviewState = {
 const initialState: OverviewState = {
   activity: [],
   apps: [],
+  externalServices: [],
   hostInventory: [],
   recommendedAction: null,
   summary: null,
@@ -51,10 +54,11 @@ function OverviewPage() {
 
     async function loadOverview() {
       setLoading(true);
-      const [summary, recommendedAction, apps, activity, hostInventory] = await Promise.allSettled([
+      const [summary, recommendedAction, apps, externalServices, activity, hostInventory] = await Promise.allSettled([
         SystemAPIClient.summary(),
         SystemAPIClient.recommendedAction(),
         InstalledAppsAPIClient.listAppInstances(),
+        ExternalServiceAPIClient.list(),
         ActivityAPIClient.recent({ limit: 5 }),
         HostInventoryAPIClient.list(false),
       ]);
@@ -63,11 +67,12 @@ function OverviewPage() {
         return;
       }
 
-      const rejected = [summary, recommendedAction, apps, activity, hostInventory].find((result) => result.status === 'rejected');
+      const rejected = [summary, recommendedAction, apps, externalServices, activity, hostInventory].find((result) => result.status === 'rejected');
       setError(rejected?.status === 'rejected' ? apiErrorMessage(rejected.reason, 'Home is missing some live data.') : null);
       setState({
         activity: valueOr(activity, []),
         apps: valueOr(apps, []),
+        externalServices: valueOr(externalServices, []),
         hostInventory: valueOr(hostInventory, []),
         recommendedAction: valueOr(recommendedAction, null),
         summary: valueOr(summary, null),
@@ -157,12 +162,34 @@ function OverviewPage() {
               </SoftCard>
             )}
           </PageSection>
+
+          {state.externalServices.length > 0 && (
+            <PageSection
+              description="Links to services Project OS does not install or manage."
+              title="Linked Services"
+            >
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {state.externalServices.slice(0, 6).map((service) => (
+                  <QuickAccessAppTile
+                    actionLabel="Open"
+                    description={`${service.category} - ${service.accessScope}`}
+                    href={service.url}
+                    key={service.id}
+                    name={service.name}
+                    status="Linked"
+                    statusTone="info"
+                  />
+                ))}
+              </div>
+            </PageSection>
+          )}
         </div>
 
         <div className="grid gap-5">
           <PageSection title="System Status">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
               <MetricStoryCard detail={state.summary?.docker.summary || 'Checking Docker'} icon={Boxes} label="Docker" tone={state.summary?.docker.ready ? 'success' : 'warning'} value={state.summary?.docker.ready ? 'Ready' : 'Needs setup'} />
+              <MetricStoryCard detail={state.externalServices.length ? `${state.externalServices.length} linked external service${state.externalServices.length === 1 ? '' : 's'}` : 'No external services linked'} icon={Link2} label="Linked" tone="info" value={state.externalServices.length ? 'Available' : 'None'} />
               <MetricStoryCard detail={state.summary?.access.summary || 'Checking access'} icon={LockKeyhole} label="Access" tone={state.summary?.access.mode === 'private_ready' ? 'success' : 'info'} value={accessModeLabel(state.summary?.access.mode)} />
               <MetricStoryCard detail={state.summary?.backups.summary || 'Checking backups'} icon={ShieldCheck} label="Backups" tone={state.summary?.backups.state === 'needs_restore_point' ? 'warning' : 'success'} value={backupStateLabel(state.summary?.backups.state)} />
               <MetricStoryCard detail={state.summary?.storage.summary || 'Checking storage'} icon={Database} label="Storage" tone="teal" value={state.summary?.storage.state || 'Checking'} />

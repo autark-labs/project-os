@@ -1,9 +1,10 @@
-import type { Dispatch, SetStateAction } from 'react';
+import { useState, type Dispatch, type SetStateAction } from 'react';
 import { Link } from 'react-router-dom';
 import { Archive, ArrowLeft, BookOpen, CheckCircle2, ChevronDown, ExternalLink, Loader2, TriangleAlert } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,6 +48,7 @@ type AppDetailProps = {
 };
 
 export function MarketplaceAppDetail({ app, backupJob, foundResource = null, installJob, installedApp, installLocked, installOptions, installPlan, installResult, installStatusMessage, installing, onBack, onCreateBackup, onInstall, onOptionsChange, onReinstallCurrent, onRequestPlan, onResetReinstall, planLoading, recoveryMode }: AppDetailProps) {
+  const [conflictOpen, setConflictOpen] = useState(false);
   const isInstalled = Boolean(installedApp);
   const installBlockedByFoundResource = Boolean(foundResource && !isInstalled);
   const showFreshInstallResult = installResult?.appId === app.id && (installResult.status === 'installed' || installResult.status === 'already_installed');
@@ -102,9 +104,9 @@ export function MarketplaceAppDetail({ app, backupJob, foundResource = null, ins
               </Link>
             </Button>
           ) : (
-            <Button className={poButtonClass('primary')} disabled={installing || installLocked || installBlockedByFoundResource} onClick={() => onInstall(installOptions)} type="button">
+            <Button className={poButtonClass('primary')} disabled={installing || installLocked} onClick={() => installBlockedByFoundResource ? setConflictOpen(true) : onInstall(installOptions)} type="button">
               {installing ? <Loader2 className="size-4 animate-spin" /> : installResult?.status === 'installed' ? <CheckCircle2 className="size-4" /> : null}
-              {installing ? 'Installing...' : installLocked || installBlockedByFoundResource ? 'Install blocked' : installResult?.status === 'installed' ? 'Installed' : requiresInstallCaution(app) ? 'Install after review' : 'Install'}
+              {installing ? 'Installing...' : installLocked ? 'Install blocked' : installBlockedByFoundResource ? 'Resolve conflict' : installResult?.status === 'installed' ? 'Installed' : requiresInstallCaution(app) ? 'Install after review' : 'Install'}
             </Button>
           )}
           {!isInstalled && !installBlockedByFoundResource && <InstallWizard app={app} installLocked={installLocked} installOptions={installOptions} installPlan={installPlan} installResult={installResult} installStatusMessage={installStatusMessage} installing={installing} onInstall={onInstall} onOptionsChange={onOptionsChange} onRequestPlan={onRequestPlan} planLoading={planLoading} />}
@@ -170,6 +172,7 @@ export function MarketplaceAppDetail({ app, backupJob, foundResource = null, ins
 
         {installLocked && <InstallBlockedNotice message={installStatusMessage} />}
         {installBlockedByFoundResource && <FoundResourceNotice resource={foundResource} />}
+        {foundResource && <FoundResourceConflictDialog appName={app.name} open={conflictOpen} resource={foundResource} onOpenChange={setConflictOpen} />}
         {isInstalled && !showFreshInstallResult && <InstalledAppNotice app={installedApp} />}
         {isInstalled && recoveryMode && (
           <RecoveryInstallNotice
@@ -308,11 +311,52 @@ function FoundResourceNotice({ resource }: { resource: HostInventoryResource | n
           <h4 className="font-bold text-white">{foundResourceLabel(resource)}</h4>
           <p className="mt-1 leading-6 text-amber-100/80">{resource.summary}</p>
           <Button asChild className="mt-3" size="sm" variant="outline">
-            <Link to="/apps/found">Resolve existing apps</Link>
+            <Link to={`/apps/found?resource=${encodeURIComponent(resource.id)}`}>Resolve existing app</Link>
           </Button>
         </div>
       </div>
     </section>
+  );
+}
+
+function FoundResourceConflictDialog({
+  appName,
+  onOpenChange,
+  open,
+  resource,
+}: {
+  appName: string;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+  resource: HostInventoryResource;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="border-slate-700 bg-slate-950 text-slate-100 sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{appName} already exists on this server</DialogTitle>
+          <DialogDescription className="text-slate-400">
+            Project OS found a matching resource before starting a new install. Resolve it first to avoid duplicate containers, duplicate ports, or split app data.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3 text-sm">
+          <div className="rounded-lg border border-amber-300/25 bg-amber-500/10 p-3 text-amber-100">
+            <p className="m-0 font-bold text-white">{foundResourceLabel(resource)}</p>
+            <p className="m-0 mt-1 leading-6 text-amber-100/80">{resource.summary}</p>
+          </div>
+          <div className="grid gap-2 rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+            <p className="m-0 font-semibold text-white">Recommended next step</p>
+            <p className="m-0 text-slate-400">{conflictRecommendation(resource)}</p>
+          </div>
+        </div>
+        <DialogFooter className="border-slate-800 bg-slate-900/60">
+          <Button onClick={() => onOpenChange(false)} type="button" variant="outline">Cancel</Button>
+          <Button asChild>
+            <Link to={`/apps/found?resource=${encodeURIComponent(resource.id)}`}>Resolve existing app</Link>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -322,6 +366,16 @@ function foundResourceLabel(resource: HostInventoryResource | null) {
   if (resource.ownershipState === 'legacy_project_os') return 'Recoverable existing app';
   if (resource.ownershipState === 'unknown_conflict') return 'Blocked by server conflict';
   return 'Found on server';
+}
+
+function conflictRecommendation(resource: HostInventoryResource) {
+  if (resource.ownershipState === 'legacy_project_os') {
+    return 'Recover the existing app into this Project OS installation if it is the app you want to keep.';
+  }
+  if (resource.ownershipState === 'foreign_project_os') {
+    return 'Review the cleanup plan before removing the old container. Data deletion stays separate.';
+  }
+  return 'Open the found resource, add it as a linked service, ignore the prompt, or stop it manually before installing a managed copy.';
 }
 
 function InstallBlockedNotice({ message }: { message: string }) {
