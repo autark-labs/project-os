@@ -1,0 +1,38 @@
+insert or ignore into observed_services (
+    id,
+    source,
+    fingerprint,
+    display_name,
+    url,
+    category,
+    access_scope,
+    catalog_app_id,
+    catalog_match_confidence,
+    ownership_state,
+    user_visibility,
+    runtime_state,
+    health_check_enabled,
+    first_seen_at,
+    last_seen_at,
+    pinned_at,
+    metadata_json
+)
+select
+    'manual:' || id,
+    'manual_url',
+    lower(url),
+    name,
+    url,
+    category,
+    access_scope,
+    catalog_app_id,
+    case when catalog_app_id is null or catalog_app_id = '' then 'unknown' else 'user' end,
+    'external',
+    'pinned',
+    'unknown',
+    health_check_enabled,
+    created_at,
+    created_at,
+    created_at,
+    '{}'
+from external_services;

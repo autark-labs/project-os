@@ -28,7 +28,7 @@ export function DuplicateInstallWarningDialog({ appName, onInstallCopy, onOpenCh
           </div>
           <DialogTitle>Install a second copy?</DialogTitle>
           <DialogDescription className="leading-6 text-slate-400">
-            Project OS already found a matching service for {appName}. Installing another copy can leave two versions running at the same time. That can very likely cause confusing behavior across your network, especially when other devices try to connect. The recommended path is to review the existing service and adopt or link it when possible.
+            Project OS already sees {appName} on your system. Installing another copy can cause confusing behavior across your network, especially from phones, TVs, or other devices that discover services automatically. Pin or adopt the existing service when possible. Install a second copy only if you intentionally want two separate instances.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="gap-2 border-slate-800 bg-slate-900/80">

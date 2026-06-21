@@ -5,15 +5,15 @@ import { PageShell, StatusPill } from '@/components/project-os/ProjectOSComponen
 import { PageErrorState, PageLoadingState } from '@/components/project-os/PageState';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { ExternalServiceAPIClient } from '@/api/ExternalServiceAPIClient';
 import { InstalledAppsAPIClient } from '@/api/InstalledAppsAPIClient';
 import { NetworkAPIClient } from '@/api/NetworkAPIClient';
+import { ObservedServicesAPIClient } from '@/api/ObservedServicesAPIClient';
 import { apiErrorMessage } from '@/api/httpClient';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
 import { toast } from 'sonner';
 import type { AppRuntimeView } from '@/types/app';
-import type { ExternalService } from '@/types/host';
 import type { NetworkDiagnosticsReport, PrivateAccessReconciliationReport, SystemSetupStatus, TailscaleConnectGuide, TailscaleDevice, TailscaleStatus } from '@/types/network';
+import type { ObservedServiceView } from '@/types/observedService';
 import { HostSetupPanel } from './HostSetupPanel';
 import { NetworkAdvancedPanel } from './NetworkAdvancedPanel';
 import { NetworkDevicesPanel } from './NetworkDevicesPanel';
@@ -38,7 +38,7 @@ function NetworkPage() {
   const [reconciliation, setReconciliation] = useState<PrivateAccessReconciliationReport | null>(null);
   const [setupStatus, setSetupStatus] = useState<SystemSetupStatus | null>(null);
   const [apps, setApps] = useState<AppRuntimeView[]>([]);
-  const [externalServices, setExternalServices] = useState<ExternalService[]>([]);
+  const [observedServices, setObservedServices] = useState<ObservedServiceView[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
@@ -55,7 +55,7 @@ function NetworkPage() {
     }
     setError(null);
     try {
-      const [status, devices, diagnosticsReport, connectGuide, hostSetup, reconciliationReport, installedApps, linkedServices] = await Promise.all([
+      const [status, devices, diagnosticsReport, connectGuide, hostSetup, reconciliationReport, installedApps, nextObservedServices] = await Promise.all([
         NetworkAPIClient.tailscaleStatus(),
         NetworkAPIClient.tailscaleDevices(),
         NetworkAPIClient.diagnostics(),
@@ -63,7 +63,7 @@ function NetworkPage() {
         NetworkAPIClient.setupStatus(),
         NetworkAPIClient.privateAccessReconciliation(),
         InstalledAppsAPIClient.listApps(),
-        ExternalServiceAPIClient.list().catch(() => []),
+        ObservedServicesAPIClient.list().catch(() => []),
       ]);
       setTailscale(status);
       setTailnetDevices(devices);
@@ -72,7 +72,7 @@ function NetworkPage() {
       setGuide(connectGuide);
       setSetupStatus(hostSetup);
       setApps(installedApps);
-      setExternalServices(linkedServices);
+      setObservedServices(nextObservedServices);
       setUpdatedAt(new Date());
     } catch (err) {
       setError(apiErrorMessage(err, 'Unable to load network status.'));
@@ -92,7 +92,8 @@ function NetworkPage() {
   const runningApps = useMemo(() => apps.filter((app) => app.friendlyStatus === 'Ready'), [apps]);
   const devices = useMemo(() => buildDeviceViews(tailscale, tailnetDevices), [tailnetDevices, tailscale]);
   const exposureGroups = useMemo(() => buildAppExposureGroups(apps, tailscale, reconciliation), [apps, reconciliation, tailscale]);
-  const accessZones = useMemo(() => buildAccessZones(exposureGroups, externalServices), [exposureGroups, externalServices]);
+  const pinnedExternalServices = useMemo(() => observedServices.filter((service) => service.pinned), [observedServices]);
+  const accessZones = useMemo(() => buildAccessZones(exposureGroups, pinnedExternalServices), [exposureGroups, pinnedExternalServices]);
   const posture = useMemo(() => buildNetworkPosture({ devices, diagnostics, privateApps, reconciliation, tailscale }), [devices, diagnostics, privateApps, reconciliation, tailscale]);
   const issues = useMemo(() => buildNetworkIssues(diagnostics, reconciliation), [diagnostics, reconciliation]);
   const privateAppAccess = useMemo(() => buildPrivateAppAccess(privateApps, tailscale, reconciliation), [privateApps, reconciliation, tailscale]);
@@ -236,10 +237,10 @@ function AccessZoneDiagram({ zones }: { zones: ReturnType<typeof buildAccessZone
               </Badge>
             </div>
             <div className="mt-3 grid gap-2">
-              {zone.apps.length ? zone.apps.map((app: { id: string; label: string; linked: boolean; status: string; url: string }) => (
+              {zone.apps.length ? zone.apps.map((app: { id: string; label: string; external: boolean; status: string; url: string }) => (
                 <a className="rounded-lg border border-white/10 bg-slate-950/45 px-3 py-2 text-sm text-slate-200 transition hover:border-sky-300/35 hover:text-white" href={app.url || undefined} key={app.id} rel="noreferrer" target={app.url ? '_blank' : undefined}>
                   <span className="block truncate font-semibold">{app.label}</span>
-                  <span className="text-xs text-slate-500">{app.linked ? 'Linked service' : app.status}</span>
+                  <span className="text-xs text-slate-500">{app.external ? 'Pinned external service' : app.status}</span>
                 </a>
               )) : (
                 <p className="m-0 rounded-lg border border-dashed border-slate-700/60 px-3 py-2 text-sm text-slate-500">{zone.emptyText}</p>

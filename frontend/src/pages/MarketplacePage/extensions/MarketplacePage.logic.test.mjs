@@ -53,7 +53,7 @@ test('marketplaceVisibleApps filters by category, installed state, and search qu
 test('marketplaceVisibleAppViews hides only canonical current-instance installs', () => {
   const views = [
     { id: 'vaultwarden', name: 'Vaultwarden', state: 'installed_managed', app: app({ id: 'vaultwarden', category: 'Security' }) },
-    { id: 'jellyfin', name: 'Jellyfin', state: 'linked_service', app: app({ id: 'jellyfin', name: 'Jellyfin', category: 'Media' }) },
+    { id: 'jellyfin', name: 'Jellyfin', state: 'pinned_external', app: app({ id: 'jellyfin', name: 'Jellyfin', category: 'Media' }) },
     { id: 'homepage', name: 'Homepage', state: 'found_on_server', app: app({ id: 'homepage', name: 'Homepage', category: 'Utilities' }) },
   ];
 
@@ -65,6 +65,14 @@ test('marketplaceVisibleAppViews hides only canonical current-instance installs'
   });
 
   assert.deepEqual(visible.map((view) => view.id), ['homepage', 'jellyfin']);
+});
+
+test('marketplace card tone uses canonical ownership cardTone', async () => {
+  const { marketplaceCardToneClass } = await import('./MarketplacePage.logic.js');
+
+  assert.match(marketplaceCardToneClass({ cardTone: 'observed', state: 'found_on_server' }), /bg-amber-500/);
+  assert.match(marketplaceCardToneClass({ cardTone: 'info', state: 'pinned_external' }), /bg-sky-500/);
+  assert.match(marketplaceCardToneClass({ cardTone: 'success', state: 'installed_managed' }), /bg-emerald-500/);
 });
 
 test('marketplaceVisibleApps applies supported sort modes', () => {

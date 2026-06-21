@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { CheckCircle2 } from 'lucide-react';
 import { RefreshStatus } from '@/components/RefreshStatus';
 import { PageErrorState, PageLoadingState } from '@/components/project-os/PageState';
@@ -8,13 +8,14 @@ import { Button } from '@/components/ui/button';
 import { AppOwnershipAPIClient } from '@/api/AppOwnershipAPIClient';
 import { InstalledAppsAPIClient } from '@/api/InstalledAppsAPIClient';
 import { NetworkAPIClient } from '@/api/NetworkAPIClient';
-import { ExternalServiceAPIClient } from '@/api/ExternalServiceAPIClient';
-import { HostInventoryAPIClient } from '@/api/HostInventoryAPIClient';
+import { ObservedServicesAPIClient } from '@/api/ObservedServicesAPIClient';
 import type { AppAccessCheck, AppActionResult, AppHealthSnapshot, AppInstanceView, AppRuntimeView, AppTelemetry, AppUpdateResult, AppUpdateStatus, InstallSettings } from '@/types/app';
 import type { AppOwnershipView } from '@/types/appOwnership';
+import type { ObservedServiceActionResult, ObservedServiceView } from '@/types/observedService';
 import type { PrivateAccessReconciliationReport } from '@/types/network';
 import { ApplicationsDashboard, EmptyState } from './ApplicationsDashboard';
 import { ManageAppDialog } from './ApplicationsPageModal';
+import { ObservedServiceDetailsSheet } from './ObservedServiceDetailsSheet';
 import {
   appNeedsAttention,
   appPriority,
@@ -25,6 +26,7 @@ import { splitOwnershipViews } from './extensions/ApplicationsPage.ownershipMode
 import type { AppAction } from './extensions/ApplicationsPage.types';
 
 function ApplicationsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [apps, setApps] = useState<AppRuntimeView[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,6 +40,7 @@ function ApplicationsPage() {
   const [healthByAppId, setHealthByAppId] = useState<Record<string, AppHealthSnapshot>>({});
   const [updates, setUpdates] = useState<AppUpdateStatus[]>([]);
   const [ownershipViews, setOwnershipViews] = useState<AppOwnershipView[]>([]);
+  const [observedServices, setObservedServices] = useState<ObservedServiceView[]>([]);
   const [reconciliation, setReconciliation] = useState<PrivateAccessReconciliationReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionResult, setActionResult] = useState<AppActionResult | null>(null);
@@ -66,6 +69,8 @@ function ApplicationsPage() {
   }), [accessByAppId, apps, healthByAppId, telemetryByAppId]);
   const updatesByAppId = useMemo(() => Object.fromEntries(updates.map((update) => [update.appId, update])), [updates]);
   const ownershipSplit = useMemo(() => splitOwnershipViews(ownershipViews), [ownershipViews]);
+  const selectedServiceId = searchParams.get('service');
+  const selectedObservedService = useMemo(() => observedServices.find((service) => service.id === selectedServiceId) || null, [observedServices, selectedServiceId]);
 
   const loadApps = useCallback(async ({ background = false, showRefreshing = false }: { background?: boolean; showRefreshing?: boolean } = {}) => {
     if (refreshInFlight.current) {
@@ -82,7 +87,12 @@ function ApplicationsPage() {
     try {
       const data = await InstalledAppsAPIClient.listAppInstances();
       setApps(data.map(appInstanceToRuntimeView));
-      setOwnershipViews(await AppOwnershipAPIClient.list());
+      const [nextOwnershipViews, nextObservedServices] = await Promise.all([
+        AppOwnershipAPIClient.list(),
+        ObservedServicesAPIClient.list().catch(() => []),
+      ]);
+      setOwnershipViews(nextOwnershipViews);
+      setObservedServices(nextObservedServices);
       setUpdatedAt(new Date());
       setSelectedId((current) => current && !data.some((app) => app.catalogAppId === current) ? null : current);
     } catch (err) {
@@ -291,26 +301,24 @@ function ApplicationsPage() {
     return data;
   }
 
-  async function removeLinkedService(id: string) {
-    setError(null);
-    try {
-      const result = await ExternalServiceAPIClient.remove(id);
-      setActionResult({ message: result.message || result.title });
-      await loadApps({ background: true });
-    } catch (err) {
-      setError(errorMessage(err));
-    }
+  async function refreshObservedServices() {
+    await loadApps({ background: true });
   }
 
-  async function ignoreFoundResource(resourceId: string) {
-    setError(null);
-    try {
-      const result = await HostInventoryAPIClient.ignore(resourceId);
-      setActionResult({ message: result.message || result.title });
-      await loadApps({ background: true });
-    } catch (err) {
-      setError(errorMessage(err));
-    }
+  function reviewObservedService(id: string) {
+    const next = new URLSearchParams(searchParams);
+    next.set('service', id);
+    setSearchParams(next);
+  }
+
+  function closeObservedServiceSheet() {
+    const next = new URLSearchParams(searchParams);
+    next.delete('service');
+    setSearchParams(next);
+  }
+
+  function handleObservedServiceResult(result: ObservedServiceActionResult) {
+    setActionResult({ message: result.message || result.title });
   }
 
   return (
@@ -346,7 +354,7 @@ function ApplicationsPage() {
 
       {loading ? (
         <PageLoadingState label="Loading your apps" sublabel="Checking installed apps, health, private access, and available actions." />
-      ) : apps.length === 0 && ownershipSplit.existing.length === 0 ? (
+      ) : apps.length === 0 && ownershipSplit.pinned.length === 0 && observedServices.length === 0 ? (
         <EmptyState />
       ) : (
         <ApplicationsDashboard
@@ -364,9 +372,9 @@ function ApplicationsPage() {
           selectedId={selectedId}
           summary={appSummary}
           healthByAppId={healthByAppId}
-          existingServices={ownershipSplit.existing as AppOwnershipView[]}
-          onIgnoreFoundResource={ignoreFoundResource}
-          onRemoveLinkedService={removeLinkedService}
+          observedServices={observedServices}
+          onReviewService={reviewObservedService}
+          pinnedApps={ownershipSplit.pinned}
           reconciliation={reconciliation}
           telemetryByAppId={telemetryByAppId}
           updatesByAppId={updatesByAppId}
@@ -385,6 +393,13 @@ function ApplicationsPage() {
           reconciliation={managedAppReconciliation}
         />
       )}
+      <ObservedServiceDetailsSheet
+        onActionComplete={handleObservedServiceResult}
+        onOpenChange={(open) => !open && closeObservedServiceSheet()}
+        onRefresh={refreshObservedServices}
+        open={Boolean(selectedServiceId)}
+        service={selectedObservedService}
+      />
     </PageShell>
   );
 }

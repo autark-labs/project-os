@@ -76,6 +76,7 @@ function MarketplacePage() {
   const [planLoading, setPlanLoading] = useState(false);
   const [installJob, setInstallJob] = useState<ProjectOsJob | null>(null);
   const [backupJob, setBackupJob] = useState<ProjectOsJob | null>(null);
+  const [duplicateAcknowledgedAppId, setDuplicateAcknowledgedAppId] = useState<string | null>(null);
   const [marketplaceActivity, setMarketplaceActivity] = useState<ActivityLog[]>([]);
   const [lastRefreshAt, setLastRefreshAt] = useState<Date | null>(null);
   const [startHereDismissed, setStartHereDismissed] = useState(() => readStartHereDismissed());
@@ -184,6 +185,7 @@ function MarketplacePage() {
   useEffect(() => {
     setInstallPlan(null);
     setInstallPreview(null);
+    setDuplicateAcknowledgedAppId(null);
     const view = apps.find((nextApp) => nextApp.id === selectedAppId);
     if (view) {
       const nextSetupAnswers = defaultAnswersFromSchema(view.setupSchema);
@@ -244,7 +246,10 @@ function MarketplacePage() {
       return;
     }
     try {
-      setInstallJob(await DiscoverAPIClient.install(appId, setupAnswers, mode !== 'install'));
+      setInstallJob(await DiscoverAPIClient.install(appId, setupAnswers, {
+        reinstall: mode !== 'install',
+        duplicateAcknowledged: mode === 'install' && duplicateAcknowledgedAppId === appId,
+      }));
       setMarketplaceError('');
     } catch (error) {
       const message = apiErrorMessage(error);
@@ -378,7 +383,7 @@ function MarketplacePage() {
 
       <div className="grid items-start gap-6 2xl:grid-cols-[minmax(620px,1fr)_minmax(420px,560px)]">
         <MarketplaceAppList apps={visibleApps} modeLabel={showAdvancedMetrics ? 'All apps' : 'Starter apps'} onSelect={setSelectedAppId} onSortChange={setSortBy} selectedAppId={selectedApp.id} sortBy={sortBy} />
-        <MarketplaceAppDetail app={selectedApp} appView={selectedView} backupJob={backupJob?.subjectId === selectedApp.id ? backupJob : null} installJob={installJob?.subjectId === selectedApp.id ? installJob : null} installLocked={selectedAppInstallLocked} installOptions={installOptions ?? fallbackInstallOptions} installPreview={installPreview} installResult={null} installStatusMessage={installStatusMessage} installing={selectedAppInstalling} installPlan={installPlan} installedApp={selectedInstalledApp} onBack={() => { setSearchQuery(''); setSelectedCategory('All'); }} onCreateBackup={createFirstBackup} onInstall={(options) => installApp(selectedApp.id, options)} onReinstallCurrent={reinstallWithCurrentSettings} onRequestPlan={(options) => requestPlan(selectedApp.id, options)} onSetupAnswersChange={changeSetupAnswers} planLoading={planLoading} recoveryMode={recoveryAppId === selectedApp.id ? recoveryMode : null} setupAnswers={setupAnswers} setupReady={installPreview?.valid ?? true} setupSchema={selectedView.setupSchema} />
+        <MarketplaceAppDetail app={selectedApp} appView={selectedView} backupJob={backupJob?.subjectId === selectedApp.id ? backupJob : null} installJob={installJob?.subjectId === selectedApp.id ? installJob : null} installLocked={selectedAppInstallLocked} installOptions={installOptions ?? fallbackInstallOptions} installPreview={installPreview} installResult={null} installStatusMessage={installStatusMessage} installing={selectedAppInstalling} installPlan={installPlan} installedApp={selectedInstalledApp} onBack={() => { setSearchQuery(''); setSelectedCategory('All'); }} onCreateBackup={createFirstBackup} onDuplicateInstallAcknowledged={() => setDuplicateAcknowledgedAppId(selectedApp.id)} onInstall={(options) => installApp(selectedApp.id, options)} onReinstallCurrent={reinstallWithCurrentSettings} onRequestPlan={(options) => requestPlan(selectedApp.id, options)} onSetupAnswersChange={changeSetupAnswers} planLoading={planLoading} recoveryMode={recoveryAppId === selectedApp.id ? recoveryMode : null} setupAnswers={setupAnswers} setupReady={installPreview?.valid ?? true} setupSchema={selectedView.setupSchema} />
       </div>
     </PageShell>
   );

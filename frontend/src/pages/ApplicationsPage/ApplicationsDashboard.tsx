@@ -3,9 +3,9 @@ import {
   Archive,
   BadgeAlert,
   ExternalLink,
-  Filter,
   Loader2,
   MoreHorizontal,
+  Pin,
   Play,
   Power,
   RefreshCcw,
@@ -24,11 +24,12 @@ import { cn } from '@/lib/utils';
 import type { AppAccessCheck, AppHealthSnapshot, AppRuntimeView, AppTelemetry, AppUpdateStatus } from '@/types/app';
 import type { AppOwnershipView } from '@/types/appOwnership';
 import type { PrivateAccessReconciliationItem, PrivateAccessReconciliationReport } from '@/types/network';
+import type { ObservedServiceView } from '@/types/observedService';
 import { AppIcon } from './ApplicationsPage.shared';
 import { ApplicationsSetupGuide } from './ApplicationsSetupGuide';
 import { ApplicationsUsageGuide } from './ApplicationsUsageGuide';
 import { UninstallDialog } from './ApplicationsPageRemoveDialog';
-import { FoundServicesPanel } from './FoundServicesPanel';
+import { ObservedServicesPanel } from './ObservedServicesPanel';
 import {
   accessLabel,
   appNotice,
@@ -65,17 +66,18 @@ type ApplicationsDashboardProps = {
   accessByAppId: Record<string, AppAccessCheck>;
   telemetryByAppId: Record<string, AppTelemetry>;
   healthByAppId: Record<string, AppHealthSnapshot>;
-  existingServices: AppOwnershipView[];
-  onIgnoreFoundResource: (resourceId: string) => void;
-  onRemoveLinkedService: (id: string) => void;
+  observedServices: ObservedServiceView[];
+  onReviewService: (id: string) => void;
+  pinnedApps: AppOwnershipView[];
   updatesByAppId: Record<string, AppUpdateStatus>;
   reconciliation: PrivateAccessReconciliationReport | null;
 };
 
-export function ApplicationsDashboard({ accessByAppId, actionLoading, apps, existingServices, healthByAppId, onAction, onIgnoreFoundResource, onManage, onRemoveLinkedService, onRollback, onSearch, onSelect, onUninstall, onUpdate, reconciliation, search, selectedId, summary, telemetryByAppId, updatesByAppId }: ApplicationsDashboardProps) {
+export function ApplicationsDashboard({ accessByAppId, actionLoading, apps, healthByAppId, observedServices, onAction, onManage, onReviewService, onRollback, onSearch, onSelect, onUninstall, onUpdate, pinnedApps, reconciliation, search, selectedId, summary, telemetryByAppId, updatesByAppId }: ApplicationsDashboardProps) {
   const { showAdvancedMetrics } = useProjectSettings();
   const reconciliationByAppId = new Map((reconciliation?.apps || []).map((item) => [item.appId, item]));
   const updateCount = Object.values(updatesByAppId).filter((update) => update.updateAvailable).length;
+  const nonManagedObservedServices = observedServices.filter((service) => isSecondaryObservedService(service));
   const gridColumns = showAdvancedMetrics
     ? 'grid-cols-[minmax(220px,1.5fr)_120px_96px_140px_120px_150px]'
     : 'grid-cols-[minmax(220px,1.5fr)_120px_96px_140px_150px]';
@@ -86,17 +88,17 @@ export function ApplicationsDashboard({ accessByAppId, actionLoading, apps, exis
         accessByAppId={accessByAppId}
         actionLoading={actionLoading}
         apps={apps}
-        existingServices={existingServices}
         healthByAppId={healthByAppId}
-        onIgnoreFoundResource={onIgnoreFoundResource}
         onAction={onAction}
         onManage={onManage}
-        onRemoveLinkedService={onRemoveLinkedService}
+        observedServices={observedServices}
+        onReviewService={onReviewService}
         onRollback={onRollback}
         onSearch={onSearch}
         onSelect={onSelect}
         onUninstall={onUninstall}
         onUpdate={onUpdate}
+        pinnedApps={pinnedApps}
         reconciliation={reconciliation}
         search={search}
         selectedId={selectedId}
@@ -113,9 +115,8 @@ export function ApplicationsDashboard({ accessByAppId, actionLoading, apps, exis
     <Card className="overflow-hidden border-white/10 bg-slate-950/55 py-0 text-slate-100 shadow-po-panel">
       <CardHeader className="border-b border-white/10 p-0">
         <div className="flex border-b border-white/10 px-5 pt-5">
-          <button className="border-b-2 border-violet-400 px-1 pb-3 text-sm font-semibold text-violet-200" type="button">Installed</button>
-          <button className="ml-7 pb-3 text-sm font-medium text-slate-500" type="button">Available Updates <span className="ml-1 rounded-full bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-300">{updateCount}</span></button>
-          <button className="ml-7 pb-3 text-sm font-medium text-slate-500" type="button">Recently Removed</button>
+          <div className="border-b-2 border-violet-400 px-1 pb-3 text-sm font-semibold text-violet-200">Installed apps</div>
+          <div className="ml-7 pb-3 text-sm font-medium text-slate-500">Updates available <span className="ml-1 rounded-full bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-300">{updateCount}</span></div>
         </div>
 
         <div className="grid gap-3 p-5 md:grid-cols-4">
@@ -130,10 +131,6 @@ export function ApplicationsDashboard({ accessByAppId, actionLoading, apps, exis
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
             <Input className="h-9 border-slate-800 bg-slate-950/70 pl-9 text-sm text-slate-100 placeholder:text-slate-600" onChange={(event) => onSearch(event.target.value)} placeholder="Search installed applications..." type="search" value={search} />
           </label>
-          <Button className="h-9 border-slate-800 bg-slate-950/70 text-slate-300 hover:bg-slate-900 hover:text-white" type="button" variant="outline">
-            <Filter className="size-4" />
-            Filter
-          </Button>
         </div>
       </CardHeader>
 
@@ -192,13 +189,25 @@ export function ApplicationsDashboard({ accessByAppId, actionLoading, apps, exis
         )}
       </CardContent>
     </Card>
-    <FoundServicesPanel items={existingServices} onIgnoreFoundResource={onIgnoreFoundResource} onRemoveLinkedService={onRemoveLinkedService} />
+    {pinnedApps.length > 0 && (
+      <section className="grid gap-3">
+        <div>
+          <h4 className="text-sm font-black uppercase tracking-normal text-sky-300">Pinned external services</h4>
+          <p className="mt-1 text-sm text-slate-500">Saved services Project OS opens and checks but does not manage.</p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {pinnedApps.map((app) => <PinnedExternalCard app={app} key={app.observedService?.id || app.catalogAppId} onReviewService={onReviewService} />)}
+        </div>
+      </section>
+    )}
+    <ObservedServicesPanel items={nonManagedObservedServices} onReviewService={onReviewService} />
     </div>
   );
 }
 
-function BasicApplicationsView({ accessByAppId, actionLoading, apps, existingServices, healthByAppId, onAction, onIgnoreFoundResource, onManage, onRemoveLinkedService, onRollback, onSearch, onSelect, onUninstall, onUpdate, reconciliation, search, selectedId, summary, telemetryByAppId, updateCount, updatesByAppId }: ApplicationsDashboardProps & { updateCount: number }) {
+function BasicApplicationsView({ accessByAppId, actionLoading, apps, healthByAppId, observedServices, onAction, onManage, onReviewService, onRollback, onSearch, onSelect, onUninstall, onUpdate, pinnedApps, reconciliation, search, selectedId, summary, telemetryByAppId, updateCount, updatesByAppId }: ApplicationsDashboardProps & { updateCount: number }) {
   const reconciliationByAppId = new Map((reconciliation?.apps || []).map((item) => [item.appId, item]));
+  const nonManagedObservedServices = observedServices.filter((service) => isSecondaryObservedService(service));
 
   return (
     <div className="grid gap-5">
@@ -231,11 +240,11 @@ function BasicApplicationsView({ accessByAppId, actionLoading, apps, existingSer
         </CardHeader>
 
         <CardContent className="p-5">
-          {apps.length === 0 && existingServices.length === 0 ? (
+          {apps.length === 0 && pinnedApps.length === 0 && nonManagedObservedServices.length === 0 ? (
             <div className="rounded-xl border border-white/10 bg-slate-950/45 px-5 py-10 text-center text-sm text-slate-500">No apps match your search.</div>
           ) : (
             <div className="grid gap-6">
-              {apps.length > 0 && (
+              {(apps.length > 0 || pinnedApps.length > 0) && (
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {apps.map((app) => {
                     const telemetry = telemetryByAppId[app.appId] || app.telemetry;
@@ -264,14 +273,79 @@ function BasicApplicationsView({ accessByAppId, actionLoading, apps, existingSer
                       />
                     );
                   })}
+                  {pinnedApps.map((app) => (
+                    <PinnedExternalCard app={app} key={app.observedService?.id || app.catalogAppId} onReviewService={onReviewService} />
+                  ))}
                 </div>
               )}
-              <FoundServicesPanel items={existingServices} onIgnoreFoundResource={onIgnoreFoundResource} onRemoveLinkedService={onRemoveLinkedService} />
+              <ObservedServicesPanel items={nonManagedObservedServices} onReviewService={onReviewService} />
             </div>
           )}
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function isSecondaryObservedService(service: ObservedServiceView) {
+  return !service.managedByThisProjectOs
+    && service.ownershipState !== 'owned_managed'
+    && service.userStatus !== 'installed_managed'
+    && !service.pinned
+    && service.userStatus !== 'pinned_external';
+}
+
+function PinnedExternalCard({ app, onReviewService }: { app: AppOwnershipView; onReviewService: (id: string) => void }) {
+  const service = app.observedService;
+  const openHref = service?.url || app.primaryAction?.href || null;
+  return (
+    <article className="grid gap-4 rounded-xl border border-sky-300/25 bg-sky-500/10 p-4 shadow-po-card transition hover:border-sky-300/40 hover:bg-sky-500/15">
+      <button className="flex gap-3 text-left" onClick={() => service && onReviewService(service.id)} type="button">
+        <span className="grid size-11 shrink-0 place-items-center rounded-xl border border-sky-300/20 bg-sky-500/15 text-sky-100">
+          <Pin className="size-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="truncate text-base font-black text-white">{app.name}</h3>
+              <p className="mt-1 truncate text-sm text-sky-100/75">{app.category || 'Pinned external service'}</p>
+            </div>
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-200">
+              <span className="size-2 rounded-full bg-sky-300" />
+              Pinned
+            </span>
+          </div>
+          <p className="mt-3 line-clamp-2 min-h-10 text-sm leading-5 text-slate-300">
+            Project OS can open and check this service, but it does not own the runtime.
+          </p>
+        </div>
+      </button>
+
+      <div className="grid grid-cols-2 gap-2">
+        <MiniMetric label="Access" value={service?.accessScope || 'External'} />
+        <MiniMetric label="Runtime" value={service?.runtimeState || 'Observed'} />
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {openHref ? (
+          <Button asChild className="bg-sky-500 text-slate-950 hover:bg-sky-400" size="sm">
+            <a href={openHref} rel="noreferrer" target="_blank">
+              <ExternalLink className="size-4" />
+              Open
+            </a>
+          </Button>
+        ) : (
+          <Button className="bg-slate-800 text-slate-300 hover:bg-slate-700" disabled size="sm" type="button">
+            <ExternalLink className="size-4" />
+            No link yet
+          </Button>
+        )}
+        <Button className="border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" disabled={!service} onClick={() => service && onReviewService(service.id)} size="sm" type="button" variant="outline">
+          <Settings2 className="size-4" />
+          Review
+        </Button>
+      </div>
+    </article>
   );
 }
 

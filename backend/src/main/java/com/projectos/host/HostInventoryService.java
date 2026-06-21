@@ -108,9 +108,6 @@ public class HostInventoryService implements HostInventoryProvider {
         if (ownership == DockerResourceOwnership.FOREIGN) {
             actions.add("cleanup");
         }
-        if (ownership == DockerResourceOwnership.UNMANAGED && !urls.isEmpty()) {
-            actions.add("link_external_service");
-        }
         if (hasDataPaths) {
             actions.add("delete_data");
         }

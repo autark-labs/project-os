@@ -1,6 +1,7 @@
-import type { ExternalService, HostInventoryResource } from './host';
+import type { HostInventoryResource } from './host';
 import type { AppOwnershipAction, AppOwnershipTone } from './appOwnership';
 import type { InstallOptions, InstallPlan, MarketplaceApp } from './marketplace';
+import type { ObservedServiceView } from './observedService';
 
 export type DiscoverSetupOption = {
   value: string;
@@ -46,10 +47,11 @@ export type DiscoverAppView = {
   serviceKindLabel: string;
   estimatedInstallTime: string;
   difficulty: string;
-  state: 'available' | 'installed_managed' | 'linked_service' | 'found_on_server' | 'recoverable' | 'managed_elsewhere' | 'blocked' | 'coming_soon' | string;
+  state: 'available' | 'installed_managed' | 'pinned_external' | 'found_on_server' | 'recoverable' | 'managed_elsewhere' | 'blocked' | 'coming_soon' | string;
   stateLabel: string;
   stateDescription: string;
   statusTone: AppOwnershipTone;
+  cardTone: AppOwnershipTone;
   ownedByCurrentInstance: boolean;
   installCopyWarningRequired: boolean;
   reviewExistingHref: string | null;
@@ -58,7 +60,7 @@ export type DiscoverAppView = {
   installed: boolean;
   installedApp: DiscoverInstalledAppSummary | null;
   foundResource: HostInventoryResource | null;
-  linkedService: ExternalService | null;
+  observedService: ObservedServiceView | null;
   setupSchema: DiscoverSetupSchema;
 };
 
@@ -87,4 +89,9 @@ export type DiscoverInstallPreview = {
   sections: DiscoverInstallPreviewSection[];
   technicalDetails: InstallPlan;
   installOptions: InstallOptions;
+};
+
+export type DiscoverInstallRequestOptions = {
+  reinstall?: boolean;
+  duplicateAcknowledged?: boolean;
 };

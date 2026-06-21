@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import type { DiscoverAppView } from '@/types/discover';
 import type { MarketplaceApp } from '@/types/marketplace';
 import { sortOptions } from './extensions/MarketplacePage.constants';
+import { marketplaceCardToneClass } from './extensions/MarketplacePage.logic';
 import { AppImage } from './MarketplacePage.shared';
 
 type MarketplaceAppListProps = {
@@ -70,7 +71,7 @@ function AppStoreCard({ app, isSelected, onSelect }: { app: DiscoverAppView; isS
   const primaryActionId = app.primaryAction.id;
   const actionVariant = primaryActionId === 'review_setup' ? 'default' : 'outline';
   return (
-    <div className={cn('group relative grid min-h-[258px] overflow-hidden rounded-xl border border-slate-700/25 bg-slate-950/48 p-4 text-slate-100 shadow-po-card transition hover:-translate-y-0.5 hover:border-violet-300/45 hover:bg-slate-900/70', isSelected && 'border-violet-300/55 bg-violet-950/20 shadow-po-brand-glow')}>
+    <div className={cn('group relative grid min-h-[258px] overflow-hidden rounded-xl border p-4 text-slate-100 shadow-po-card transition hover:-translate-y-0.5 hover:border-violet-300/45', marketplaceCardToneClass(app), isSelected && 'border-violet-300/55 outline outline-1 outline-violet-300/35 shadow-po-brand-glow')}>
       <div className="absolute inset-0 bg-po-card-hover-sheen opacity-0 transition group-hover:opacity-100" />
       <button className="relative z-10 grid w-full gap-4 text-left" onClick={onSelect} type="button">
         <span className="flex items-start gap-3">
@@ -121,6 +122,9 @@ function stateBadgeClass(tone: string) {
     return 'border-emerald-300/25 bg-emerald-500/10 text-emerald-100';
   }
   if (tone === 'warning') {
+    return 'border-amber-300/25 bg-amber-500/10 text-amber-100';
+  }
+  if (tone === 'observed') {
     return 'border-amber-300/25 bg-amber-500/10 text-amber-100';
   }
   if (tone === 'danger') {

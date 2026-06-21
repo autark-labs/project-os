@@ -94,7 +94,7 @@ public class DiscoverService {
         setupService.persist(appId, manifest.id(), answers);
         return jobService.startWithJob("install_app", appId, installJobSteps(manifest.name()), job -> {
             List<ProjectOsJobStep> liveSteps = new ArrayList<>();
-            InstallOptionsRequest installOptions = installOptions(preview.installOptions(), request != null && request.reinstallRequested());
+            InstallOptionsRequest installOptions = installOptions(preview.installOptions(), request);
             InstallResult result = marketplaceInstallService.install(manifest, installOptions, step -> {
                 liveSteps.add(installStep(step));
                 jobService.recordProgress(job.jobId(), List.copyOf(liveSteps));
@@ -103,8 +103,14 @@ public class DiscoverService {
         });
     }
 
-    private InstallOptionsRequest installOptions(InstallOptionsRequest options, boolean reinstall) {
-        return new InstallOptionsRequest(options.ports(), options.access(), options.storage(), options.backup(), reinstall);
+    private InstallOptionsRequest installOptions(InstallOptionsRequest options, DiscoverInstallRequest request) {
+        return new InstallOptionsRequest(
+                options.ports(),
+                options.access(),
+                options.storage(),
+                options.backup(),
+                request != null && request.reinstallRequested(),
+                request != null && request.duplicateAcknowledgedRequested());
     }
 
     private DiscoverAppView appView(ApplicationManifest manifest, AppOwnershipView ownership) {
@@ -123,6 +129,7 @@ public class DiscoverService {
                 ownership.stateLabel(),
                 ownership.stateDescription(),
                 ownership.statusTone(),
+                ownership.cardTone(),
                 ownership.installed(),
                 ownership.ownedByCurrentInstance(),
                 ownership.installCopyWarningRequired(),
@@ -131,7 +138,7 @@ public class DiscoverService {
                 ownership.availableActions(),
                 ownership.installedApp(),
                 ownership.foundResource(),
-                ownership.linkedService(),
+                ownership.observedService(),
                 setupService.schema(manifest));
     }
 

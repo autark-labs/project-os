@@ -1,27 +1,27 @@
-export function buildAccessZones(exposureGroups, linkedServices = []) {
+export function buildAccessZones(exposureGroups, pinnedExternalServices = []) {
   return [
     zone('public', 'Open Internet', exposureGroups?.public?.apps || [], 'No apps exposed publicly'),
     zone('tailnet', 'Private / Tailscale', exposureGroups?.tailnet?.apps || [], 'No private links yet'),
-    zone('lan', 'Home Network / LAN', [...(exposureGroups?.lan?.apps || []), ...linkedServices], 'No LAN links yet'),
+    zone('lan', 'Home Network / LAN', [...(exposureGroups?.lan?.apps || []), ...pinnedExternalServices], 'No LAN links yet'),
     zone('local', 'This Server', exposureGroups?.local?.apps || [], 'No server-only apps'),
   ];
 }
 
 export function zoneAppChip(item) {
-  if (item.managementMode === 'linked') {
+  if (item.userStatus === 'pinned_external' || item.pinned) {
     return {
       id: item.id,
-      label: item.name,
+      label: item.displayName || item.name,
       url: item.url,
-      linked: true,
-      status: 'Linked',
+      external: true,
+      status: 'Pinned external',
     };
   }
   return {
     id: item.appId,
     label: item.appName,
     url: item.observedAccess?.privateUrl || item.observedAccess?.localUrl || item.accessUrl || item.settings?.privateAccessUrl || item.settings?.accessUrl || '',
-    linked: false,
+    external: false,
     status: item.friendlyStatus || item.canonicalUserStatus || 'Unknown',
   };
 }

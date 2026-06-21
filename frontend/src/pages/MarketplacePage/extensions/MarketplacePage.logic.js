@@ -169,6 +169,30 @@ export function marketplaceUpdateRank(lastUpdated) {
   return 4;
 }
 
+export function marketplaceCardToneClass(view = {}) {
+  const tone = view.cardTone || cardToneForState(view.state);
+  const tones = {
+    success: 'border-emerald-300/25 bg-emerald-500/10 hover:bg-emerald-500/15',
+    info: 'border-sky-300/25 bg-sky-500/10 hover:bg-sky-500/15',
+    observed: 'border-amber-300/25 bg-amber-500/10 hover:bg-amber-500/15',
+    warning: 'border-orange-300/25 bg-orange-500/10 hover:bg-orange-500/15',
+    danger: 'border-red-300/25 bg-red-500/10 hover:bg-red-500/15',
+    neutral: 'border-slate-700/25 bg-slate-950/48 hover:bg-slate-900/70',
+    muted: 'border-slate-700/25 bg-slate-900/35 hover:bg-slate-900/50',
+  };
+  return tones[tone] || tones.neutral;
+}
+
+function cardToneForState(state) {
+  if (state === 'installed_managed') return 'success';
+  if (state === 'pinned_external') return 'info';
+  if (state === 'found_on_server') return 'observed';
+  if (state === 'recoverable') return 'warning';
+  if (state === 'managed_elsewhere' || state === 'blocked') return 'danger';
+  if (state === 'coming_soon') return 'muted';
+  return 'neutral';
+}
+
 export function marketplaceActivityTone(level) {
   switch (level) {
     case 'success':

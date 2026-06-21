@@ -1,13 +1,13 @@
-export function linkedServiceCard(service) {
+export function pinnedExternalServiceCard(service) {
   return {
     id: service.id,
-    title: service.name,
+    title: service.displayName || service.name,
     subtitle: `${service.category || 'External'} - ${service.accessScope || 'LAN'}`,
     url: service.url,
-    status: 'Linked',
-    managementMode: 'linked',
+    status: 'Pinned',
+    managementMode: 'pinned_external',
     primaryAction: 'Open',
-    secondaryAction: 'Manage link',
+    secondaryAction: 'Review service',
   };
 }
 

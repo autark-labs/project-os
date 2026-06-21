@@ -3,8 +3,8 @@ package com.projectos.apps;
 import java.util.List;
 
 import com.projectos.discover.DiscoverInstalledAppSummary;
-import com.projectos.host.ExternalService;
 import com.projectos.host.HostInventoryResource;
+import com.projectos.host.ObservedServiceView;
 
 public record AppOwnershipView(
         String catalogAppId,
@@ -17,6 +17,7 @@ public record AppOwnershipView(
         String stateLabel,
         String stateDescription,
         String statusTone,
+        String cardTone,
         boolean installed,
         boolean ownedByCurrentInstance,
         boolean installCopyWarningRequired,
@@ -25,5 +26,5 @@ public record AppOwnershipView(
         List<AppOwnershipAction> availableActions,
         DiscoverInstalledAppSummary installedApp,
         HostInventoryResource foundResource,
-        ExternalService linkedService) {
+        ObservedServiceView observedService) {
 }

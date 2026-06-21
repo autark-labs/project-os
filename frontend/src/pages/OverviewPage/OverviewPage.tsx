@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Boxes, CheckCircle2, Clock3, Database, Link2, LockKeyhole, Monitor, ShieldCheck, Sparkles } from 'lucide-react';
+import { Boxes, CheckCircle2, Clock3, Database, Pin, LockKeyhole, ShieldCheck, Sparkles } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import { ActivityAPIClient } from '@/api/ActivityAPIClient';
-import { ExternalServiceAPIClient } from '@/api/ExternalServiceAPIClient';
 import { HostInventoryAPIClient } from '@/api/HostInventoryAPIClient';
 import { InstalledAppsAPIClient } from '@/api/InstalledAppsAPIClient';
+import { ObservedServicesAPIClient } from '@/api/ObservedServicesAPIClient';
 import { apiErrorMessage } from '@/api/httpClient';
 import { SystemAPIClient } from '@/api/SystemAPIClient';
 import {
@@ -29,14 +29,15 @@ import { homeMajorActivity } from './extensions/OverviewPage.activity';
 import { shouldShowActivityLogLink } from './extensions/OverviewPage.activityLink';
 import type { ActivityLog } from '@/types/activity';
 import type { AppInstanceView } from '@/types/app';
-import type { ExternalService, HostInventoryResource } from '@/types/host';
+import type { HostInventoryResource } from '@/types/host';
+import type { ObservedServiceView } from '@/types/observedService';
 import type { RecommendedAction, SystemSummary } from '@/types/system';
 
 type OverviewState = {
   activity: ActivityLog[];
   apps: AppInstanceView[];
-  externalServices: ExternalService[];
   hostInventory: HostInventoryResource[];
+  observedServices: ObservedServiceView[];
   recommendedAction: RecommendedAction | null;
   summary: SystemSummary | null;
 };
@@ -44,8 +45,8 @@ type OverviewState = {
 const initialState: OverviewState = {
   activity: [],
   apps: [],
-  externalServices: [],
   hostInventory: [],
+  observedServices: [],
   recommendedAction: null,
   summary: null,
 };
@@ -61,11 +62,11 @@ function OverviewPage() {
 
     async function loadOverview() {
       setLoading(true);
-      const [summary, recommendedAction, apps, externalServices, activity, hostInventory] = await Promise.allSettled([
+      const [summary, recommendedAction, apps, observedServices, activity, hostInventory] = await Promise.allSettled([
         SystemAPIClient.summary(),
         SystemAPIClient.recommendedAction(),
         InstalledAppsAPIClient.listAppInstances(),
-        ExternalServiceAPIClient.list(),
+        ObservedServicesAPIClient.list(),
         ActivityAPIClient.recent({ limit: 5 }),
         HostInventoryAPIClient.list(false),
       ]);
@@ -74,13 +75,13 @@ function OverviewPage() {
         return;
       }
 
-      const rejected = [summary, recommendedAction, apps, externalServices, activity, hostInventory].find((result) => result.status === 'rejected');
+      const rejected = [summary, recommendedAction, apps, observedServices, activity, hostInventory].find((result) => result.status === 'rejected');
       setError(rejected?.status === 'rejected' ? apiErrorMessage(rejected.reason, 'Home is missing some live data.') : null);
       setState({
         activity: valueOr(activity, []),
         apps: valueOr(apps, []),
-        externalServices: valueOr(externalServices, []),
         hostInventory: valueOr(hostInventory, []),
+        observedServices: valueOr(observedServices, []),
         recommendedAction: valueOr(recommendedAction, null),
         summary: valueOr(summary, null),
       });
@@ -96,6 +97,8 @@ function OverviewPage() {
   }, []);
 
   const readyApps = useMemo(() => state.apps.filter((app) => app.userStatus === 'Ready'), [state.apps]);
+  const pinnedServices = useMemo(() => state.observedServices.filter((service) => service.pinned), [state.observedServices]);
+  const observedNeedingReview = useMemo(() => state.observedServices.filter((service) => !service.managedByThisProjectOs && !service.pinned), [state.observedServices]);
   const majorActivity = useMemo(() => homeMajorActivity(state.activity, 5) as ActivityLog[], [state.activity]);
   const showActivityLogLink = shouldShowActivityLogLink(viewMode, majorActivity);
   const primaryAction = state.recommendedAction?.id === 'no-action-needed' ? null : state.recommendedAction;
@@ -105,8 +108,8 @@ function OverviewPage() {
     <PageShell maxWidth="max-w-[90%]">
       <HomeHero
         deviceName={deviceName}
-        linkedServices={state.externalServices.length}
         loading={loading}
+        pinnedServices={pinnedServices.length}
         readyApps={readyApps.length}
         summary={state.summary}
       />
@@ -166,20 +169,20 @@ function OverviewPage() {
             )}
           </PageSection>
 
-          {state.externalServices.length > 0 && (
+          {pinnedServices.length > 0 && (
             <PageSection
-              description="Links to services Project OS does not install or manage."
-              title="Linked Services"
+              description="Pinned services Project OS can open or check but does not own."
+              title="Pinned External Services"
             >
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {state.externalServices.slice(0, 6).map((service) => (
+                {pinnedServices.slice(0, 6).map((service) => (
                   <QuickAccessAppTile
                     actionLabel="Open"
                     description={`${service.category} - ${service.accessScope}`}
-                    href={service.url}
+                    href={service.url || undefined}
                     key={service.id}
-                    name={service.name}
-                    status="Linked"
+                    name={service.displayName}
+                    status="Pinned"
                     statusTone="info"
                   />
                 ))}
@@ -192,7 +195,7 @@ function OverviewPage() {
           <PageSection title="System Status">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
               <MetricStoryCard detail={state.summary?.docker.summary || 'Checking Docker'} icon={Boxes} label="Docker" tone={state.summary?.docker.ready ? 'success' : 'warning'} value={state.summary?.docker.ready ? 'Ready' : 'Needs setup'} />
-              <MetricStoryCard detail={state.externalServices.length ? `${state.externalServices.length} linked external service${state.externalServices.length === 1 ? '' : 's'}` : 'No external services linked'} icon={Link2} label="Linked" tone="info" value={state.externalServices.length ? 'Available' : 'None'} />
+              <MetricStoryCard detail={observedNeedingReview.length ? `${observedNeedingReview.length} observed service${observedNeedingReview.length === 1 ? '' : 's'} to review` : `${pinnedServices.length} pinned external service${pinnedServices.length === 1 ? '' : 's'}`} icon={Pin} label="Pinned" tone="info" value={pinnedServices.length ? 'Available' : 'None'} />
               <MetricStoryCard detail={state.summary?.access.summary || 'Checking access'} icon={LockKeyhole} label="Access" tone={state.summary?.access.mode === 'private_ready' ? 'success' : 'info'} value={accessModeLabel(state.summary?.access.mode)} />
               <MetricStoryCard detail={state.summary?.backups.summary || 'Checking backups'} icon={ShieldCheck} label="Backups" tone={state.summary?.backups.state === 'needs_restore_point' ? 'warning' : 'success'} value={backupStateLabel(state.summary?.backups.state)} />
               <MetricStoryCard detail={state.summary?.storage.summary || 'Checking storage'} icon={Database} label="Storage" tone="teal" value={state.summary?.storage.state || 'Checking'} />
@@ -233,14 +236,14 @@ function OverviewPage() {
 
 function HomeHero({
   deviceName,
-  linkedServices,
   loading,
+  pinnedServices,
   readyApps,
   summary,
 }: {
   deviceName: string;
-  linkedServices: number;
   loading: boolean;
+  pinnedServices: number;
   readyApps: number;
   summary: SystemSummary | null;
 }) {

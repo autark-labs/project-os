@@ -40,6 +40,7 @@ type AppDetailProps = {
   installPreview: DiscoverInstallPreview | null;
   onBack: () => void;
   onCreateBackup: (appId: string) => Promise<void>;
+  onDuplicateInstallAcknowledged: () => void;
   onInstall: (options: InstallOptions) => Promise<void>;
   onReinstallCurrent: () => void | Promise<void>;
   onRequestPlan: (options: InstallOptions) => Promise<void>;
@@ -51,7 +52,7 @@ type AppDetailProps = {
   setupSchema: DiscoverSetupSchema;
 };
 
-export function MarketplaceAppDetail({ app, appView, backupJob, installJob, installedApp, installLocked, installOptions, installPlan, installPreview, installResult, installStatusMessage, installing, onBack, onCreateBackup, onInstall, onReinstallCurrent, onRequestPlan, onSetupAnswersChange, planLoading, recoveryMode, setupAnswers, setupReady, setupSchema }: AppDetailProps) {
+export function MarketplaceAppDetail({ app, appView, backupJob, installJob, installedApp, installLocked, installOptions, installPlan, installPreview, installResult, installStatusMessage, installing, onBack, onCreateBackup, onDuplicateInstallAcknowledged, onInstall, onReinstallCurrent, onRequestPlan, onSetupAnswersChange, planLoading, recoveryMode, setupAnswers, setupReady, setupSchema }: AppDetailProps) {
   const [duplicateWarningOpen, setDuplicateWarningOpen] = useState(false);
   const [installReviewOpen, setInstallReviewOpen] = useState(false);
   const [technicalValidationOpen, setTechnicalValidationOpen] = useState(false);
@@ -66,6 +67,11 @@ export function MarketplaceAppDetail({ app, appView, backupJob, installJob, inst
 
   function openDuplicateWarning() {
     setDuplicateWarningOpen(true);
+  }
+
+  function acknowledgeDuplicateInstall() {
+    onDuplicateInstallAcknowledged();
+    openInstallReview();
   }
 
   return (
@@ -205,7 +211,7 @@ export function MarketplaceAppDetail({ app, appView, backupJob, installJob, inst
 
         {installLocked && <InstallBlockedNotice message={installStatusMessage} />}
         {needsExistingServiceReview && <ExistingServiceNotice appView={appView} />}
-        <DuplicateInstallWarningDialog appName={app.name} onInstallCopy={openInstallReview} onOpenChange={setDuplicateWarningOpen} open={duplicateWarningOpen} reviewHref={appView.reviewExistingHref} />
+        <DuplicateInstallWarningDialog appName={app.name} onInstallCopy={acknowledgeDuplicateInstall} onOpenChange={setDuplicateWarningOpen} open={duplicateWarningOpen} reviewHref={appView.reviewExistingHref} />
         <TechnicalValidationDialog app={app} installPlan={installPlan} open={technicalValidationOpen} onOpenChange={setTechnicalValidationOpen} />
         {isInstalled && !showFreshInstallResult && <InstalledAppNotice app={installedApp} />}
         {isInstalled && recoveryMode && recoveryMode !== 'reset-reinstall' && (
@@ -264,7 +270,7 @@ function ExistingServiceNotice({ appView }: { appView: DiscoverAppView }) {
         <div>
           <h4 className="font-bold text-white">{appView.stateLabel}</h4>
           <p className="mt-1 leading-6 text-amber-100/80">{appView.stateDescription}</p>
-          <p className="mt-2 leading-6 text-amber-100/80">Reviewing the existing service is recommended before creating another copy.</p>
+          <p className="mt-2 leading-6 text-amber-100/80">Project OS already sees this app on your system. Installing another copy can cause confusing behavior across your network, especially from phones, TVs, or other devices that discover services automatically. Pin or adopt the existing service when possible. Install a second copy only if you intentionally want two separate instances.</p>
           {appView.reviewExistingHref && (
             <Button asChild className="mt-3" size="sm" variant="outline">
               <Link to={appView.reviewExistingHref}>Review existing service</Link>
@@ -281,6 +287,7 @@ function stateBadgeClass(tone: string) {
   if (tone === 'warning') return 'border-amber-300/25 bg-amber-500/10 text-amber-100';
   if (tone === 'danger') return 'border-red-300/25 bg-red-500/10 text-red-100';
   if (tone === 'info') return 'border-sky-300/25 bg-sky-500/10 text-sky-100';
+  if (tone === 'observed') return 'border-amber-300/25 bg-amber-500/10 text-amber-100';
   return 'border-slate-600 bg-slate-800/60 text-slate-300';
 }
 

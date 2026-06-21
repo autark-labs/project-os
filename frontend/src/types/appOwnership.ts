@@ -1,10 +1,11 @@
 import type { DiscoverInstalledAppSummary } from './discover';
-import type { ExternalService, HostInventoryResource } from './host';
+import type { HostInventoryResource } from './host';
+import type { ObservedServiceView } from './observedService';
 
 export type AppOwnershipState =
   | 'available'
   | 'installed_managed'
-  | 'linked_service'
+  | 'pinned_external'
   | 'found_on_server'
   | 'recoverable'
   | 'managed_elsewhere'
@@ -12,7 +13,7 @@ export type AppOwnershipState =
   | 'coming_soon'
   | string;
 
-export type AppOwnershipTone = 'neutral' | 'success' | 'info' | 'warning' | 'danger' | string;
+export type AppOwnershipTone = 'neutral' | 'success' | 'info' | 'observed' | 'warning' | 'danger' | 'muted' | string;
 
 export type AppOwnershipAction = {
   id: string;
@@ -35,6 +36,7 @@ export type AppOwnershipView = {
   stateLabel: string;
   stateDescription: string;
   statusTone: AppOwnershipTone;
+  cardTone: AppOwnershipTone;
   installed: boolean;
   ownedByCurrentInstance: boolean;
   installCopyWarningRequired: boolean;
@@ -43,5 +45,5 @@ export type AppOwnershipView = {
   availableActions: AppOwnershipAction[];
   installedApp: DiscoverInstalledAppSummary | null;
   foundResource: HostInventoryResource | null;
-  linkedService: ExternalService | null;
+  observedService: ObservedServiceView | null;
 };

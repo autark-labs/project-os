@@ -21,6 +21,7 @@ class AppOwnershipControllerTests {
                 "Available",
                 "Ready to review before install.",
                 "neutral",
+                "neutral",
                 false,
                 false,
                 false,

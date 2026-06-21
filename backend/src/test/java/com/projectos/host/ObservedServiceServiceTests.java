@@ -1,0 +1,197 @@
+package com.projectos.host;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import com.projectos.marketplace.catalog.ManifestValidator;
+import com.projectos.marketplace.catalog.ManifestYamlReader;
+import com.projectos.marketplace.catalog.MarketplaceCatalogService;
+import com.projectos.marketplace.install.InstalledAppRepository;
+import com.projectos.marketplace.runtime.ProjectOsRuntimeProperties;
+import com.projectos.marketplace.runtime.RuntimeLayout;
+
+class ObservedServiceServiceTests {
+
+    @TempDir
+    Path runtimeRoot;
+
+    @Test
+    void unpinRemovesServiceFromMyAppsButDoesNotDeleteObservedTruth() {
+        ObservedServiceRepository repository = repository();
+        ObservedServiceService service = service(repository, List.of());
+        repository.upsert(observed("obs_vaultwarden", "manual_url", "http://vault.local", "Vaultwarden", "vaultwarden", "external", "pinned"));
+
+        ActionResult result = service.unpin("obs_vaultwarden");
+
+        assertThat(result.ok()).isTrue();
+        assertThat(repository.findById("obs_vaultwarden")).hasValueSatisfying(observed -> {
+            assertThat(observed.userVisibility()).isEqualTo("observed");
+            assertThat(observed.pinnedAt()).isNull();
+        });
+        assertThat(service.list(true)).extracting(ObservedServiceView::id).contains("obs_vaultwarden");
+        assertThat(service.matchingCatalogServices("vaultwarden")).extracting(ObservedService::id).contains("obs_vaultwarden");
+    }
+
+    @Test
+    void refreshPreservesPinnedStateAndUserCatalogMatch() {
+        ObservedServiceRepository repository = repository();
+        Instant pinnedAt = Instant.parse("2026-06-21T12:00:00Z");
+        repository.upsert(observed("docker:project-os-vault", "docker", "project-os-vault", "Vault", "vaultwarden", "external_docker", "pinned", pinnedAt));
+        ObservedServiceService service = service(repository, List.of(new HostDockerContainer(
+                "project-os-vault",
+                "vaultwarden/server:latest",
+                "Up 2 minutes",
+                Map.of(),
+                "0.0.0.0:8081->80/tcp")));
+
+        service.refresh();
+
+        assertThat(repository.findById("docker:project-os-vault")).hasValueSatisfying(observed -> {
+            assertThat(observed.catalogAppId()).isEqualTo("vaultwarden");
+            assertThat(observed.catalogMatchConfidence()).isEqualTo("user");
+            assertThat(observed.userVisibility()).isEqualTo("pinned");
+            assertThat(observed.pinnedAt()).isEqualTo(pinnedAt);
+            assertThat(observed.runtimeState()).isEqualTo("running");
+            assertThat(observed.url()).isEqualTo("http://localhost:8081");
+        });
+    }
+
+    @Test
+    void refreshReturnsUnmatchedAndIgnoredContainers() {
+        ObservedServiceRepository repository = repository();
+        repository.upsert(observed("docker:ignored-postgres", "docker", "ignored-postgres", "Postgres", null, "external_docker", "ignored"));
+        ObservedServiceService service = service(repository, List.of(
+                new HostDockerContainer("unmatched-worker", "worker:latest", "Up 5 seconds", Map.of(), ""),
+                new HostDockerContainer("ignored-postgres", "postgres:16", "Up 1 hour", Map.of(), "")));
+
+        List<ObservedServiceView> observed = service.refresh();
+
+        assertThat(observed).extracting(ObservedServiceView::id)
+                .contains("docker:unmatched-worker", "docker:ignored-postgres");
+        assertThat(observed).filteredOn(view -> view.id().equals("docker:unmatched-worker"))
+                .singleElement()
+                .satisfies(view -> {
+                    assertThat(view.catalogAppId()).isNull();
+                    assertThat(view.userStatus()).isEqualTo("found_on_server");
+                    assertThat(view.availableActions()).extracting(ObservedServiceAction::id).contains("pin", "change_match");
+                });
+        assertThat(observed).filteredOn(view -> view.id().equals("docker:ignored-postgres"))
+                .singleElement()
+                .satisfies(view -> assertThat(view.ownershipState()).isEqualTo("external_docker"));
+    }
+
+    @Test
+    void adoptRecoverableServiceCreatesManagedAppStateAndPreservesObservedTruth() {
+        ObservedServiceRepository observedRepository = repository();
+        InstalledAppRepository installedRepository = new InstalledAppRepository(runtimeLayout());
+        observedRepository.upsert(new ObservedService(
+                "docker:project-os-vaultwarden",
+                "docker",
+                "project-os-vaultwarden",
+                "vaultwarden",
+                "http://localhost:8090",
+                "External",
+                "LAN",
+                "vaultwarden",
+                "inferred",
+                "legacy_project_os",
+                "observed",
+                "running",
+                false,
+                "",
+                Instant.parse("2026-06-21T12:00:00Z"),
+                Instant.parse("2026-06-21T12:00:00Z"),
+                null,
+                null,
+                "{\"containerName\":\"project-os-vaultwarden\",\"composeProject\":\"project-os-vaultwarden\",\"appInstanceId\":\"appinst_legacy_vault\",\"dataPaths\":\"/var/lib/project-os/apps/vaultwarden\"}"));
+        ObservedServiceService service = new ObservedServiceService(
+                observedRepository,
+                new ObservedServiceScanner(List::of, currentIdentity()),
+                installedRepository,
+                new MarketplaceCatalogService(new ManifestYamlReader(), new ManifestValidator()),
+                currentIdentity(),
+                null);
+
+        ObservedServiceAdoptionPlan plan = service.adoptionPlan("docker:project-os-vaultwarden");
+        ActionResult result = service.adopt("docker:project-os-vaultwarden", new ObservedServiceAdoptionRequest(true, true, plan.confirmationText()));
+
+        assertThat(plan.available()).isTrue();
+        assertThat(result.ok()).isTrue();
+        assertThat(installedRepository.findById("vaultwarden")).hasValueSatisfying(app -> {
+            assertThat(app.appName()).isEqualTo("Vaultwarden");
+            assertThat(app.accessUrl()).isEqualTo("http://localhost:8090");
+            assertThat(app.runtimePath()).isEqualTo("/var/lib/project-os/apps/vaultwarden");
+        });
+        assertThat(installedRepository.ownershipFor("vaultwarden")).hasValueSatisfying(ownership -> {
+            assertThat(ownership.installState()).isEqualTo("adopted");
+            assertThat(ownership.ownershipStatus()).isEqualTo("owned");
+            assertThat(ownership.projectOsInstanceId()).isEqualTo("current-instance");
+        });
+        assertThat(installedRepository.settingsFor("vaultwarden")).hasValueSatisfying(settings -> assertThat(settings.accessUrl()).isEqualTo("http://localhost:8090"));
+        assertThat(observedRepository.findById("docker:project-os-vaultwarden")).hasValueSatisfying(observed -> {
+            assertThat(observed.ownershipState()).isEqualTo("owned_managed");
+            assertThat(observed.userVisibility()).isEqualTo("observed");
+            assertThat(observed.projectOsInstanceId()).isEqualTo("current-instance");
+        });
+    }
+
+    private ObservedServiceService service(ObservedServiceRepository repository, List<HostDockerContainer> containers) {
+        ObservedServiceScanner scanner = new ObservedServiceScanner(() -> containers, currentIdentity());
+        return new ObservedServiceService(repository, scanner);
+    }
+
+    private java.util.function.Supplier<com.projectos.system.ProjectOsIdentity> currentIdentity() {
+        return () -> new com.projectos.system.ProjectOsIdentity(
+                "current-instance",
+                "project-os",
+                runtimeRoot.toString(),
+                "runtime-hash",
+                Instant.parse("2026-06-20T12:00:00Z"),
+                1);
+    }
+
+    private ObservedServiceRepository repository() {
+        return new ObservedServiceRepository(runtimeLayout());
+    }
+
+    private RuntimeLayout runtimeLayout() {
+        ProjectOsRuntimeProperties properties = new ProjectOsRuntimeProperties();
+        properties.setRuntimeRoot(runtimeRoot.toString());
+        return new RuntimeLayout(properties);
+    }
+
+    private ObservedService observed(String id, String source, String fingerprint, String displayName, String catalogAppId, String ownershipState, String visibility) {
+        return observed(id, source, fingerprint, displayName, catalogAppId, ownershipState, visibility, null);
+    }
+
+    private ObservedService observed(String id, String source, String fingerprint, String displayName, String catalogAppId, String ownershipState, String visibility, Instant pinnedAt) {
+        Instant seenAt = Instant.parse("2026-06-21T12:00:00Z");
+        return new ObservedService(
+                id,
+                source,
+                fingerprint,
+                displayName,
+                source.equals("manual_url") ? fingerprint : null,
+                "External",
+                "LAN",
+                catalogAppId,
+                catalogAppId == null ? "unknown" : "user",
+                ownershipState,
+                visibility,
+                "unknown",
+                false,
+                "",
+                seenAt,
+                seenAt,
+                pinnedAt,
+                visibility.equals("ignored") ? seenAt : null,
+                "{}");
+    }
+}

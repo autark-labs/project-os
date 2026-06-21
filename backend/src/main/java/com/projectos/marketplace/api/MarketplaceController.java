@@ -65,14 +65,17 @@ public class MarketplaceController {
     @PostMapping("/{id}/install")
     public ResponseEntity<ProjectOsJob> install(@PathVariable String id, @RequestBody(required = false) InstallOptionsRequest options) {
         return catalogService.findById(id)
-                .map(manifest -> jobService.startWithJob("install_app", manifest.id(), installJobSteps(manifest.name()), job -> {
-                    List<ProjectOsJobStep> liveSteps = Collections.synchronizedList(new ArrayList<>());
-                    InstallResult result = marketplaceInstallService.install(manifest, options, step -> {
-                        liveSteps.add(installStep(step));
-                        jobService.recordProgress(job.jobId(), List.copyOf(liveSteps));
+                .map(manifest -> {
+                    marketplaceInstallService.ensureDuplicateAcknowledgement(manifest, options);
+                    return jobService.startWithJob("install_app", manifest.id(), installJobSteps(manifest.name()), job -> {
+                        List<ProjectOsJobStep> liveSteps = Collections.synchronizedList(new ArrayList<>());
+                        InstallResult result = marketplaceInstallService.install(manifest, options, step -> {
+                            liveSteps.add(installStep(step));
+                            jobService.recordProgress(job.jobId(), List.copyOf(liveSteps));
+                        });
+                        return installOutcome(result);
                     });
-                    return installOutcome(result);
-                }))
+                })
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }

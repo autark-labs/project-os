@@ -4,7 +4,12 @@ import java.util.Map;
 
 public record DiscoverInstallRequest(
         Map<String, Object> answers,
-        Boolean reinstall) {
+        Boolean reinstall,
+        Boolean duplicateAcknowledged) {
+
+    public DiscoverInstallRequest(Map<String, Object> answers, Boolean reinstall) {
+        this(answers, reinstall, false);
+    }
 
     public DiscoverSetupAnswersRequest answersRequest() {
         return new DiscoverSetupAnswersRequest(answers);
@@ -12,5 +17,9 @@ public record DiscoverInstallRequest(
 
     public boolean reinstallRequested() {
         return Boolean.TRUE.equals(reinstall);
+    }
+
+    public boolean duplicateAcknowledgedRequested() {
+        return Boolean.TRUE.equals(duplicateAcknowledged);
     }
 }

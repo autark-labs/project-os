@@ -14,6 +14,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.projectos.activity.ActivityLogService;
+import com.projectos.host.ObservedService;
+import com.projectos.host.ObservedServiceService;
 import com.projectos.marketplace.model.ApplicationManifest;
 import com.projectos.marketplace.model.HealthManifest;
 import com.projectos.marketplace.plan.InstallPlan;
@@ -37,6 +39,7 @@ public class MarketplaceInstallService {
     private final ActivityLogService activityLogService;
     private final DockerOwnershipService dockerOwnershipService;
     private final AppRuntimeMetadataWriter appRuntimeMetadataWriter;
+    private final ObservedServiceService observedServiceService;
 
     @Autowired
     public MarketplaceInstallService(
@@ -52,7 +55,8 @@ public class MarketplaceInstallService {
             TailscaleService tailscaleService,
             ActivityLogService activityLogService,
             DockerOwnershipService dockerOwnershipService,
-            AppRuntimeMetadataWriter appRuntimeMetadataWriter) {
+            AppRuntimeMetadataWriter appRuntimeMetadataWriter,
+            ObservedServiceService observedServiceService) {
         this.installPlanService = installPlanService;
         this.directoryManager = directoryManager;
         this.packageCopier = packageCopier;
@@ -66,6 +70,24 @@ public class MarketplaceInstallService {
         this.activityLogService = activityLogService;
         this.dockerOwnershipService = dockerOwnershipService;
         this.appRuntimeMetadataWriter = appRuntimeMetadataWriter;
+        this.observedServiceService = observedServiceService;
+    }
+
+    public MarketplaceInstallService(
+            InstallPlanService installPlanService,
+            RuntimeDirectoryManager directoryManager,
+            CatalogPackageCopier packageCopier,
+            ComposeRenderer composeRenderer,
+            DockerComposeExecutor dockerComposeExecutor,
+            InstalledAppRepository installedAppRepository,
+            InstallCustomizationResolver customizationResolver,
+            PostInstallProvisioner postInstallProvisioner,
+            PostInstallGuideBuilder postInstallGuideBuilder,
+            TailscaleService tailscaleService,
+            ActivityLogService activityLogService,
+            DockerOwnershipService dockerOwnershipService,
+            AppRuntimeMetadataWriter appRuntimeMetadataWriter) {
+        this(installPlanService, directoryManager, packageCopier, composeRenderer, dockerComposeExecutor, installedAppRepository, customizationResolver, postInstallProvisioner, postInstallGuideBuilder, tailscaleService, activityLogService, dockerOwnershipService, appRuntimeMetadataWriter, null);
     }
 
     public MarketplaceInstallService(
@@ -79,7 +101,7 @@ public class MarketplaceInstallService {
             PostInstallProvisioner postInstallProvisioner,
             PostInstallGuideBuilder postInstallGuideBuilder,
             TailscaleService tailscaleService) {
-        this(installPlanService, directoryManager, packageCopier, composeRenderer, dockerComposeExecutor, installedAppRepository, customizationResolver, postInstallProvisioner, postInstallGuideBuilder, tailscaleService, null, null, null);
+        this(installPlanService, directoryManager, packageCopier, composeRenderer, dockerComposeExecutor, installedAppRepository, customizationResolver, postInstallProvisioner, postInstallGuideBuilder, tailscaleService, null, null, null, null);
     }
 
     public InstallResult install(ApplicationManifest manifest) {
@@ -97,6 +119,18 @@ public class MarketplaceInstallService {
         Consumer<InstallStep> sink = progressSink == null ? ignored -> { } : progressSink;
         InstallPlan plan = installPlanService.generatePlan(manifest, options);
         ResolvedRuntimeConfiguration runtimeConfiguration = customizationResolver.resolve(manifest, options);
+        List<ObservedService> duplicates = matchingObservedDuplicates(manifest);
+        List<ObservedService> recoverableDuplicates = recoverableProjectOsDuplicates(duplicates);
+        if (!recoverableDuplicates.isEmpty()) {
+            String message = recoverableDuplicateMessage(manifest);
+            recordStep(steps, sink, InstallStep.failed("Checking existing services", message));
+            return new InstallResult(manifest.id(), manifest.name(), "failed", message, runtimeConfiguration.accessUrl(), plan, steps, logs, null, setupGuide(manifest, runtimeConfiguration.accessUrl(), null, PostInstallProvisioningResult.empty()));
+        }
+        if (!duplicates.isEmpty() && (options == null || !options.duplicateAcknowledgedRequested())) {
+            String message = duplicateWarningMessage(manifest);
+            recordStep(steps, sink, InstallStep.failed("Checking existing services", message));
+            return new InstallResult(manifest.id(), manifest.name(), "failed", message, runtimeConfiguration.accessUrl(), plan, steps, logs, null, setupGuide(manifest, runtimeConfiguration.accessUrl(), null, PostInstallProvisioningResult.empty()));
+        }
         InstalledApp existingApp = installedAppRepository.findById(manifest.id()).orElse(null);
         if (existingApp != null && (options == null || !options.reinstallRequested())) {
             recordStep(steps, sink, InstallStep.completed("Already installed", manifest.name() + " is already managed by Project OS."));
@@ -157,6 +191,15 @@ public class MarketplaceInstallService {
             logs.addAll(provisioningResult.logs());
             PostInstallGuide postInstallGuide = postInstallGuideBuilder.build(manifest, runtimeConfiguration.accessUrl(), privateAccess.privateUrl(), provisioningResult);
 
+            recordStep(steps, sink, InstallStep.completed(manifest.health().successLabel(), readyDetail(manifest, runtimeConfiguration.accessUrl(), privateAccess.privateUrl())));
+            if (!ownershipReconcilesToManaged(manifest.id())) {
+                String message = "Project OS could not confirm that this app is managed by this installation. The install was stopped so we do not show a service as installed when it is not under Project OS control.";
+                recordStep(steps, sink, InstallStep.failed("Confirming ownership", message));
+                installedAppRepository.recordEvent(manifest.id(), "install_failed", message);
+                activityWarning("install_failed", "Install ownership check failed for " + manifest.name(), message, manifest.id());
+                return new InstallResult(manifest.id(), manifest.name(), "failed", message, runtimeConfiguration.accessUrl(), plan, steps, logs, null, setupGuide(manifest, runtimeConfiguration.accessUrl(), privateAccess.privateUrl(), provisioningResult));
+            }
+
             installedAppRepository.save(new InstalledApp(
                     manifest.id(),
                     manifest.name(),
@@ -174,7 +217,6 @@ public class MarketplaceInstallService {
                     runtimeConfiguration.backup()));
             installedAppRepository.recordEvent(manifest.id(), "installed", manifest.name() + " installed successfully.");
             activitySuccess("install_completed", "Installed " + manifest.name(), manifest.name() + " is installed and managed by Project OS.", manifest.id());
-            recordStep(steps, sink, InstallStep.completed(manifest.health().successLabel(), readyDetail(manifest, runtimeConfiguration.accessUrl(), privateAccess.privateUrl())));
 
             return new InstallResult(manifest.id(), manifest.name(), "installed", manifest.name() + " is installed and managed by Project-OS.", runtimeConfiguration.accessUrl(), plan, steps, logs, postInstallGuide, setupGuide(manifest, runtimeConfiguration.accessUrl(), privateAccess.privateUrl(), provisioningResult));
         } catch (RuntimeException exception) {
@@ -187,6 +229,50 @@ public class MarketplaceInstallService {
             activityError("install_failed", "Install failed for " + manifest.name(), exception.getMessage(), manifest.id(), exception);
             return new InstallResult(manifest.id(), manifest.name(), "failed", exception.getMessage(), manifest.accessUrl(), plan, steps, logs, null, setupGuide(manifest, manifest.accessUrl(), null, PostInstallProvisioningResult.empty()));
         }
+    }
+
+    public void ensureDuplicateAcknowledgement(ApplicationManifest manifest, InstallOptionsRequest options) {
+        if (!matchingObservedDuplicates(manifest).isEmpty() && (options == null || !options.duplicateAcknowledgedRequested())) {
+            throw new DuplicateInstallAcknowledgementRequiredException(manifest.id(), duplicateWarningMessage(manifest));
+        }
+    }
+
+    private List<ObservedService> matchingObservedDuplicates(ApplicationManifest manifest) {
+        if (observedServiceService == null) {
+            return List.of();
+        }
+        observedServiceService.refresh();
+        return observedServiceService.matchingCatalogServices(manifest.id()).stream()
+                .filter(service -> !"owned_managed".equals(service.ownershipState()))
+                .toList();
+    }
+
+    private List<ObservedService> recoverableProjectOsDuplicates(List<ObservedService> duplicates) {
+        return duplicates.stream()
+                .filter(service -> "legacy_project_os".equals(service.ownershipState()) || "foreign_project_os".equals(service.ownershipState()))
+                .toList();
+    }
+
+    private String recoverableDuplicateMessage(ApplicationManifest manifest) {
+        return "Project OS found an existing " + manifest.name() + " service with Project OS runtime metadata. To avoid weird behavior across your network, recover the existing " + manifest.name() + " service from My Apps instead of installing another copy on top of it.";
+    }
+
+    private String duplicateWarningMessage(ApplicationManifest manifest) {
+        return "Project OS already sees " + manifest.name() + " on your system. Installing another copy can cause confusing behavior across your network. Pin or adopt the existing service when possible, or acknowledge that you intentionally want a separate copy.";
+    }
+
+    private boolean ownershipReconcilesToManaged(String appId) {
+        if (observedServiceService == null || appRuntimeMetadataWriter == null) {
+            return true;
+        }
+        observedServiceService.refresh();
+        String currentInstanceId = dockerOwnershipService == null ? "" : dockerOwnershipService.currentIdentity().instanceId();
+        return observedServiceService.matchingCatalogServices(appId).stream()
+                .anyMatch(service -> "owned_managed".equals(service.ownershipState())
+                        && (currentInstanceId.isBlank()
+                        || service.projectOsInstanceId() == null
+                        || service.projectOsInstanceId().isBlank()
+                        || currentInstanceId.equals(service.projectOsInstanceId())));
     }
 
     private void recordStep(List<InstallStep> steps, Consumer<InstallStep> sink, InstallStep step) {

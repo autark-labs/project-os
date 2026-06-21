@@ -4,8 +4,8 @@ import java.util.List;
 
 import com.projectos.apps.AppOwnershipAction;
 import com.projectos.apps.AppOwnershipState;
-import com.projectos.host.ExternalService;
 import com.projectos.host.HostInventoryResource;
+import com.projectos.host.ObservedServiceView;
 import com.projectos.marketplace.model.ApplicationManifest;
 
 public record DiscoverAppView(
@@ -23,6 +23,7 @@ public record DiscoverAppView(
         String stateLabel,
         String stateDescription,
         String statusTone,
+        String cardTone,
         boolean installed,
         boolean ownedByCurrentInstance,
         boolean installCopyWarningRequired,
@@ -31,6 +32,6 @@ public record DiscoverAppView(
         List<AppOwnershipAction> availableActions,
         DiscoverInstalledAppSummary installedApp,
         HostInventoryResource foundResource,
-        ExternalService linkedService,
+        ObservedServiceView observedService,
         DiscoverSetupSchema setupSchema) {
 }

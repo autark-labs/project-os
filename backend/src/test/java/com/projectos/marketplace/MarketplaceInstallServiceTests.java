@@ -1,6 +1,7 @@
 package com.projectos.marketplace;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -15,6 +16,10 @@ import org.junit.jupiter.api.io.TempDir;
 import com.projectos.marketplace.catalog.ManifestValidator;
 import com.projectos.marketplace.catalog.ManifestYamlReader;
 import com.projectos.marketplace.catalog.MarketplaceCatalogService;
+import com.projectos.host.ObservedService;
+import com.projectos.host.ObservedServiceRepository;
+import com.projectos.host.ObservedServiceScanner;
+import com.projectos.host.ObservedServiceService;
 import com.projectos.marketplace.install.CatalogPackageCopier;
 import com.projectos.marketplace.install.ComposeRenderer;
 import com.projectos.marketplace.install.ContainerTelemetry;
@@ -31,6 +36,7 @@ import com.projectos.marketplace.install.InstallSettings;
 import com.projectos.marketplace.install.InstallStep;
 import com.projectos.marketplace.install.AppRuntimeMetadataWriter;
 import com.projectos.marketplace.install.DockerOwnershipService;
+import com.projectos.marketplace.install.DuplicateInstallAcknowledgementRequiredException;
 import com.projectos.marketplace.install.MarketplaceInstallService;
 import com.projectos.marketplace.install.PortAllocator;
 import com.projectos.marketplace.install.PostInstallGuideBuilder;
@@ -378,6 +384,149 @@ class MarketplaceInstallServiceTests {
                 .contains("POSTGRES_DB=paperless")
                 .contains("8010:8000")
                 .contains(runtimeRoot.resolve("apps/paperless-ngx/postgres").toString());
+    }
+
+    @Test
+    void duplicateObservedServiceWithoutAcknowledgementFailsBeforeInstall() {
+        RuntimeLayout runtimeLayout = runtimeLayout();
+        MarketplaceCatalogService catalogService = new MarketplaceCatalogService(new ManifestYamlReader(), new ManifestValidator());
+        ApplicationManifest manifest = catalogService.findById("vaultwarden").orElseThrow();
+        InstalledAppRepository repository = new InstalledAppRepository(runtimeLayout);
+        ObservedServiceRepository observedRepository = new ObservedServiceRepository(runtimeLayout);
+        observedRepository.upsert(observed("docker:vaultwarden", "vaultwarden", "external_docker", "observed"));
+        MarketplaceInstallService installService = installService(runtimeLayout, repository, observedRepository, null);
+
+        InstallResult result = installService.install(manifest, InstallOptionsRequest.defaults());
+
+        assertThat(result.status()).isEqualTo("failed");
+        assertThat(result.message()).contains("already sees Vaultwarden");
+        assertThat(repository.findAll()).isEmpty();
+    }
+
+    @Test
+    void duplicatePreflightRejectionUsesActionableException() {
+        RuntimeLayout runtimeLayout = runtimeLayout();
+        MarketplaceCatalogService catalogService = new MarketplaceCatalogService(new ManifestYamlReader(), new ManifestValidator());
+        ApplicationManifest manifest = catalogService.findById("vaultwarden").orElseThrow();
+        ObservedServiceRepository observedRepository = new ObservedServiceRepository(runtimeLayout);
+        observedRepository.upsert(observed("docker:vaultwarden", "vaultwarden", "external_docker", "observed"));
+        MarketplaceInstallService installService = installService(runtimeLayout, new InstalledAppRepository(runtimeLayout), observedRepository, null);
+
+        assertThatThrownBy(() -> installService.ensureDuplicateAcknowledgement(manifest, InstallOptionsRequest.defaults()))
+                .isInstanceOf(DuplicateInstallAcknowledgementRequiredException.class)
+                .hasMessageContaining("already sees Vaultwarden");
+    }
+
+    @Test
+    void duplicateObservedServiceWithAcknowledgementProceeds() {
+        RuntimeLayout runtimeLayout = runtimeLayout();
+        MarketplaceCatalogService catalogService = new MarketplaceCatalogService(new ManifestYamlReader(), new ManifestValidator());
+        ApplicationManifest manifest = catalogService.findById("vaultwarden").orElseThrow();
+        InstalledAppRepository repository = new InstalledAppRepository(runtimeLayout);
+        ObservedServiceRepository observedRepository = new ObservedServiceRepository(runtimeLayout);
+        observedRepository.upsert(observed("docker:vaultwarden", "vaultwarden", "external_docker", "observed"));
+        MarketplaceInstallService installService = installService(runtimeLayout, repository, observedRepository, null);
+
+        InstallResult result = installService.install(manifest, new InstallOptionsRequest(null, null, null, null, false, true));
+
+        assertThat(result.status()).isEqualTo("installed");
+        assertThat(repository.findAll()).extracting(InstalledApp::appId).contains("vaultwarden");
+    }
+
+    @Test
+    void recoverableProjectOsServiceBlocksDuplicateInstallEvenWithAcknowledgement() {
+        RuntimeLayout runtimeLayout = runtimeLayout();
+        MarketplaceCatalogService catalogService = new MarketplaceCatalogService(new ManifestYamlReader(), new ManifestValidator());
+        ApplicationManifest manifest = catalogService.findById("vaultwarden").orElseThrow();
+        InstalledAppRepository repository = new InstalledAppRepository(runtimeLayout);
+        ObservedServiceRepository observedRepository = new ObservedServiceRepository(runtimeLayout);
+        observedRepository.upsert(observed("docker:project-os-vaultwarden", "vaultwarden", "legacy_project_os", "observed"));
+        MarketplaceInstallService installService = installService(runtimeLayout, repository, observedRepository, null);
+
+        InstallResult result = installService.install(manifest, new InstallOptionsRequest(null, null, null, null, false, true));
+
+        assertThat(result.status()).isEqualTo("failed");
+        assertThat(result.message()).contains("recover the existing Vaultwarden service");
+        assertThat(repository.findById("vaultwarden")).isEmpty();
+    }
+
+    @Test
+    void installFailsWhenOwnershipDoesNotReconcileToManaged() {
+        RuntimeLayout runtimeLayout = runtimeLayout();
+        MarketplaceCatalogService catalogService = new MarketplaceCatalogService(new ManifestYamlReader(), new ManifestValidator());
+        ApplicationManifest manifest = catalogService.findById("vaultwarden").orElseThrow();
+        InstalledAppRepository repository = new InstalledAppRepository(runtimeLayout);
+        MarketplaceInstallService installService = installService(
+                runtimeLayout,
+                repository,
+                new ObservedServiceRepository(runtimeLayout),
+                new AppRuntimeMetadataWriter(
+                        () -> new ProjectOsIdentity("current-instance", "project-os", runtimeRoot.toString(), "runtime-hash", Instant.parse("2026-06-20T12:00:00Z"), 1),
+                        () -> Instant.parse("2026-06-20T13:00:00Z")));
+
+        InstallResult result = installService.install(manifest);
+
+        assertThat(result.status()).isEqualTo("failed");
+        assertThat(result.message()).contains("could not confirm that this app is managed by this installation");
+        assertThat(repository.findById("vaultwarden")).isEmpty();
+        assertThat(repository.ownershipFor("vaultwarden")).isEmpty();
+        assertThat(repository.settingsFor("vaultwarden")).isEmpty();
+    }
+
+    private MarketplaceInstallService installService(
+            RuntimeLayout runtimeLayout,
+            InstalledAppRepository repository,
+            ObservedServiceRepository observedRepository,
+            AppRuntimeMetadataWriter metadataWriter) {
+        InstallCustomizationResolver customizationResolver = new InstallCustomizationResolver(new FixedPortAllocator());
+        ObservedServiceService observedService = new ObservedServiceService(
+                observedRepository,
+                new ObservedServiceScanner(List::of, () -> new ProjectOsIdentity("current-instance", "project-os", runtimeRoot.toString(), "runtime-hash", Instant.parse("2026-06-20T12:00:00Z"), 1)));
+        return new MarketplaceInstallService(
+                new InstallPlanService(runtimeLayout, customizationResolver),
+                new RuntimeDirectoryManager(runtimeLayout),
+                new CatalogPackageCopier(),
+                new ComposeRenderer(runtimeLayout),
+                new FakeDockerComposeExecutor(),
+                repository,
+                customizationResolver,
+                new FakePostInstallProvisioner(),
+                new PostInstallGuideBuilder(),
+                new FakeTailscaleService(),
+                null,
+                null,
+                metadataWriter,
+                observedService);
+    }
+
+    private ObservedService observed(String id, String catalogAppId, String ownershipState, String visibility) {
+        Instant seenAt = Instant.parse("2026-06-21T12:00:00Z");
+        return new ObservedService(
+                id,
+                "docker",
+                id.replace("docker:", ""),
+                catalogAppId,
+                "http://localhost:8090",
+                "External",
+                "LAN",
+                catalogAppId,
+                "user",
+                ownershipState,
+                visibility,
+                "running",
+                false,
+                "",
+                seenAt,
+                seenAt,
+                "pinned".equals(visibility) ? seenAt : null,
+                null,
+                "{}");
+    }
+
+    private RuntimeLayout runtimeLayout() {
+        ProjectOsRuntimeProperties properties = new ProjectOsRuntimeProperties();
+        properties.setRuntimeRoot(runtimeRoot.toString());
+        return new RuntimeLayout(properties);
     }
 
     private static class FakeDockerComposeExecutor implements DockerComposeExecutor {

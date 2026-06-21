@@ -11,9 +11,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.projectos.discover.DiscoverInstalledAppSummary;
-import com.projectos.host.ExternalService;
-import com.projectos.host.ExternalServiceRepository;
-import com.projectos.host.HostInventoryResource;
+import com.projectos.host.ObservedService;
+import com.projectos.host.ObservedServiceRepository;
+import com.projectos.host.ObservedServiceScanner;
+import com.projectos.host.ObservedServiceService;
+import com.projectos.host.ObservedServiceView;
 import com.projectos.marketplace.catalog.ManifestValidator;
 import com.projectos.marketplace.catalog.ManifestYamlReader;
 import com.projectos.marketplace.catalog.MarketplaceCatalogService;
@@ -70,10 +72,12 @@ class AppOwnershipServiceTests {
                 Instant.parse("2026-06-21T12:00:00Z"),
                 Instant.parse("2026-06-21T12:00:00Z")));
 
-        List<AppOwnershipView> views = service(installedRepository, List.of(
-                resource("jellyfin", "foreign_project_os"),
-                resource("homepage", "legacy_project_os"),
-                resource("actual-budget", "unknown_conflict"))).apps();
+        ObservedServiceRepository observedRepository = observedRepository();
+        observedRepository.upsert(observed("docker:found_jellyfin", "jellyfin", "foreign_project_os", "observed"));
+        observedRepository.upsert(observed("docker:found_homepage", "homepage", "legacy_project_os", "observed"));
+        observedRepository.upsert(observed("docker:found_actual-budget", "actual-budget", "unknown_conflict", "observed"));
+
+        List<AppOwnershipView> views = service(installedRepository, observedRepository).apps();
 
         assertThat(views).isSortedAccordingTo((left, right) -> String.CASE_INSENSITIVE_ORDER.compare(left.name(), right.name()));
         assertThat(views).filteredOn(view -> view.catalogAppId().equals("vaultwarden"))
@@ -82,13 +86,14 @@ class AppOwnershipServiceTests {
                     assertThat(view.state()).isEqualTo(AppOwnershipState.INSTALLED_MANAGED);
                     assertThat(view.stateLabel()).isEqualTo("Installed");
                     assertThat(view.statusTone()).isEqualTo("success");
+                    assertThat(view.cardTone()).isEqualTo("success");
                     assertThat(view.installed()).isTrue();
                     assertThat(view.ownedByCurrentInstance()).isTrue();
                     assertThat(view.installCopyWarningRequired()).isFalse();
                     assertThat(view.primaryAction()).isEqualTo(new AppOwnershipAction("manage", "Manage", "route", "/apps", null, false, ""));
                     assertThat(view.installedApp()).isEqualTo(new DiscoverInstalledAppSummary("vaultwarden", "Family Passwords", "Ready", "http://localhost:8090"));
                     assertThat(view.foundResource()).isNull();
-                    assertThat(view.linkedService()).isNull();
+                    assertThat(view.observedService()).isNull();
                 });
         assertThat(views).filteredOn(view -> view.catalogAppId().equals("jellyfin"))
                 .singleElement()
@@ -97,11 +102,11 @@ class AppOwnershipServiceTests {
                     assertThat(view.installed()).isFalse();
                     assertThat(view.ownedByCurrentInstance()).isFalse();
                     assertThat(view.installCopyWarningRequired()).isTrue();
-                    assertThat(view.reviewExistingHref()).isEqualTo("/apps/found?resource=docker%3Afound_jellyfin");
+                    assertThat(view.reviewExistingHref()).isEqualTo("/apps?service=docker%3Afound_jellyfin");
                     assertThat(view.primaryAction().id()).isEqualTo("review_existing");
                     assertThat(view.availableActions()).extracting(AppOwnershipAction::id).contains("review_existing", "install_copy");
                     assertThat(view.installedApp()).isNull();
-                    assertThat(view.foundResource()).isNotNull();
+                    assertThat(view.observedService()).isNotNull();
                 });
         assertThat(views).filteredOn(view -> view.catalogAppId().equals("homepage"))
                 .singleElement()
@@ -121,32 +126,72 @@ class AppOwnershipServiceTests {
     }
 
     @Test
-    void linkedServiceWinsBeforeFoundOnServerAndNeverLooksInstalled() {
-        ExternalServiceRepository externalRepository = externalRepository();
-        ExternalService linked = new ExternalService(
-                "ext_jellyfin",
-                "Media Server",
-                "http://media.local",
-                "Media",
-                "LAN",
-                true,
-                "linked",
-                "jellyfin",
-                Instant.parse("2026-06-21T12:00:00Z"));
-        externalRepository.save(linked);
+    void pinnedObservedServiceWinsBeforeFoundOnServerAndNeverLooksInstalled() {
+        ObservedServiceRepository observedRepository = observedRepository();
+        ObservedService pinned = observed("manual:jellyfin", "jellyfin", "external", "pinned");
+        observedRepository.upsert(pinned);
+        observedRepository.upsert(observed("docker:jellyfin", "jellyfin", "external_docker", "observed"));
 
-        AppOwnershipView view = service(installedRepository(), externalRepository, List.of(resource("jellyfin", "external_docker"))).app("jellyfin").orElseThrow();
+        AppOwnershipView view = service(installedRepository(), observedRepository).app("jellyfin").orElseThrow();
 
-        assertThat(view.state()).isEqualTo(AppOwnershipState.LINKED_SERVICE);
-        assertThat(view.stateLabel()).isEqualTo("Linked service");
+        assertThat(view.state()).isEqualTo(AppOwnershipState.PINNED_EXTERNAL);
+        assertThat(view.stateLabel()).isEqualTo("Pinned");
         assertThat(view.statusTone()).isEqualTo("info");
+        assertThat(view.cardTone()).isEqualTo("info");
         assertThat(view.installed()).isFalse();
         assertThat(view.ownedByCurrentInstance()).isFalse();
         assertThat(view.installCopyWarningRequired()).isTrue();
-        assertThat(view.primaryAction()).isEqualTo(new AppOwnershipAction("review_existing", "Review existing service", "route", "/apps?linked=ext_jellyfin", null, false, ""));
+        assertThat(view.primaryAction()).isEqualTo(new AppOwnershipAction("review_existing", "Review existing service", "route", "/apps?service=manual%3Ajellyfin", null, false, ""));
         assertThat(view.availableActions()).extracting(AppOwnershipAction::id).contains("open", "review_existing", "install_copy");
-        assertThat(view.linkedService()).isEqualTo(linked);
+        assertThat(view.observedService()).isNotNull();
+        assertThat(view.observedService().id()).isEqualTo(pinned.id());
         assertThat(view.foundResource()).isNull();
+    }
+
+    @Test
+    void observedServiceWithoutCatalogAppIdCanStillMatchByName() {
+        ObservedServiceRepository observedRepository = observedRepository();
+        observedRepository.upsert(new ObservedService(
+                "manual:vaultwarden",
+                "manual_url",
+                "http://localhost:8081",
+                "homelab-vaultwarden",
+                "http://localhost:8081",
+                "External",
+                "LAN",
+                null,
+                "unknown",
+                "external",
+                "pinned",
+                "unknown",
+                true,
+                "",
+                Instant.parse("2026-06-21T12:00:00Z"),
+                Instant.parse("2026-06-21T12:00:00Z"),
+                Instant.parse("2026-06-21T12:00:00Z"),
+                null,
+                "{}"));
+
+        AppOwnershipView view = service(installedRepository(), observedRepository).app("vaultwarden").orElseThrow();
+
+        assertThat(view.state()).isEqualTo(AppOwnershipState.PINNED_EXTERNAL);
+        assertThat(view.installed()).isFalse();
+        assertThat(view.observedService()).isNotNull();
+        assertThat(view.primaryAction().href()).isEqualTo("/apps?service=manual%3Avaultwarden");
+    }
+
+    @Test
+    void unpinnedObservedServiceIsFoundOnServerNotAvailable() {
+        ObservedServiceRepository observedRepository = observedRepository();
+        observedRepository.upsert(observed("docker:vaultwarden", "vaultwarden", "external_docker", "observed"));
+
+        AppOwnershipView view = service(installedRepository(), observedRepository).app("vaultwarden").orElseThrow();
+
+        assertThat(view.state()).isEqualTo(AppOwnershipState.FOUND_ON_SERVER);
+        assertThat(view.stateLabel()).isEqualTo("Found on server");
+        assertThat(view.cardTone()).isEqualTo("observed");
+        assertThat(view.installCopyWarningRequired()).isTrue();
+        assertThat(view.reviewExistingHref()).isEqualTo("/apps?service=docker%3Avaultwarden");
     }
 
     @Test
@@ -171,7 +216,7 @@ class AppOwnershipServiceTests {
                 Instant.parse("2026-06-21T12:00:00Z"),
                 Instant.parse("2026-06-21T12:00:00Z")));
 
-        AppOwnershipView view = service(repository, List.of()).app("homepage").orElseThrow();
+        AppOwnershipView view = service(repository, observedRepository()).app("homepage").orElseThrow();
 
         assertThat(view.state()).isEqualTo(AppOwnershipState.AVAILABLE);
         assertThat(view.installed()).isFalse();
@@ -179,16 +224,11 @@ class AppOwnershipServiceTests {
         assertThat(view.installedApp()).isNull();
     }
 
-    private AppOwnershipService service(InstalledAppRepository installedRepository, List<HostInventoryResource> inventory) {
-        return service(installedRepository, externalRepository(), inventory);
-    }
-
-    private AppOwnershipService service(InstalledAppRepository installedRepository, ExternalServiceRepository externalRepository, List<HostInventoryResource> inventory) {
+    private AppOwnershipService service(InstalledAppRepository installedRepository, ObservedServiceRepository observedRepository) {
         return new AppOwnershipService(
                 catalogService(),
                 installedRepository,
-                includeIgnored -> inventory,
-                externalRepository,
+                observedService(observedRepository),
                 dockerOwnershipService());
     }
 
@@ -200,8 +240,12 @@ class AppOwnershipServiceTests {
         return new InstalledAppRepository(runtimeLayout());
     }
 
-    private ExternalServiceRepository externalRepository() {
-        return new ExternalServiceRepository(runtimeLayout());
+    private ObservedServiceRepository observedRepository() {
+        return new ObservedServiceRepository(runtimeLayout());
+    }
+
+    private ObservedServiceService observedService(ObservedServiceRepository repository) {
+        return new ObservedServiceService(repository, new ObservedServiceScanner(List::of, () -> new ProjectOsIdentity("current-instance", "project-os", runtimeRoot.toString(), "runtime-hash", Instant.parse("2026-06-20T12:00:00Z"), 1)));
     }
 
     private DockerOwnershipService dockerOwnershipService() {
@@ -217,22 +261,27 @@ class AppOwnershipServiceTests {
         return new RuntimeLayout(properties);
     }
 
-    private HostInventoryResource resource(String catalogAppId, String ownershipState) {
-        return new HostInventoryResource(
-                "docker:found_" + catalogAppId,
+    private ObservedService observed(String id, String catalogAppId, String ownershipState, String visibility) {
+        Instant seenAt = Instant.parse("2026-06-21T12:00:00Z");
+        return new ObservedService(
+                id,
+                id.startsWith("manual:") ? "manual_url" : "docker",
+                id.replaceFirst("^[^:]+:", ""),
                 catalogAppId,
+                id.startsWith("manual:") ? "http://localhost:8080" : null,
+                "External",
+                "LAN",
                 catalogAppId,
+                "user",
                 ownershipState,
-                "observed",
-                "other-instance",
-                "current-instance",
+                visibility,
                 "running",
-                List.of("http://localhost:8080"),
-                "docker",
-                List.of("view_details", "open"),
                 false,
-                "medium",
-                "Found matching service for " + catalogAppId + ".",
-                Map.of());
+                "foreign_project_os".equals(ownershipState) ? "other-instance" : "",
+                seenAt,
+                seenAt,
+                "pinned".equals(visibility) ? seenAt : null,
+                null,
+                "{}");
     }
 }

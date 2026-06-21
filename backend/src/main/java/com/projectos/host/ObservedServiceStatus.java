@@ -1,0 +1,13 @@
+package com.projectos.host;
+
+public final class ObservedServiceStatus {
+    public static final String MANAGED = "installed_managed";
+    public static final String PINNED = "pinned_external";
+    public static final String FOUND = "found_on_server";
+    public static final String RECOVERABLE = "recoverable";
+    public static final String OWNED_ELSEWHERE = "managed_elsewhere";
+    public static final String CONFLICT = "blocked";
+
+    private ObservedServiceStatus() {
+    }
+}

@@ -1,6 +1,7 @@
 import { httpClient } from './httpClient';
 import type { ProjectOsJob } from '@/types/jobs';
-import type { DiscoverAppView, DiscoverInstallPreview, DiscoverSetupSchema } from '@/types/discover';
+import type { DiscoverAppView, DiscoverInstallPreview, DiscoverInstallRequestOptions, DiscoverSetupSchema } from '@/types/discover';
+import { buildDiscoverInstallRequest } from './DiscoverAPIClient.logic';
 
 export const DiscoverAPIClient = {
   async listApps() {
@@ -23,8 +24,8 @@ export const DiscoverAPIClient = {
     return response.data;
   },
 
-  async install(appId: string, answers: Record<string, unknown>, reinstall = false) {
-    const response = await httpClient.post<ProjectOsJob>(`/api/discover/apps/${appId}/install`, { answers, reinstall });
+  async install(appId: string, answers: Record<string, unknown>, options: DiscoverInstallRequestOptions = {}) {
+    const response = await httpClient.post<ProjectOsJob>(`/api/discover/apps/${appId}/install`, buildDiscoverInstallRequest(answers, options));
     return response.data;
   },
 };

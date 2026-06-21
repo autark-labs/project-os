@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.projectos.activity.ActivityLogService;
 import com.projectos.marketplace.catalog.ManifestValidationException;
+import com.projectos.marketplace.install.DuplicateInstallAcknowledgementRequiredException;
 import com.projectos.marketplace.install.InstallationException;
 
 @RestControllerAdvice
@@ -38,6 +39,18 @@ public class MarketplaceExceptionHandler {
                 "app_lifecycle_error",
                 exception.getMessage(),
                 List.of(),
+                Instant.now()));
+    }
+
+    @ExceptionHandler(DuplicateInstallAcknowledgementRequiredException.class)
+    public ResponseEntity<ApiError> duplicateInstallAcknowledgementRequired(DuplicateInstallAcknowledgementRequiredException exception) {
+        activityLogService.warning("applications", "duplicate_install_acknowledgement_required", "Install needs confirmation", exception.getMessage(), exception.appId());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ApiError(
+                "duplicate_install_acknowledgement_required",
+                exception.getMessage(),
+                List.of(
+                        "Review the service Project OS already found before installing another copy.",
+                        "To continue intentionally, retry the install with duplicateAcknowledged set to true."),
                 Instant.now()));
     }
 

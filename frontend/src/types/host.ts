@@ -1,6 +1,6 @@
 export type OwnershipState = 'owned_managed' | 'foreign_project_os' | 'legacy_project_os' | 'external_docker' | 'unknown_conflict' | string;
 
-export type ManagementMode = 'managed' | 'observed' | 'linked' | 'recoverable' | 'conflict' | string;
+export type ManagementMode = 'managed' | 'observed' | 'pinned_external' | 'recoverable' | 'conflict' | string;
 
 export type HostInventoryResource = {
   id: string;
@@ -57,25 +57,4 @@ export type HostResourceRecoveryPlan = {
   steps: string[];
   blockedReasons: string[];
   confirmationText: string;
-};
-
-export type ExternalService = {
-  id: string;
-  name: string;
-  url: string;
-  category: string;
-  accessScope: string;
-  healthCheckEnabled: boolean;
-  managementMode: 'linked' | string;
-  catalogAppId: string | null;
-  createdAt: string;
-};
-
-export type ExternalServiceRequest = {
-  name: string;
-  url: string;
-  category: string;
-  accessScope: string;
-  healthCheckEnabled: boolean;
-  catalogAppId?: string | null;
 };

@@ -12,19 +12,27 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.projectos.apps.AppOwnershipState;
-import com.projectos.host.HostInventoryProvider;
-import com.projectos.host.HostInventoryResource;
+import com.projectos.host.ObservedService;
+import com.projectos.host.ObservedServiceRepository;
+import com.projectos.host.ObservedServiceScanner;
+import com.projectos.host.ObservedServiceService;
 import com.projectos.marketplace.catalog.ManifestValidator;
 import com.projectos.marketplace.catalog.ManifestYamlReader;
 import com.projectos.marketplace.catalog.MarketplaceCatalogService;
+import com.projectos.marketplace.api.InstallOptionsRequest;
 import com.projectos.marketplace.install.InstalledApp;
 import com.projectos.marketplace.install.InstalledAppOwnershipMetadata;
 import com.projectos.marketplace.install.InstalledAppRepository;
 import com.projectos.marketplace.install.InstallCustomizationResolver;
+import com.projectos.marketplace.install.InstallResult;
+import com.projectos.marketplace.install.InstallStep;
+import com.projectos.marketplace.install.MarketplaceInstallService;
 import com.projectos.marketplace.install.PortAllocator;
 import com.projectos.marketplace.plan.InstallPlanService;
 import com.projectos.marketplace.runtime.ProjectOsRuntimeProperties;
 import com.projectos.marketplace.runtime.RuntimeLayout;
+import com.projectos.jobs.ProjectOsJobRepository;
+import com.projectos.jobs.ProjectOsJobService;
 
 class DiscoverServiceTests {
 
@@ -33,7 +41,9 @@ class DiscoverServiceTests {
 
     @Test
     void returnsMergedDiscoverCardsWithoutShowingForeignAppsAsInstalled() {
-        DiscoverService service = discoverService(List.of(foreignJellyfin()));
+        ObservedServiceRepository observedRepository = observedRepository();
+        observedRepository.upsert(observed("docker:projectos_other_jellyfin", "jellyfin", "foreign_project_os", "observed"));
+        DiscoverService service = discoverService(observedRepository);
         InstalledAppRepository repository = repository();
         repository.save(new InstalledApp(
                 "vaultwarden",
@@ -62,6 +72,7 @@ class DiscoverServiceTests {
                     assertThat(app.state()).isEqualTo(AppOwnershipState.INSTALLED_MANAGED);
                     assertThat(app.primaryAction().id()).isEqualTo("manage");
                     assertThat(app.statusTone()).isEqualTo("success");
+                    assertThat(app.cardTone()).isEqualTo("success");
                     assertThat(app.ownedByCurrentInstance()).isTrue();
                     assertThat(app.installCopyWarningRequired()).isFalse();
                     assertThat(app.installedApp()).isNotNull();
@@ -72,18 +83,32 @@ class DiscoverServiceTests {
                     assertThat(app.state()).isEqualTo(AppOwnershipState.MANAGED_ELSEWHERE);
                     assertThat(app.stateLabel()).isEqualTo("Managed elsewhere");
                     assertThat(app.primaryAction().id()).isEqualTo("review_existing");
-                    assertThat(app.statusTone()).isEqualTo("warning");
+                    assertThat(app.statusTone()).isEqualTo("danger");
+                    assertThat(app.cardTone()).isEqualTo("danger");
                     assertThat(app.ownedByCurrentInstance()).isFalse();
                     assertThat(app.installCopyWarningRequired()).isTrue();
                     assertThat(app.availableActions()).extracting(com.projectos.apps.AppOwnershipAction::id).contains("review_existing", "install_copy");
                     assertThat(app.installedApp()).isNull();
-                    assertThat(app.foundResource()).isNotNull();
+                    assertThat(app.observedService()).isNotNull();
                 });
     }
 
     @Test
+    void discoverNeverReturnsAvailableForMatchedObservedService() {
+        ObservedServiceRepository observedRepository = observedRepository();
+        observedRepository.upsert(observed("docker:vaultwarden", "vaultwarden", "external_docker", "observed"));
+        DiscoverService service = discoverService(observedRepository);
+
+        DiscoverAppView app = service.app("vaultwarden").orElseThrow();
+
+        assertThat(app.state()).isEqualTo(AppOwnershipState.FOUND_ON_SERVER);
+        assertThat(app.cardTone()).isEqualTo("observed");
+        assertThat(app.installCopyWarningRequired()).isTrue();
+    }
+
+    @Test
     void buildsCommonAndAppSpecificSetupSchemaFromBackend() {
-        DiscoverService service = discoverService(List.of());
+        DiscoverService service = discoverService(observedRepository());
 
         DiscoverSetupSchema schema = service.setupSchema("jellyfin");
 
@@ -100,7 +125,7 @@ class DiscoverServiceTests {
 
     @Test
     void installPreviewValidatesSetupAnswersAndUsesThemInPlainEnglishPlan() throws Exception {
-        DiscoverService service = discoverService(List.of());
+        DiscoverService service = discoverService(observedRepository());
         Path media = Files.createDirectory(runtimeRoot.resolve("media"));
 
         DiscoverInstallPreview invalid = service.installPreview("jellyfin", new DiscoverSetupAnswersRequest(Map.of(
@@ -162,7 +187,20 @@ class DiscoverServiceTests {
         });
     }
 
-    private DiscoverService discoverService(List<HostInventoryResource> inventory) {
+    @Test
+    void installPassesDuplicateAcknowledgementToMarketplaceInstall() {
+        RecordingMarketplaceInstallService installService = new RecordingMarketplaceInstallService();
+        ProjectOsJobService jobService = jobService();
+        DiscoverService service = discoverService(observedRepository(), installService, jobService);
+
+        service.install("vaultwarden", new DiscoverInstallRequest(Map.of(), false, true));
+        jobService.runQueuedJobsNow();
+
+        assertThat(installService.lastOptions).isNotNull();
+        assertThat(installService.lastOptions.duplicateAcknowledgedRequested()).isTrue();
+    }
+
+    private DiscoverService discoverService(ObservedServiceRepository observedRepository) {
         RuntimeLayout layout = runtimeLayout();
         InstalledAppRepository installedAppRepository = repository();
         DiscoverSetupRepository setupRepository = new DiscoverSetupRepository(layout);
@@ -170,17 +208,31 @@ class DiscoverServiceTests {
         InstallCustomizationResolver customizationResolver = new InstallCustomizationResolver(new PortAllocator());
         return new DiscoverService(
                 catalogService(),
-                appOwnershipService(installedAppRepository, inventory),
+                appOwnershipService(installedAppRepository, observedRepository),
                 setupService,
                 new DiscoverInstallPreviewService(new InstallPlanService(layout, customizationResolver), setupService));
     }
 
-    private com.projectos.apps.AppOwnershipService appOwnershipService(InstalledAppRepository installedAppRepository, List<HostInventoryResource> inventory) {
+    private DiscoverService discoverService(ObservedServiceRepository observedRepository, MarketplaceInstallService installService, ProjectOsJobService jobService) {
+        RuntimeLayout layout = runtimeLayout();
+        InstalledAppRepository installedAppRepository = repository();
+        DiscoverSetupRepository setupRepository = new DiscoverSetupRepository(layout);
+        DiscoverSetupService setupService = new DiscoverSetupService(setupRepository);
+        InstallCustomizationResolver customizationResolver = new InstallCustomizationResolver(new PortAllocator());
+        return new DiscoverService(
+                catalogService(),
+                appOwnershipService(installedAppRepository, observedRepository),
+                setupService,
+                new DiscoverInstallPreviewService(new InstallPlanService(layout, customizationResolver), setupService),
+                installService,
+                jobService);
+    }
+
+    private com.projectos.apps.AppOwnershipService appOwnershipService(InstalledAppRepository installedAppRepository, ObservedServiceRepository observedRepository) {
         return new com.projectos.apps.AppOwnershipService(
                 catalogService(),
                 installedAppRepository,
-                includeIgnored -> inventory,
-                new com.projectos.host.ExternalServiceRepository(runtimeLayout()),
+                new ObservedServiceService(observedRepository, new ObservedServiceScanner(List::of, () -> new com.projectos.system.ProjectOsIdentity("current-instance", "project-os", runtimeRoot.toString(), "runtime-hash", Instant.parse("2026-06-20T12:00:00Z"), 1))),
                 new com.projectos.marketplace.install.DockerOwnershipService(
                         () -> new com.projectos.system.ProjectOsIdentity("current-instance", "project-os", runtimeRoot.toString(), "runtime-hash", Instant.parse("2026-06-20T12:00:00Z"), 1),
                         () -> "0.2.0",
@@ -195,28 +247,55 @@ class DiscoverServiceTests {
         return new InstalledAppRepository(runtimeLayout());
     }
 
+    private ObservedServiceRepository observedRepository() {
+        return new ObservedServiceRepository(runtimeLayout());
+    }
+
     private RuntimeLayout runtimeLayout() {
         ProjectOsRuntimeProperties properties = new ProjectOsRuntimeProperties();
         properties.setRuntimeRoot(runtimeRoot.toString());
         return new RuntimeLayout(properties);
     }
 
-    private HostInventoryResource foreignJellyfin() {
-        return new HostInventoryResource(
-                "docker:projectos_other_jellyfin",
-                "jellyfin",
-                "jellyfin",
-                "foreign_project_os",
-                "observed",
-                "other-instance",
-                "current-instance",
-                "running",
-                List.of("http://localhost:8096"),
+    private ProjectOsJobService jobService() {
+        return new ProjectOsJobService(new ProjectOsJobRepository(runtimeLayout(), () -> Instant.parse("2026-06-21T12:00:00Z")), Runnable::run, false);
+    }
+
+    private ObservedService observed(String id, String catalogAppId, String ownershipState, String visibility) {
+        Instant seenAt = Instant.parse("2026-06-21T12:00:00Z");
+        return new ObservedService(
+                id,
                 "docker",
-                List.of("view_details", "open", "cleanup", "ignore"),
+                id.replace("docker:", ""),
+                catalogAppId,
+                "http://localhost:8096",
+                "External",
+                "LAN",
+                catalogAppId,
+                "user",
+                ownershipState,
+                visibility,
+                "running",
                 false,
-                "high",
-                "Found on this server, but managed by another Project OS installation.",
-                Map.of());
+                "foreign_project_os".equals(ownershipState) ? "other-instance" : "",
+                seenAt,
+                seenAt,
+                "pinned".equals(visibility) ? seenAt : null,
+                null,
+                "{}");
+    }
+
+    private static final class RecordingMarketplaceInstallService extends MarketplaceInstallService {
+        private InstallOptionsRequest lastOptions;
+
+        private RecordingMarketplaceInstallService() {
+            super(null, null, null, null, null, null, null, null, null, null);
+        }
+
+        @Override
+        public InstallResult install(com.projectos.marketplace.model.ApplicationManifest manifest, InstallOptionsRequest options, java.util.function.Consumer<InstallStep> progressSink) {
+            lastOptions = options;
+            return new InstallResult(manifest.id(), manifest.name(), "installed", "Installed.", manifest.accessUrl(), null, List.of(), List.of(), null, null);
+        }
     }
 }
