@@ -22,6 +22,7 @@ import overviewBackground from '@/assets/overviewBackground.png';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
 import { cn } from '@/lib/utils';
 import { useApplicationStateRepository } from '@/repositories/applicationStateRepository';
+import { managedAppIconUrl, observedServiceIconUrl } from './extensions/OverviewPage.appTiles';
 import { homeMajorActivity } from './extensions/OverviewPage.activity';
 import { shouldShowActivityLogLink } from './extensions/OverviewPage.activityLink';
 import type { ActivityLog } from '@/types/activity';
@@ -153,6 +154,7 @@ function OverviewPage() {
                     actionLabel="Open"
                     description={app.category}
                     href={app.privateUrl || app.localUrl}
+                    iconUrl={managedAppIconUrl(app)}
                     key={app.appInstanceId}
                     name={app.name}
                     status={accessLabel(app)}
@@ -186,6 +188,7 @@ function OverviewPage() {
                     actionLabel="Open"
                     description={`${service.category} - ${service.accessScope}`}
                     href={service.url || undefined}
+                    iconUrl={observedServiceIconUrl(service)}
                     key={service.id}
                     name={service.displayName}
                     status="Pinned"

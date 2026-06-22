@@ -520,6 +520,7 @@ export function QuickAccessAppTile({
   description,
   href,
   icon,
+  iconUrl,
   name,
   status,
   statusTone = 'success',
@@ -531,6 +532,7 @@ export function QuickAccessAppTile({
   description?: ReactNode;
   href?: string;
   icon?: ReactNode;
+  iconUrl?: string | null;
   name: ReactNode;
   onAction?: () => void;
   status?: ReactNode;
@@ -554,8 +556,8 @@ export function QuickAccessAppTile({
   return (
     <SoftCard className={cn('grid min-h-40 content-between gap-4 text-center', className)} interactive>
       <div className="grid justify-items-center gap-3">
-        <div className="grid size-14 place-items-center rounded-po-md bg-po-surface-inset text-po-brand-strong shadow-po-sm">
-          {icon || <Sparkles className="size-7" />}
+        <div className="grid size-14 place-items-center overflow-hidden rounded-po-md bg-po-surface-inset text-po-brand-strong shadow-po-sm">
+          {iconUrl ? <img alt="" className="size-full object-contain p-1.5" src={iconUrl} /> : icon || <Sparkles className="size-7" />}
         </div>
         <div>
           <p className="m-0 font-bold text-po-text">{name}</p>
