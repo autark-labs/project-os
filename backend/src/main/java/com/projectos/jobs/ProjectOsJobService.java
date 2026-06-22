@@ -98,7 +98,7 @@ public class ProjectOsJobService {
             repository.markRunning(job.jobId(), firstStepId);
             ProjectOsJobOutcome outcome = operation.apply(job);
             if ("failed".equals(outcome.status())) {
-                repository.fail(job.jobId(), "job_failed", outcome.message(), java.util.Map.of());
+                repository.fail(job.jobId(), "job_failed", outcome.message(), java.util.Map.of(), outcome.steps());
             } else {
                 repository.succeed(job.jobId(), outcome.message(), outcome.steps());
             }

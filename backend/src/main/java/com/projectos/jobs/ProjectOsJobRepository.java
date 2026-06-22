@@ -154,6 +154,13 @@ public class ProjectOsJobRepository extends DatabaseBackedRepository {
         return update(jobId, "failed", currentStep(jobId), markRunningStepFailed(jobId, message), clean(code, "job_failed"), clean(message, "Job failed."), details == null ? Map.of() : details);
     }
 
+    public ProjectOsJob fail(String jobId, String code, String message, Map<String, String> details, List<ProjectOsJobStep> steps) {
+        if (steps == null || steps.isEmpty()) {
+            return fail(jobId, code, message, details);
+        }
+        return update(jobId, "failed", failedStepId(steps), steps, clean(code, "job_failed"), clean(message, "Job failed."), details == null ? Map.of() : details);
+    }
+
     public ProjectOsJob cancel(String jobId) {
         return update(jobId, "cancelled", currentStep(jobId), findById(jobId).orElseThrow().steps(), null, null, Map.of());
     }
@@ -206,6 +213,14 @@ public class ProjectOsJobRepository extends DatabaseBackedRepository {
         return findById(jobId).orElseThrow().steps().stream()
                 .map(step -> "running".equals(step.status()) ? step.withStatus("failed", message, null, now) : step)
                 .toList();
+    }
+
+    private String failedStepId(List<ProjectOsJobStep> steps) {
+        return steps.stream()
+                .filter(step -> "failed".equals(step.status()))
+                .map(ProjectOsJobStep::id)
+                .findFirst()
+                .orElseGet(() -> steps.isEmpty() ? "" : steps.getLast().id());
     }
 
     private String currentStep(String jobId) {

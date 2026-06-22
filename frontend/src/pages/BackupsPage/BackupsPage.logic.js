@@ -76,6 +76,36 @@ export function backupAppBadgeTone(status) {
 }
 
 /**
+ * @param {{ type?: string } | null | undefined} job
+ * @returns {string}
+ */
+export function backupJobBannerTitle(job) {
+  if (job?.type === 'backup_verify') return 'Verification in progress';
+  if (job?.type === 'backup_restore') return 'Restore in progress';
+  return 'Backup in progress';
+}
+
+/**
+ * @param {{ type?: string } | null | undefined} job
+ * @returns {string}
+ */
+export function backupJobStartedMessage(job) {
+  if (job?.type === 'backup_verify') return 'Verification job started. Project OS will update the restore point when it finishes.';
+  if (job?.type === 'backup_restore') return 'Restore job started. Project OS will update app and backup state when it finishes.';
+  return 'Backup job started. Project OS will update restore points when it finishes.';
+}
+
+/**
+ * @param {{ type?: string } | null | undefined} job
+ * @returns {string}
+ */
+export function backupJobCompletedMessage(job) {
+  if (job?.type === 'backup_verify') return 'Verification job completed.';
+  if (job?.type === 'backup_restore') return 'Restore job completed.';
+  return 'Backup job completed.';
+}
+
+/**
  * @param {unknown} report
  * @param {unknown} latestRestore
  * @returns {{ summary: string; title: string }}

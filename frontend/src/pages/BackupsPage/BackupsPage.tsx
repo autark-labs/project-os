@@ -25,7 +25,7 @@ import {
   RoutineTimeline,
   SectionHeader,
 } from './BackupsPage.components';
-import { backupPageViewModel, capitalizeBackupLabel, formatBackupBytes } from './BackupsPage.logic';
+import { backupJobBannerTitle, backupJobCompletedMessage, backupJobStartedMessage, backupPageViewModel, capitalizeBackupLabel, formatBackupBytes } from './BackupsPage.logic';
 
 type RestoreView = 'timeline' | 'list';
 
@@ -88,7 +88,7 @@ function BackupsPage() {
           if (nextJob.status === 'failed') {
             setError(nextJob.error?.message || 'Backup job failed.');
           } else if (nextJob.status === 'succeeded') {
-            setMessage('Backup job completed.');
+            setMessage(backupJobCompletedMessage(nextJob));
           }
           setRunning(null);
           await load(true);
@@ -120,7 +120,7 @@ function BackupsPage() {
     try {
       const result = await action();
       setActiveJob(result);
-      setMessage(result.status === 'failed' ? result.error?.message || 'Backup could not be started.' : 'Backup job started. Project OS will update restore points when it finishes.');
+      setMessage(result.status === 'failed' ? result.error?.message || 'Backup could not be started.' : backupJobStartedMessage(result));
       await load(true);
     } catch (runError) {
       setError(apiErrorMessage(runError, 'Backup could not be started.'));
@@ -161,13 +161,14 @@ function BackupsPage() {
     setMessage(null);
     try {
       const result = await BackupAPIClient.restore(restorePoint.id, restoreTargetAppId);
-      setMessage(result.message);
+      setActiveJob(result);
+      setMessage(result.status === 'failed' ? result.error?.message || 'Restore could not be started.' : backupJobStartedMessage(result));
       setRestorePoint(null);
       setRestorePlan(null);
+      setRestoreTargetAppId(null);
       await load(true);
     } catch (restoreError) {
       setError(apiErrorMessage(restoreError, 'Restore could not be completed.'));
-    } finally {
       setRunning(null);
     }
   }
@@ -178,11 +179,11 @@ function BackupsPage() {
     setMessage(null);
     try {
       const result = await BackupAPIClient.verify(point.id);
-      setMessage(result.message);
+      setActiveJob(result);
+      setMessage(result.status === 'failed' ? result.error?.message || 'Verification could not be started.' : backupJobStartedMessage(result));
       await load(true);
     } catch (verifyError) {
       setError(apiErrorMessage(verifyError, 'Backup verification could not be completed.'));
-    } finally {
       setRunning(null);
     }
   }
@@ -366,7 +367,7 @@ function BackupsPage() {
 function BackupJobBanner({ job }: { job: ProjectOsJob }) {
   return (
     <div className="border-b border-violet-300/20 bg-violet-500/10 px-6 py-4 text-sm text-violet-100">
-      <p className="font-semibold text-white">Backup in progress</p>
+      <p className="font-semibold text-white">{backupJobBannerTitle(job)}</p>
       <p className="mt-1">{currentJobStep(job)}</p>
     </div>
   );

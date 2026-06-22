@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { backupPageViewModel } from './BackupsPage.logic.js';
+import { backupJobBannerTitle, backupJobCompletedMessage, backupJobStartedMessage, backupPageViewModel } from './BackupsPage.logic.js';
 
 const baseReport = {
   apps: [
@@ -61,4 +61,18 @@ test('backupPageViewModel handles a missing report without throwing', () => {
   assert.deepEqual(model.routineRestorePoints, []);
   assert.equal(model.latestRestore, null);
   assert.equal(model.protectionHero.title, 'Protection status is unknown');
+});
+
+test('backup job copy distinguishes backup, verification, and restore jobs', () => {
+  assert.equal(backupJobBannerTitle({ type: 'backup' }), 'Backup in progress');
+  assert.equal(backupJobBannerTitle({ type: 'backup_verify' }), 'Verification in progress');
+  assert.equal(backupJobBannerTitle({ type: 'backup_restore' }), 'Restore in progress');
+
+  assert.equal(backupJobStartedMessage({ type: 'backup' }), 'Backup job started. Project OS will update restore points when it finishes.');
+  assert.equal(backupJobStartedMessage({ type: 'backup_verify' }), 'Verification job started. Project OS will update the restore point when it finishes.');
+  assert.equal(backupJobStartedMessage({ type: 'backup_restore' }), 'Restore job started. Project OS will update app and backup state when it finishes.');
+
+  assert.equal(backupJobCompletedMessage({ type: 'backup' }), 'Backup job completed.');
+  assert.equal(backupJobCompletedMessage({ type: 'backup_verify' }), 'Verification job completed.');
+  assert.equal(backupJobCompletedMessage({ type: 'backup_restore' }), 'Restore job completed.');
 });

@@ -59,6 +59,29 @@ class ProjectOsJobServiceTests {
     }
 
     @Test
+    void failedOutcomePreservesOutcomeSteps() {
+        ProjectOsJobService service = service();
+        ProjectOsJob job = service.start("backup_restore", "42:vaultwarden", List.of(
+                ProjectOsJobStep.pending("validate_restore_point", "Validating restore point"),
+                ProjectOsJobStep.pending("restore_data", "Restoring app data"),
+                ProjectOsJobStep.pending("finish", "Finishing restore")), () -> ProjectOsJobOutcome.failed(
+                "Restore archive could not be read.",
+                List.of(
+                        ProjectOsJobStep.succeeded("validate_restore_point", "Validating restore point", "Restore point is ready."),
+                        ProjectOsJobStep.failed("restore_data", "Restoring app data", "Restore archive could not be read."),
+                        ProjectOsJobStep.pending("finish", "Finishing restore"))));
+
+        service.runQueuedJobsNow();
+
+        ProjectOsJob failed = service.findById(job.jobId()).orElseThrow();
+        assertThat(failed.status()).isEqualTo("failed");
+        assertThat(failed.currentStep()).isEqualTo("restore_data");
+        assertThat(failed.steps()).extracting(ProjectOsJobStep::status)
+                .containsExactly("succeeded", "failed", "pending");
+        assertThat(failed.error().message()).isEqualTo("Restore archive could not be read.");
+    }
+
+    @Test
     void marksInterruptedQueuedAndRunningJobsAsFailedOnStartup() {
         ProjectOsRuntimeProperties properties = new ProjectOsRuntimeProperties();
         properties.setRuntimeRoot(runtimeRoot.toString());

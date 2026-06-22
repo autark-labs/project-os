@@ -1,6 +1,6 @@
 import { httpClient } from './httpClient';
 import type { ProjectOsJob } from '@/types/jobs';
-import type { BackupReport, BackupVerificationResult, RestorePlan, RestoreResult } from '@/types/backup';
+import type { BackupReport, RestorePlan } from '@/types/backup';
 
 export const BackupAPIClient = {
   async report() {
@@ -29,12 +29,12 @@ export const BackupAPIClient = {
   },
 
   async verify(restorePointId: number) {
-    const response = await httpClient.post<BackupVerificationResult>(`/api/backups/restore-points/${restorePointId}/verify`);
+    const response = await httpClient.post<ProjectOsJob>(`/api/backups/restore-points/${restorePointId}/verify`);
     return response.data;
   },
 
   async restore(restorePointId: number, appId?: string | null) {
-    const response = await httpClient.post<RestoreResult>(`/api/backups/restore-points/${restorePointId}/restore`, { appId: appId || null });
+    const response = await httpClient.post<ProjectOsJob>(`/api/backups/restore-points/${restorePointId}/restore`, { appId: appId || null });
     return response.data;
   },
 };

@@ -53,13 +53,14 @@ public class BackupController {
     }
 
     @PostMapping("/restore-points/{id}/verify")
-    public BackupVerificationResult verify(@PathVariable long id) {
-        return backupService.verify(id);
+    public ProjectOsJob verify(@PathVariable long id) {
+        return jobService.start("backup_verify", Long.toString(id), verificationSteps(), () -> verificationOutcome(backupService.verify(id)));
     }
 
     @PostMapping("/restore-points/{id}/restore")
-    public RestoreResult restore(@PathVariable long id, @RequestBody(required = false) RestoreRequest request) {
-        return backupService.restore(id, request == null ? null : request.appId());
+    public ProjectOsJob restore(@PathVariable long id, @RequestBody(required = false) RestoreRequest request) {
+        String appId = request == null ? null : request.appId();
+        return jobService.start("backup_restore", restoreSubject(id, appId), restoreSteps(), () -> restoreOutcome(backupService.restore(id, appId)));
     }
 
     private java.util.List<ProjectOsJobStep> backupSteps() {
@@ -85,5 +86,61 @@ public class BackupController {
                 ProjectOsJobStep.succeeded("verify_backup", "Verifying restore point", result.restorePoint() == null ? "" : result.restorePoint().verificationMessage()),
                 ProjectOsJobStep.succeeded("finish", "Finishing backup", result.message()));
         return ProjectOsJobOutcome.succeeded(result.message(), steps);
+    }
+
+    private java.util.List<ProjectOsJobStep> verificationSteps() {
+        return java.util.List.of(
+                ProjectOsJobStep.pending("load_restore_point", "Loading restore point"),
+                ProjectOsJobStep.pending("verify_archive", "Verifying backup archive"),
+                ProjectOsJobStep.pending("record_result", "Recording verification result"),
+                ProjectOsJobStep.pending("finish", "Finishing verification"));
+    }
+
+    private ProjectOsJobOutcome verificationOutcome(BackupVerificationResult result) {
+        java.util.List<ProjectOsJobStep> steps = java.util.List.of(
+                ProjectOsJobStep.succeeded("load_restore_point", "Loading restore point", "Restore point loaded."),
+                "failed".equals(result.status())
+                        ? ProjectOsJobStep.failed("verify_archive", "Verifying backup archive", result.message())
+                        : ProjectOsJobStep.succeeded("verify_archive", "Verifying backup archive", result.message()),
+                ProjectOsJobStep.succeeded("record_result", "Recording verification result", "Verification status saved."),
+                ProjectOsJobStep.succeeded("finish", "Finishing verification", result.message()));
+        if ("failed".equals(result.status())) {
+            return ProjectOsJobOutcome.failed(result.message(), steps);
+        }
+        return ProjectOsJobOutcome.succeeded(result.message(), steps);
+    }
+
+    private java.util.List<ProjectOsJobStep> restoreSteps() {
+        return java.util.List.of(
+                ProjectOsJobStep.pending("validate_restore_point", "Validating restore point"),
+                ProjectOsJobStep.pending("stop_apps", "Stopping affected apps"),
+                ProjectOsJobStep.pending("create_safety_backup", "Creating safety backup"),
+                ProjectOsJobStep.pending("restore_data", "Restoring app data"),
+                ProjectOsJobStep.pending("start_apps", "Starting affected apps"),
+                ProjectOsJobStep.pending("finish", "Finishing restore"));
+    }
+
+    private ProjectOsJobOutcome restoreOutcome(RestoreResult result) {
+        java.util.List<ProjectOsJobStep> steps = java.util.List.of(
+                ProjectOsJobStep.succeeded("validate_restore_point", "Validating restore point", "Restore point is ready."),
+                ProjectOsJobStep.succeeded("stop_apps", "Stopping affected apps", "Affected apps were prepared for restore."),
+                ProjectOsJobStep.succeeded("create_safety_backup", "Creating safety backup", "Current app data was protected before restore."),
+                "failed".equals(result.status())
+                        ? ProjectOsJobStep.failed("restore_data", "Restoring app data", result.message())
+                        : ProjectOsJobStep.succeeded("restore_data", "Restoring app data", result.message()),
+                "failed".equals(result.status())
+                        ? ProjectOsJobStep.pending("start_apps", "Starting affected apps")
+                        : ProjectOsJobStep.succeeded("start_apps", "Starting affected apps", "Affected apps were started after restore."),
+                "failed".equals(result.status())
+                        ? ProjectOsJobStep.pending("finish", "Finishing restore")
+                        : ProjectOsJobStep.succeeded("finish", "Finishing restore", result.message()));
+        if ("failed".equals(result.status())) {
+            return ProjectOsJobOutcome.failed(result.message(), steps);
+        }
+        return ProjectOsJobOutcome.succeeded(result.message(), steps);
+    }
+
+    private String restoreSubject(long id, String appId) {
+        return id + ":" + (appId == null || appId.isBlank() ? "all" : appId);
     }
 }
