@@ -64,7 +64,6 @@ export function observedServicesWithoutOwnership(observedServices = [], ownershi
         },
       ],
       installedApp: null,
-      foundResource: null,
       observedService: service,
     }));
 }
@@ -103,7 +102,6 @@ function observedServiceOwnershipView(service) {
     },
     availableActions: service.availableActions || [],
     installedApp: null,
-    foundResource: null,
     observedService: service,
   };
 }

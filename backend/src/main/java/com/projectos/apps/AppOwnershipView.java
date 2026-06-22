@@ -3,7 +3,6 @@ package com.projectos.apps;
 import java.util.List;
 
 import com.projectos.discover.DiscoverInstalledAppSummary;
-import com.projectos.host.HostInventoryResource;
 import com.projectos.host.ObservedServiceView;
 
 public record AppOwnershipView(
@@ -25,6 +24,5 @@ public record AppOwnershipView(
         AppOwnershipAction primaryAction,
         List<AppOwnershipAction> availableActions,
         DiscoverInstalledAppSummary installedApp,
-        HostInventoryResource foundResource,
         ObservedServiceView observedService) {
 }

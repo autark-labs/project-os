@@ -165,7 +165,6 @@ public class DiscoverService {
                 ownership.primaryAction(),
                 ownership.availableActions(),
                 ownership.installedApp(),
-                ownership.foundResource(),
                 ownership.observedService(),
                 setupService.schema(manifest));
     }
@@ -193,7 +192,6 @@ public class DiscoverService {
                 null,
                 new com.projectos.apps.AppOwnershipAction("review_setup", "Review setup", "route", "/discover?app=" + encode(manifest.id()), null, false, ""),
                 List.of(new com.projectos.apps.AppOwnershipAction("review_setup", "Review setup", "route", "/discover?app=" + encode(manifest.id()), null, false, "")),
-                null,
                 null,
                 null);
     }

@@ -1,5 +1,4 @@
 import type { DiscoverInstalledAppSummary } from './discover';
-import type { HostInventoryResource } from './host';
 import type { ObservedServiceView } from './observedService';
 
 export type AppOwnershipState =
@@ -44,6 +43,5 @@ export type AppOwnershipView = {
   primaryAction: AppOwnershipAction;
   availableActions: AppOwnershipAction[];
   installedApp: DiscoverInstalledAppSummary | null;
-  foundResource: HostInventoryResource | null;
   observedService: ObservedServiceView | null;
 };

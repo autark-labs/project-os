@@ -4,7 +4,6 @@ import java.util.List;
 
 import com.projectos.apps.AppOwnershipAction;
 import com.projectos.apps.AppOwnershipState;
-import com.projectos.host.HostInventoryResource;
 import com.projectos.host.ObservedServiceView;
 import com.projectos.marketplace.model.ApplicationManifest;
 
@@ -31,7 +30,6 @@ public record DiscoverAppView(
         AppOwnershipAction primaryAction,
         List<AppOwnershipAction> availableActions,
         DiscoverInstalledAppSummary installedApp,
-        HostInventoryResource foundResource,
         ObservedServiceView observedService,
         DiscoverSetupSchema setupSchema) {
 }

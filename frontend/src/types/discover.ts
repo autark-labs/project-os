@@ -1,4 +1,3 @@
-import type { HostInventoryResource } from './host';
 import type { AppOwnershipAction, AppOwnershipTone } from './appOwnership';
 import type { InstallOptions, InstallPlan, MarketplaceApp } from './marketplace';
 import type { ObservedServiceView } from './observedService';
@@ -59,7 +58,6 @@ export type DiscoverAppView = {
   availableActions: AppOwnershipAction[];
   installed: boolean;
   installedApp: DiscoverInstalledAppSummary | null;
-  foundResource: HostInventoryResource | null;
   observedService: ObservedServiceView | null;
   setupSchema: DiscoverSetupSchema;
 };

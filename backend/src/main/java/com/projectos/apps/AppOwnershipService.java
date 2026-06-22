@@ -7,7 +7,6 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 
 import com.projectos.discover.DiscoverInstalledAppSummary;
-import com.projectos.host.HostInventoryResource;
 import com.projectos.host.ObservedService;
 import com.projectos.host.ObservedServiceService;
 import com.projectos.host.ObservedServiceView;
@@ -19,7 +18,7 @@ import com.projectos.marketplace.install.InstalledAppRepository;
 import com.projectos.marketplace.model.ApplicationManifest;
 
 @Service
-public class AppOwnershipService implements AppOwnershipProvider {
+public class AppOwnershipService {
 
     private final MarketplaceCatalogService catalogService;
     private final InstalledAppRepository installedAppRepository;
@@ -37,7 +36,6 @@ public class AppOwnershipService implements AppOwnershipProvider {
         this.dockerOwnershipService = dockerOwnershipService;
     }
 
-    @Override
     public List<AppOwnershipView> apps() {
         return apps(cachedObservedServices());
     }
@@ -103,7 +101,6 @@ public class AppOwnershipService implements AppOwnershipProvider {
                 primaryAction,
                 availableActions(manifest.id(), state, installed, observedService, reviewExistingHref),
                 installed == null ? null : new DiscoverInstalledAppSummary(installed.appId(), installed.appName(), installed.status(), installed.accessUrl()),
-                null,
                 observedView);
     }
 

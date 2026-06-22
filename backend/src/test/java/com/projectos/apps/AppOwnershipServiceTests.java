@@ -93,7 +93,6 @@ class AppOwnershipServiceTests {
                     assertThat(view.installCopyWarningRequired()).isFalse();
                     assertThat(view.primaryAction()).isEqualTo(new AppOwnershipAction("manage", "Manage", "route", "/apps", null, false, ""));
                     assertThat(view.installedApp()).isEqualTo(new DiscoverInstalledAppSummary("vaultwarden", "Family Passwords", "Ready", "http://localhost:8090"));
-                    assertThat(view.foundResource()).isNull();
                     assertThat(view.observedService()).isNull();
                 });
         assertThat(views).filteredOn(view -> view.catalogAppId().equals("jellyfin"))
@@ -146,7 +145,6 @@ class AppOwnershipServiceTests {
         assertThat(view.availableActions()).extracting(AppOwnershipAction::id).contains("open", "review_existing", "install_copy");
         assertThat(view.observedService()).isNotNull();
         assertThat(view.observedService().id()).isEqualTo(pinned.id());
-        assertThat(view.foundResource()).isNull();
     }
 
     @Test
