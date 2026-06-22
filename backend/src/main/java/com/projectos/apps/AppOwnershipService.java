@@ -39,7 +39,7 @@ public class AppOwnershipService implements AppOwnershipProvider {
 
     @Override
     public List<AppOwnershipView> apps() {
-        return apps(refreshedObservedServices());
+        return apps(cachedObservedServices());
     }
 
     public List<AppOwnershipView> apps(List<ObservedService> observedServices) {
@@ -50,16 +50,15 @@ public class AppOwnershipService implements AppOwnershipProvider {
     }
 
     public Optional<AppOwnershipView> app(String appId) {
-        List<ObservedService> observedServices = refreshedObservedServices();
+        List<ObservedService> observedServices = cachedObservedServices();
         return catalogService.findById(appId)
                 .map(manifest -> appView(manifest, observedServices));
     }
 
-    private List<ObservedService> refreshedObservedServices() {
+    private List<ObservedService> cachedObservedServices() {
         if (observedServiceService == null) {
             return List.of();
         }
-        observedServiceService.refresh();
         return observedServiceService.observedServices();
     }
 

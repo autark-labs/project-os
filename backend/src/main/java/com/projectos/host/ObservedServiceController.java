@@ -36,7 +36,11 @@ public class ObservedServiceController {
 
     @PostMapping("/refresh")
     public List<ObservedServiceView> refresh() {
-        return service.refresh();
+        List<ObservedServiceView> services = service.refresh();
+        if (applicationStateService != null) {
+            applicationStateService.refreshInBackground();
+        }
+        return services;
     }
 
     @GetMapping("/{id}")

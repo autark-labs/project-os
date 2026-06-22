@@ -70,6 +70,20 @@ class ObservedServiceControllerTests {
         verify(applicationStateService, never()).refreshNow();
     }
 
+    @Test
+    void explicitRefreshScansHostAndSchedulesCachedApplicationStateRefresh() {
+        InMemoryObservedServiceService service = new InMemoryObservedServiceService();
+        service.current = observed("obs_service", "observed", null, null);
+        ApplicationStateService applicationStateService = mock(ApplicationStateService.class);
+        ObservedServiceController controller = new ObservedServiceController(service, applicationStateService);
+
+        controller.refresh();
+
+        assertThat(service.refreshCalls).isEqualTo(1);
+        verify(applicationStateService).refreshInBackground();
+        verify(applicationStateService, never()).refreshNow();
+    }
+
     private static ObservedService observed(String id, String visibility, Instant pinnedAt, String catalogAppId) {
         return new ObservedService(
                 id,

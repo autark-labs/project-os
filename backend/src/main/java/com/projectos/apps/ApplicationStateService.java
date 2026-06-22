@@ -175,7 +175,7 @@ public class ApplicationStateService {
     private ApplicationState buildSnapshot(Instant startedAt) {
         List<AppInstanceView> managed = managedApps.get();
         List<AppRuntimeView> runtime = runtimeApps.get();
-        List<ObservedService> observed = refreshObservedServices();
+        List<ObservedService> observed = cachedObservedServices();
         List<ObservedServiceView> observedViews = observed.stream()
                 .map(ObservedServiceService::toView)
                 .toList();
@@ -238,11 +238,10 @@ public class ApplicationStateService {
                 previous.nextRefreshAt());
     }
 
-    private List<ObservedService> refreshObservedServices() {
+    private List<ObservedService> cachedObservedServices() {
         if (observedServiceService == null) {
             return List.of();
         }
-        observedServiceService.refresh();
         return observedServiceService.observedServices();
     }
 

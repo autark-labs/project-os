@@ -93,6 +93,26 @@ class ApplicationStateServiceTests {
     }
 
     @Test
+    void explicitRefreshReadsCachedObservedServicesWithoutScanningHost() {
+        ObservedServiceRepository repository = repository();
+        repository.upsert(pinned("manual:gitlab", "gitlab"));
+        CountingObservedServiceService observedServiceService = new CountingObservedServiceService(repository);
+        ApplicationStateService service = new ApplicationStateService(
+                List::of,
+                List::of,
+                observedServiceService,
+                null,
+                () -> Instant.parse("2026-06-21T12:00:00Z"));
+
+        ApplicationState state = service.refreshNow();
+
+        assertThat(observedServiceService.refreshCalls).hasValue(0);
+        assertThat(state.observedServices())
+                .extracting(ObservedServiceView::id)
+                .containsExactly("manual:gitlab");
+    }
+
+    @Test
     void snapshotDuringRefreshReturnsPreviousProjectionWithoutWaiting() throws Exception {
         CountDownLatch refreshStarted = new CountDownLatch(1);
         CountDownLatch releaseRefresh = new CountDownLatch(1);
@@ -299,6 +319,20 @@ class ApplicationStateServiceTests {
 
         private void runNext() {
             tasks.removeFirst().run();
+        }
+    }
+
+    private static final class CountingObservedServiceService extends ObservedServiceService {
+        private final AtomicInteger refreshCalls = new AtomicInteger();
+
+        private CountingObservedServiceService(ObservedServiceRepository repository) {
+            super(repository, null);
+        }
+
+        @Override
+        public List<ObservedServiceView> refresh() {
+            refreshCalls.incrementAndGet();
+            return super.list(true);
         }
     }
 }

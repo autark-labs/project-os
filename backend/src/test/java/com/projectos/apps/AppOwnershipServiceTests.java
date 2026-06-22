@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -195,6 +196,27 @@ class AppOwnershipServiceTests {
     }
 
     @Test
+    void ownershipProjectionReadsCachedObservedServicesWithoutScanningHost() {
+        ObservedServiceRepository observedRepository = observedRepository();
+        observedRepository.upsert(observed("manual:vaultwarden", "vaultwarden", "external", "pinned"));
+        CountingObservedServiceService observedServiceService = new CountingObservedServiceService(observedRepository);
+        AppOwnershipService service = new AppOwnershipService(
+                catalogService(),
+                installedRepository(),
+                observedServiceService,
+                dockerOwnershipService());
+
+        AppOwnershipView view = service.app("vaultwarden").orElseThrow();
+        List<AppOwnershipView> views = service.apps();
+
+        assertThat(observedServiceService.refreshCalls).hasValue(0);
+        assertThat(view.state()).isEqualTo(AppOwnershipState.PINNED_EXTERNAL);
+        assertThat(views).filteredOn(item -> item.catalogAppId().equals("vaultwarden"))
+                .singleElement()
+                .satisfies(item -> assertThat(item.state()).isEqualTo(AppOwnershipState.PINNED_EXTERNAL));
+    }
+
+    @Test
     void legacyInstalledMetadataDoesNotCountAsCurrentInstanceInstalled() {
         InstalledAppRepository repository = installedRepository();
         repository.save(new InstalledApp(
@@ -283,5 +305,19 @@ class AppOwnershipServiceTests {
                 "pinned".equals(visibility) ? seenAt : null,
                 null,
                 "{}");
+    }
+
+    private static final class CountingObservedServiceService extends ObservedServiceService {
+        private final AtomicInteger refreshCalls = new AtomicInteger();
+
+        private CountingObservedServiceService(ObservedServiceRepository repository) {
+            super(repository, null);
+        }
+
+        @Override
+        public List<ObservedServiceView> refresh() {
+            refreshCalls.incrementAndGet();
+            return super.list(true);
+        }
     }
 }
