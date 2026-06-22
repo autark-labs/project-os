@@ -10,4 +10,10 @@ export type ApplicationState = {
   foundServices: ObservedServiceView[];
   ownershipViews: AppOwnershipView[];
   updatedAt: string;
+  stale?: boolean;
+  refreshStatus?: 'idle' | 'running' | 'failed' | string;
+  refreshStartedAt?: string | null;
+  refreshCompletedAt?: string | null;
+  nextRefreshAt?: string | null;
+  lastError?: string | null;
 };

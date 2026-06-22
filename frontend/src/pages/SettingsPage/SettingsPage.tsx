@@ -24,7 +24,6 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { ApplicationStateAPIClient } from '@/api/ApplicationStateAPIClient';
 import { BackupAPIClient } from '@/api/BackupAPIClient';
 import { InstalledAppsAPIClient } from '@/api/InstalledAppsAPIClient';
 import { apiErrorMessage } from '@/api/httpClient';
@@ -54,12 +53,12 @@ import { Switch } from '@/components/ui/switch';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
 import { poButtonClass, poCardClass, poNavItemClass } from '@/lib/projectOsStyleKit';
 import { cn } from '@/lib/utils';
+import { useApplicationStateRepository } from '@/repositories/applicationStateRepository';
 import type { AppRuntimeView, InstallSettings } from '@/types/app';
 import type { ProjectSettings, ProjectVersionInfo, SystemDoctorStatus, SystemMetrics, SystemSetupCheck, SystemSetupStatus } from '@/types/system';
 import { defaultSettingsGroup, sectionsForGroup, settingsGroups as topLevelSettingsGroups } from './SettingsPage.sections';
 
 type SettingsState = {
-  apps: AppRuntimeView[];
   backupRoot: string | null;
   doctor: SystemDoctorStatus | null;
   metrics: SystemMetrics | null;
@@ -160,8 +159,9 @@ const settingHelp: Record<string, SettingHelp> = {
 
 function SettingsPage() {
   const { setProjectSettings } = useProjectSettings();
+  const appState = useApplicationStateRepository();
   const [activeGroup, setActiveGroup] = useState<SettingsGroupId>('general');
-  const [state, setState] = useState<SettingsState>({ apps: [], backupRoot: null, doctor: null, metrics: null, projectSettings: null, setup: null, version: null });
+  const [state, setState] = useState<SettingsState>({ backupRoot: null, doctor: null, metrics: null, projectSettings: null, setup: null, version: null });
   const [draft, setDraft] = useState<ProjectSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -178,11 +178,10 @@ function SettingsPage() {
     }
     setError(null);
     try {
-      const [setup, metrics, projectSettings, apps, version, doctor, backupReport] = await Promise.all([
+      const [setup, metrics, projectSettings, version, doctor, backupReport] = await Promise.all([
         SystemAPIClient.setupStatus(),
         SystemAPIClient.metrics(),
         SystemAPIClient.settings(),
-        ApplicationStateAPIClient.get(),
         SystemAPIClient.version(),
         SystemAPIClient.doctor(),
         BackupAPIClient.report().catch((backupError) => {
@@ -190,7 +189,7 @@ function SettingsPage() {
           return null;
         }),
       ]);
-      setState({ apps: apps.runtimeApps, backupRoot: backupReport?.backupRoot ?? null, doctor, metrics, projectSettings, setup, version });
+      setState({ backupRoot: backupReport?.backupRoot ?? null, doctor, metrics, projectSettings, setup, version });
       setDraft(projectSettings);
     } catch (loadError) {
       setError(apiErrorMessage(loadError, 'Settings could not be loaded.'));
@@ -231,11 +230,11 @@ function SettingsPage() {
     try {
       const previous = state.projectSettings;
       const saved = await SystemAPIClient.updateSettings(draft);
-      let apps = state.apps;
       if (!previous || previous.automaticRepairEnabled !== saved.automaticRepairEnabled || previous.automaticBackupsEnabled !== saved.automaticBackupsEnabled || previous.backupFrequency !== saved.backupFrequency || previous.backupRetentionDays !== saved.backupRetentionDays) {
-        apps = await applyProjectSettingsToApps(state.apps, saved);
+        await applyProjectSettingsToApps(appState.apps, saved);
+        await appState.refresh();
       }
-      setState((current) => ({ ...current, apps, projectSettings: saved }));
+      setState((current) => ({ ...current, projectSettings: saved }));
       setDraft(saved);
       setProjectSettings(saved);
       setMessage('Settings saved.');
@@ -246,7 +245,7 @@ function SettingsPage() {
     }
   }
 
-  if (loading || !draft) {
+  if (loading || appState.isLoading || !draft) {
     return (
       <PageLoadingState label="Loading settings" sublabel="Reading appliance preferences, setup checks, and app defaults." />
     );
@@ -324,7 +323,7 @@ function SettingsPage() {
             {sectionsForGroup(activeGroupId).map((sectionId) => (
               <SettingsPanelBySection
                 advancedChecks={advancedChecks}
-                apps={state.apps}
+                apps={appState.apps}
                 backupRoot={state.backupRoot}
                 copied={copied}
                 doctor={state.doctor}

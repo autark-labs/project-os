@@ -4,7 +4,6 @@ import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import { ActivityAPIClient } from '@/api/ActivityAPIClient';
-import { ApplicationStateAPIClient } from '@/api/ApplicationStateAPIClient';
 import { apiErrorMessage } from '@/api/httpClient';
 import { SystemAPIClient } from '@/api/SystemAPIClient';
 import {
@@ -22,31 +21,28 @@ import { Button } from '@/components/ui/button';
 import overviewBackground from '@/assets/overviewBackground.png';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
 import { cn } from '@/lib/utils';
+import { useApplicationStateRepository } from '@/repositories/applicationStateRepository';
 import { homeMajorActivity } from './extensions/OverviewPage.activity';
 import { shouldShowActivityLogLink } from './extensions/OverviewPage.activityLink';
 import type { ActivityLog } from '@/types/activity';
 import type { AppInstanceView } from '@/types/app';
-import type { ObservedServiceView } from '@/types/observedService';
 import type { RecommendedAction, SystemSummary } from '@/types/system';
 
 type OverviewState = {
   activity: ActivityLog[];
-  apps: AppInstanceView[];
-  observedServices: ObservedServiceView[];
   recommendedAction: RecommendedAction | null;
   summary: SystemSummary | null;
 };
 
 const initialState: OverviewState = {
   activity: [],
-  apps: [],
-  observedServices: [],
   recommendedAction: null,
   summary: null,
 };
 
 function OverviewPage() {
   const { viewMode } = useProjectSettings();
+  const appState = useApplicationStateRepository();
   const [state, setState] = useState<OverviewState>(initialState);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,10 +52,9 @@ function OverviewPage() {
 
     async function loadOverview() {
       setLoading(true);
-      const [summary, recommendedAction, applicationState, activity] = await Promise.allSettled([
+      const [summary, recommendedAction, activity] = await Promise.allSettled([
         SystemAPIClient.summary(),
         SystemAPIClient.recommendedAction(),
-        ApplicationStateAPIClient.get(),
         ActivityAPIClient.recent({ limit: 5 }),
       ]);
 
@@ -67,13 +62,10 @@ function OverviewPage() {
         return;
       }
 
-      const rejected = [summary, recommendedAction, applicationState, activity].find((result) => result.status === 'rejected');
-      const appState = valueOr(applicationState, null);
+      const rejected = [summary, recommendedAction, activity].find((result) => result.status === 'rejected');
       setError(rejected?.status === 'rejected' ? apiErrorMessage(rejected.reason, 'Home is missing some live data.') : null);
       setState({
         activity: valueOr(activity, []),
-        apps: appState?.managedApps ?? [],
-        observedServices: appState?.observedServices ?? [],
         recommendedAction: valueOr(recommendedAction, null),
         summary: valueOr(summary, null),
       });
@@ -88,19 +80,22 @@ function OverviewPage() {
     };
   }, []);
 
-  const readyApps = useMemo(() => state.apps.filter((app) => app.userStatus === 'Ready'), [state.apps]);
-  const pinnedServices = useMemo(() => state.observedServices.filter((service) => service.userStatus === 'pinned_external'), [state.observedServices]);
-  const observedNeedingReview = useMemo(() => state.observedServices.filter((service) => !service.managedByThisProjectOs && service.userStatus !== 'pinned_external'), [state.observedServices]);
+  const apps = appState.applicationState?.managedApps ?? [];
+  const observedServices = appState.observedServices;
+  const readyApps = useMemo(() => apps.filter((app) => app.userStatus === 'Ready'), [apps]);
+  const pinnedServices = useMemo(() => observedServices.filter((service) => service.userStatus === 'pinned_external'), [observedServices]);
+  const observedNeedingReview = useMemo(() => observedServices.filter((service) => !service.managedByThisProjectOs && service.userStatus !== 'pinned_external'), [observedServices]);
   const majorActivity = useMemo(() => homeMajorActivity(state.activity, 5) as ActivityLog[], [state.activity]);
   const showActivityLogLink = shouldShowActivityLogLink(viewMode, majorActivity);
   const primaryAction = state.recommendedAction?.id === 'no-action-needed' ? null : state.recommendedAction;
   const deviceName = state.summary?.deviceName || 'Project OS';
+  const pageLoading = loading || appState.isLoading;
 
   return (
     <PageShell maxWidth="max-w-[90%]">
       <HomeHero
         deviceName={deviceName}
-        loading={loading}
+        loading={pageLoading}
         pinnedServices={pinnedServices.length}
         readyApps={readyApps.length}
         summary={state.summary}
@@ -118,10 +113,10 @@ function OverviewPage() {
             />
           ) : (
             <PrimaryActionCard
-              action={{ id: 'open-discover', label: state.apps.length ? 'Discover apps' : 'Install your first app', route: '/discover', confirmationRequired: false, danger: false }}
-              body={state.apps.length ? 'Project OS does not see anything urgent right now.' : 'Start with a verified app and Project OS will guide the setup.'}
+              action={{ id: 'open-discover', label: apps.length ? 'Discover apps' : 'Install your first app', route: '/discover', confirmationRequired: false, danger: false }}
+              body={apps.length ? 'Project OS does not see anything urgent right now.' : 'Start with a verified app and Project OS will guide the setup.'}
               severity="success"
-              title={state.apps.length ? 'Everything important looks good' : 'Start with Discover'}
+              title={apps.length ? 'Everything important looks good' : 'Start with Discover'}
             />
           )}
 
@@ -169,11 +164,11 @@ function OverviewPage() {
               <SoftCard>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="m-0 font-bold text-po-text">{state.apps.length ? 'No apps are ready to open yet' : 'No apps installed yet'}</p>
-                    <p className="m-0 mt-1 text-sm text-po-text-muted">{state.apps.length ? 'Open My Apps to review setup or repair options.' : 'Discover verified starter apps to get going.'}</p>
+                    <p className="m-0 font-bold text-po-text">{apps.length ? 'No apps are ready to open yet' : 'No apps installed yet'}</p>
+                    <p className="m-0 mt-1 text-sm text-po-text-muted">{apps.length ? 'Open My Apps to review setup or repair options.' : 'Discover verified starter apps to get going.'}</p>
                   </div>
                   <Button asChild>
-                    <Link to={state.apps.length ? '/apps' : '/discover'}>{state.apps.length ? 'Review apps' : 'Open Discover'}</Link>
+                    <Link to={apps.length ? '/apps' : '/discover'}>{apps.length ? 'Review apps' : 'Open Discover'}</Link>
                   </Button>
                 </div>
               </SoftCard>

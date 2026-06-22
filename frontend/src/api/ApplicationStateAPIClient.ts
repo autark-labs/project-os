@@ -8,4 +8,9 @@ export const ApplicationStateAPIClient = {
     });
     return response.data;
   },
+
+  async refresh() {
+    const response = await httpClient.post<ApplicationState>('/api/application-state/refresh');
+    return response.data;
+  },
 };

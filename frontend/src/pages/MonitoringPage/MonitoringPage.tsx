@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { buildAppRemediationFromIssue } from '@/lib/appRemediation';
 import { cn } from '@/lib/utils';
+import { useApplicationStateRepository } from '@/repositories/applicationStateRepository';
 import type { ActivityLog } from '@/types/activity';
 import type { AppReliabilityIssue, AppReliabilitySummary, AppTelemetry } from '@/types/app';
 import type { AppMetricSample, HostMetricSample, MonitoringHistory } from '@/types/monitoring';
@@ -29,7 +30,6 @@ type MonitoringState = {
   activity: ActivityLog[];
   reliability: AppReliabilitySummary | null;
   metrics: SystemMetrics | null;
-  telemetryByAppId: Record<string, AppTelemetry>;
   history: MonitoringHistory | null;
 };
 
@@ -59,7 +59,8 @@ type AppTrendPoint = {
 
 function MonitoringPage() {
   const { showAdvancedMetrics } = useProjectSettings();
-  const [state, setState] = useState<MonitoringState>({ activity: [], reliability: null, metrics: null, telemetryByAppId: {}, history: null });
+  const appState = useApplicationStateRepository();
+  const [state, setState] = useState<MonitoringState>({ activity: [], reliability: null, metrics: null, history: null });
   const [level, setLevel] = useState('all');
   const [category, setCategory] = useState('all');
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -83,14 +84,13 @@ function MonitoringPage() {
     }
     setError(null);
     try {
-      const [activity, reliability, metrics, telemetryByAppId, history] = await Promise.all([
+      const [activity, reliability, metrics, history] = await Promise.all([
         ActivityAPIClient.recent(filters),
         InstalledAppsAPIClient.reliabilitySummary(),
         SystemAPIClient.metrics(),
-        InstalledAppsAPIClient.telemetry(),
         MonitoringAPIClient.history(60),
       ]);
-      setState({ activity, reliability, metrics, telemetryByAppId, history });
+      setState({ activity, reliability, metrics, history });
       setUpdatedAt(new Date());
     } catch (loadError) {
       setError(apiErrorMessage(loadError, 'Monitoring data could not be loaded.'));
@@ -137,7 +137,7 @@ function MonitoringPage() {
   const reliability = state.reliability;
   const categoryData = useMemo(() => buildCategoryData(state.activity), [state.activity]);
   const levelData = useMemo(() => buildLevelData(state.activity), [state.activity]);
-  const resourceData = useMemo(() => buildResourceData(state.telemetryByAppId), [state.telemetryByAppId]);
+  const resourceData = useMemo(() => buildResourceData(appState.telemetryByAppId), [appState.telemetryByAppId]);
   const hostTrendData = useMemo(() => buildHostTrendData(state.history?.hostSamples ?? []), [state.history]);
   const appTrendData = useMemo(() => buildAppTrendData(state.history?.appSamples ?? []), [state.history]);
   const highlightedIssue = reliability?.issues[0] ?? null;
@@ -159,7 +159,7 @@ function MonitoringPage() {
                 {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
                 Export diagnostics
               </Button>}
-              <RefreshStatus intervalLabel="Auto-updates every 5s" onRefresh={() => void load(true)} refreshing={refreshing} tone="violet" updatedAt={updatedAt} />
+              <RefreshStatus intervalLabel="Auto-updates every 10s" onRefresh={() => void Promise.all([load(true), appState.refresh()])} refreshing={refreshing || appState.isFetching} tone="violet" updatedAt={appState.updatedAt ?? updatedAt} />
             </div>
           </div>
         </div>

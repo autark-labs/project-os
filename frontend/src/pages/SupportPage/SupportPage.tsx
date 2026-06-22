@@ -3,7 +3,6 @@ import type { ReactNode } from 'react';
 import { AlertTriangle, ClipboardList, Copy, FileText, LifeBuoy, ListChecks, LockKeyhole, RefreshCw, Server, ShieldCheck, TerminalSquare } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { ApplicationStateAPIClient } from '@/api/ApplicationStateAPIClient';
 import { SystemAPIClient } from '@/api/SystemAPIClient';
 import { apiErrorMessage } from '@/api/httpClient';
 import { PageErrorState, PageLoadingState } from '@/components/project-os/PageState';
@@ -13,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
 import { cn } from '@/lib/utils';
+import { useApplicationStateRepository } from '@/repositories/applicationStateRepository';
 import { toast } from 'sonner';
 import type { ObservedServiceView } from '@/types/observedService';
 import type { SupportBundle, SupportLogLine, SupportSummary, SystemDoctorStatus, SystemSetupStatus } from '@/types/system';
@@ -23,7 +23,6 @@ import { FindingCard, InfoLine, LogLine, RedactionRuleCard, RelatedLink, Section
 type SupportState = {
   bundle: SupportBundle | null;
   doctor: SystemDoctorStatus | null;
-  observedServices: ObservedServiceView[];
   logs: SupportLogLine[];
   setup: SystemSetupStatus | null;
   summary: SupportSummary | null;
@@ -32,7 +31,6 @@ type SupportState = {
 const initialState: SupportState = {
   bundle: null,
   doctor: null,
-  observedServices: [],
   logs: [],
   setup: null,
   summary: null,
@@ -40,6 +38,7 @@ const initialState: SupportState = {
 
 function SupportPage() {
   const { showAdvancedMetrics } = useProjectSettings();
+  const appState = useApplicationStateRepository();
   const [state, setState] = useState<SupportState>(initialState);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -55,14 +54,13 @@ function SupportPage() {
     }
     setError(null);
     try {
-      const [summary, doctor, setup, logs, applicationState] = await Promise.all([
+      const [summary, doctor, setup, logs] = await Promise.all([
         SystemAPIClient.supportSummary(),
         SystemAPIClient.doctor(),
         SystemAPIClient.setupStatus(),
         SystemAPIClient.supportLogs(showAdvancedMetrics ? 160 : 50),
-        ApplicationStateAPIClient.get(),
       ]);
-      setState((current) => ({ ...current, doctor, observedServices: applicationState.observedServices, logs, setup, summary }));
+      setState((current) => ({ ...current, doctor, logs, setup, summary }));
       if (background) {
         const showToast = doctor.status === 'needs_attention' ? toast.warning : toast.success;
         showToast(doctor.headline, { description: doctor.summary });
@@ -107,17 +105,18 @@ function SupportPage() {
   }
 
   const summary = state.summary;
+  const observedServices = appState.observedServices;
   const findings = summary?.findings || state.bundle?.findings || [];
   const redactionRules = summary?.redactionRules || state.bundle?.redactionRules || [];
-  const summaryRows = diagnosticsSummaryRows({ summary, doctor: state.doctor, setup: state.setup, observedServices: state.observedServices });
+  const summaryRows = diagnosticsSummaryRows({ summary, doctor: state.doctor, setup: state.setup, observedServices });
   const headline = diagnosticsHeadline(summary, state.doctor);
   const conflict = productionConflictSummary(state.setup);
-  const ownershipResources = useMemo(() => state.observedServices.filter((service) => service.userStatus !== 'installed_managed'), [state.observedServices]);
-  const dockerResources = useMemo(() => state.observedServices.filter((service) => service.source === 'docker'), [state.observedServices]);
+  const ownershipResources = useMemo(() => observedServices.filter((service) => service.userStatus !== 'installed_managed'), [observedServices]);
+  const dockerResources = useMemo(() => observedServices.filter((service) => service.source === 'docker'), [observedServices]);
   const tailscaleCheck = state.setup?.checks?.find((check) => check.id === 'tailscale');
   const operatorCheck = state.setup?.checks?.find((check) => check.id === 'tailscale-operator');
 
-  if (loading) {
+  if (loading || appState.isLoading) {
     return <PageLoadingState label="Loading diagnostics" sublabel="Checking health, setup state, found apps, and recent logs." />;
   }
 

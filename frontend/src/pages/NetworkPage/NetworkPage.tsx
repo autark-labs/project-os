@@ -6,14 +6,13 @@ import { PageErrorState, PageLoadingState } from '@/components/project-os/PageSt
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { InstalledAppsAPIClient } from '@/api/InstalledAppsAPIClient';
-import { ApplicationStateAPIClient } from '@/api/ApplicationStateAPIClient';
 import { NetworkAPIClient } from '@/api/NetworkAPIClient';
 import { apiErrorMessage } from '@/api/httpClient';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
+import { useApplicationStateRepository } from '@/repositories/applicationStateRepository';
 import { toast } from 'sonner';
 import type { AppRuntimeView } from '@/types/app';
 import type { NetworkDiagnosticsReport, PrivateAccessReconciliationReport, SystemSetupStatus, TailscaleConnectGuide, TailscaleDevice, TailscaleStatus } from '@/types/network';
-import type { ObservedServiceView } from '@/types/observedService';
 import { HostSetupPanel } from './HostSetupPanel';
 import { NetworkAdvancedPanel } from './NetworkAdvancedPanel';
 import { NetworkDevicesPanel } from './NetworkDevicesPanel';
@@ -31,14 +30,13 @@ import { tailscaleSetupTasks } from './extensions/NetworkPage.tailscaleSetup';
 
 function NetworkPage() {
   const { showAdvancedMetrics } = useProjectSettings();
+  const appState = useApplicationStateRepository();
   const [tailscale, setTailscale] = useState<TailscaleStatus | null>(null);
   const [guide, setGuide] = useState<TailscaleConnectGuide | null>(null);
   const [tailnetDevices, setTailnetDevices] = useState<TailscaleDevice[]>([]);
   const [diagnostics, setDiagnostics] = useState<NetworkDiagnosticsReport | null>(null);
   const [reconciliation, setReconciliation] = useState<PrivateAccessReconciliationReport | null>(null);
   const [setupStatus, setSetupStatus] = useState<SystemSetupStatus | null>(null);
-  const [apps, setApps] = useState<AppRuntimeView[]>([]);
-  const [observedServices, setObservedServices] = useState<ObservedServiceView[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
@@ -47,7 +45,12 @@ function NetworkPage() {
   const [appActionLoading, setAppActionLoading] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string | null>(null);
 
-  const loadNetwork = useCallback(async ({ background = false, forceRefresh = false } = {}) => {
+  const apps = appState.apps;
+  const observedServices = appState.observedServices;
+  const pageLoading = loading || appState.isLoading;
+  const pageRefreshing = refreshing || appState.isFetching;
+
+  const loadNetwork = useCallback(async ({ background = false } = {}) => {
     if (!background) {
       setLoading(true);
     } else {
@@ -55,14 +58,13 @@ function NetworkPage() {
     }
     setError(null);
     try {
-      const [status, devices, diagnosticsReport, connectGuide, hostSetup, reconciliationReport, applicationState] = await Promise.all([
+      const [status, devices, diagnosticsReport, connectGuide, hostSetup, reconciliationReport] = await Promise.all([
         NetworkAPIClient.tailscaleStatus(),
         NetworkAPIClient.tailscaleDevices(),
         NetworkAPIClient.diagnostics(),
         NetworkAPIClient.connectGuide(),
         NetworkAPIClient.setupStatus(),
         NetworkAPIClient.privateAccessReconciliation(),
-        ApplicationStateAPIClient.get({ refresh: forceRefresh || !background }),
       ]);
       setTailscale(status);
       setTailnetDevices(devices);
@@ -70,8 +72,6 @@ function NetworkPage() {
       setReconciliation(reconciliationReport);
       setGuide(connectGuide);
       setSetupStatus(hostSetup);
-      setApps(applicationState.runtimeApps);
-      setObservedServices(applicationState.observedServices);
       setUpdatedAt(new Date());
     } catch (err) {
       setError(apiErrorMessage(err, 'Unable to load network status.'));
@@ -86,6 +86,13 @@ function NetworkPage() {
     const interval = window.setInterval(() => loadNetwork({ background: true }), 5000);
     return () => window.clearInterval(interval);
   }, [loadNetwork]);
+
+  const refreshAll = useCallback(async () => {
+    await Promise.all([
+      loadNetwork({ background: true }),
+      appState.refresh(),
+    ]);
+  }, [appState, loadNetwork]);
 
   const privateApps = useMemo(() => apps.filter((app) => app.desiredAccess?.mode === 'private' || app.desiredAccess?.mode === 'local-and-private' || app.settings?.tailscaleEnabled), [apps]);
   const runningApps = useMemo(() => apps.filter((app) => app.friendlyStatus === 'Ready'), [apps]);
@@ -116,26 +123,26 @@ function NetworkPage() {
       } else {
         await InstalledAppsAPIClient.disablePrivateAccess(app.appId);
       }
-      await loadNetwork({ background: true, forceRefresh: true });
+      await refreshAll();
     } catch (err) {
       setError(apiErrorMessage(err, 'Unable to update private access for this app.'));
     } finally {
       setAppActionLoading(null);
     }
-  }, [loadNetwork]);
+  }, [refreshAll]);
 
   const removeStaleMapping = useCallback(async (port: number) => {
     setAppActionLoading(`stale-${port}`);
     setError(null);
     try {
       await NetworkAPIClient.removeStalePrivateAccess(port);
-      await loadNetwork({ background: true, forceRefresh: true });
+      await refreshAll();
     } catch (err) {
       setError(apiErrorMessage(err, 'Unable to remove this stale private link.'));
     } finally {
       setAppActionLoading(null);
     }
-  }, [loadNetwork]);
+  }, [refreshAll]);
 
   return (
     <PageShell>
@@ -144,12 +151,12 @@ function NetworkPage() {
           <h2 className="text-2xl font-bold leading-none text-white md:text-3xl">Access</h2>
           <p className="mt-2 max-w-2xl text-sm text-slate-400">Open local links, review private Tailscale links, and fix access issues from one place.</p>
         </div>
-        <RefreshStatus intervalLabel="Auto-updates every 5s" onRefresh={() => loadNetwork({ background: true, forceRefresh: true })} refreshing={refreshing} updatedAt={updatedAt} />
+        <RefreshStatus intervalLabel="Auto-updates every 10s" onRefresh={refreshAll} refreshing={pageRefreshing} updatedAt={appState.updatedAt ?? updatedAt} />
       </header>
 
       {error && <PageErrorState message={error} onRetry={() => loadNetwork({ background: false })} title="Access status could not load" />}
 
-      {loading ? (
+      {pageLoading ? (
         <PageLoadingState label="Loading Access" sublabel="Checking private app links, local links, and Tailscale status." />
       ) : (
         <>

@@ -1,4 +1,5 @@
 import { apiErrorMessage } from '@/api/httpClient';
+import { appNeedsAttentionFromCanonicalState, displayStatusFromCanonicalState } from '@/repositories/applicationStateRepository';
 import type { AppAccessCheck, AppHealthSnapshot, AppRuntimeView, AppTelemetry, BackupPolicy } from '@/types/app';
 import type { PrivateAccessReconciliationItem } from '@/types/network';
 
@@ -78,7 +79,7 @@ export function appPriority(app: AppRuntimeView, telemetry?: AppTelemetry | null
 }
 
 export function appNeedsAttention(app: AppRuntimeView, telemetry?: AppTelemetry | null, access?: AppAccessCheck, health?: AppHealthSnapshot | null) {
-  return appPriority(app, telemetry, access, health) <= 2;
+  return appNeedsAttentionFromCanonicalState(app, health, access, telemetry);
 }
 
 export function statusReason(app: AppRuntimeView, telemetry?: AppTelemetry | null, access?: AppAccessCheck, health?: AppHealthSnapshot | null, reconciliation?: PrivateAccessReconciliationItem | null) {
@@ -187,16 +188,7 @@ export function privateLinkLabel(app: AppRuntimeView, reconciliation?: PrivateAc
 }
 
 export function displayStatus(app: AppRuntimeView, health?: AppHealthSnapshot | null) {
-  if (app.canonicalUserStatus) {
-    return app.canonicalUserStatus;
-  }
-  if (health?.status) {
-    return health.status;
-  }
-  if (app.friendlyStatus === 'Stopped') {
-    return 'Paused';
-  }
-  return app.friendlyStatus;
+  return displayStatusFromCanonicalState(app, health);
 }
 
 export function telemetryValue(value?: string | null) {

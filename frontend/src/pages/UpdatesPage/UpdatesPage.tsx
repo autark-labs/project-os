@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Archive, CheckCircle2, ExternalLink, GitBranch, History, Loader2, RefreshCw, RotateCcw, ShieldCheck, UploadCloud } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { ApplicationStateAPIClient } from '@/api/ApplicationStateAPIClient';
 import { InstalledAppsAPIClient } from '@/api/InstalledAppsAPIClient';
 import { apiErrorMessage } from '@/api/httpClient';
 import { RefreshStatus } from '@/components/RefreshStatus';
@@ -11,20 +10,22 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { useAppUpdatesQuery, useApplicationStateRepository } from '@/repositories/applicationStateRepository';
 import type { AppEvent, AppRuntimeView, AppUpdatePlan, AppUpdateResult, AppUpdateStatus } from '@/types/app';
 
 function UpdatesPage() {
-  const [apps, setApps] = useState<AppRuntimeView[]>([]);
-  const [updates, setUpdates] = useState<AppUpdateStatus[]>([]);
+  const appState = useApplicationStateRepository();
+  const updatesQuery = useAppUpdatesQuery();
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
   const [plan, setPlan] = useState<AppUpdatePlan | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AppUpdateResult | null>(null);
 
+  const apps = appState.apps;
+  const updates = updatesQuery.data ?? [];
+  const loading = appState.isLoading || updatesQuery.isLoading;
+  const refreshing = appState.isFetching || updatesQuery.isFetching;
   const updatesById = useMemo(() => new Map(updates.map((update) => [update.appId, update])), [updates]);
   const selectedUpdate = selectedAppId ? updatesById.get(selectedAppId) || null : null;
   const selectedApp = selectedAppId ? apps.find((app) => app.appId === selectedAppId) || null : null;
@@ -36,36 +37,24 @@ function UpdatesPage() {
   const availableUpdates = updates.filter((update) => update.updateAvailable);
   const rollbackReady = updates.filter((update) => update.rollbackAvailable);
 
-  const load = useCallback(async ({ background = false } = {}) => {
-    if (background) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
+  const refresh = useCallback(async () => {
     setError(null);
     try {
-      const [applicationState, updateData] = await Promise.all([
-        ApplicationStateAPIClient.get(),
-        InstalledAppsAPIClient.updates(),
+      await Promise.all([
+        appState.refresh(),
+        updatesQuery.refetch(),
       ]);
-      setApps(applicationState.runtimeApps);
-      setUpdates(updateData);
-      setSelectedAppId((current) => {
-        if (current && updateData.some((update) => update.appId === current)) return current;
-        return updateData.find((update) => update.updateAvailable)?.appId || updateData[0]?.appId || null;
-      });
-      setUpdatedAt(new Date());
     } catch (err) {
       setError(apiErrorMessage(err, 'Unable to load update status.'));
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
     }
-  }, []);
+  }, [appState, updatesQuery]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    setSelectedAppId((current) => {
+      if (current && updates.some((update) => update.appId === current)) return current;
+      return updates.find((update) => update.updateAvailable)?.appId || updates[0]?.appId || null;
+    });
+  }, [updates]);
 
   useEffect(() => {
     if (!selectedAppId) {
@@ -92,7 +81,7 @@ function UpdatesPage() {
     try {
       const data = await InstalledAppsAPIClient.updateApp(appId);
       setResult(data);
-      await load({ background: true });
+      await refresh();
     } catch (err) {
       setError(apiErrorMessage(err, 'Update could not be completed.'));
     } finally {
@@ -107,7 +96,7 @@ function UpdatesPage() {
     try {
       const data = await InstalledAppsAPIClient.rollbackApp(appId);
       setResult(data);
-      await load({ background: true });
+      await refresh();
     } catch (err) {
       setError(apiErrorMessage(err, 'Rollback could not be completed.'));
     } finally {
@@ -129,10 +118,10 @@ function UpdatesPage() {
           <h2 className="mt-2 text-2xl font-bold leading-none text-white md:text-3xl">Update Manager</h2>
           <p className="mt-2 max-w-2xl text-sm text-slate-400">Review trusted catalog updates, backup checkpoints, rollback readiness, and recent update activity.</p>
         </div>
-        <RefreshStatus intervalLabel="Manual refresh" onRefresh={() => void load({ background: true })} refreshing={refreshing} updatedAt={updatedAt} />
+        <RefreshStatus intervalLabel="Auto-updates every 30s" onRefresh={() => void refresh()} refreshing={refreshing} updatedAt={appState.updatedAt} />
       </header>
 
-      {error && <PageErrorState message={error} onRetry={() => void load({ background: true })} title="Update status could not refresh" />}
+      {error && <PageErrorState message={error} onRetry={() => void refresh()} title="Update status could not refresh" />}
       {result && <Alert tone={result.status === 'completed' ? 'success' : result.status === 'failed' ? 'danger' : 'warning'} icon={result.status === 'completed' ? CheckCircle2 : AlertTriangle} message={result.message} />}
 
       <div className="grid gap-4 md:grid-cols-4">

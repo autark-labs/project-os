@@ -1,23 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ChevronRight, Loader2, MonitorSmartphone, Network, ShieldCheck, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { ApplicationStateAPIClient } from '@/api/ApplicationStateAPIClient';
 import { apiErrorMessage } from '@/api/httpClient';
 import { NetworkAPIClient } from '@/api/NetworkAPIClient';
 import { RefreshStatus } from '@/components/RefreshStatus';
 import { PageErrorState, PageLoadingState } from '@/components/project-os/PageState';
 import { PageShell, SurfaceFrame, SurfacePanel } from '@/components/project-os/ProjectOSComponents';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
+import { useApplicationStateRepository } from '@/repositories/applicationStateRepository';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import type { AppRuntimeView } from '@/types/app';
 import type { DeviceTrustUpdateRequest, PrivateAccessReconciliationReport, TailscaleDevice, TailscaleStatus, TrustedDeviceView } from '@/types/network';
 import { DeviceEditDialog } from './DeviceEditDialog';
 import { DeviceDetailCard, DeviceRow, EmptyState, OnboardingCard, PrivateAppsCard, SignalCard } from './DevicesPage.components';
 import { accessForDevice, isPrivateApp } from './DevicesPage.logic';
 
 type DevicesState = {
-  apps: AppRuntimeView[];
   devices: TailscaleDevice[];
   deviceViews: TrustedDeviceView[];
   reconciliation: PrivateAccessReconciliationReport | null;
@@ -27,7 +25,8 @@ type DevicesState = {
 
 function DevicesPage() {
   const { showAdvancedMetrics } = useProjectSettings();
-  const [state, setState] = useState<DevicesState>({ apps: [], devices: [], deviceViews: [], reconciliation: null, tailscale: null, onboardingSteps: [] });
+  const appState = useApplicationStateRepository();
+  const [state, setState] = useState<DevicesState>({ devices: [], deviceViews: [], reconciliation: null, tailscale: null, onboardingSteps: [] });
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [editingDevice, setEditingDevice] = useState<TrustedDeviceView | null>(null);
   const [deviceForm, setDeviceForm] = useState<DeviceTrustUpdateRequest>({ nickname: '', trustGroup: 'Personal devices', trusted: true, notes: '' });
@@ -46,13 +45,9 @@ function DevicesPage() {
     }
     setError(null);
     try {
-      const [accessReport, applicationState] = await Promise.all([
-        NetworkAPIClient.deviceAccessReport(),
-        ApplicationStateAPIClient.get(),
-      ]);
+      const accessReport = await NetworkAPIClient.deviceAccessReport();
       const devices = accessReport.devices.map((view) => view.device);
       setState({
-        apps: applicationState.runtimeApps,
         devices,
         deviceViews: accessReport.devices,
         reconciliation: accessReport.privateAccess,
@@ -103,7 +98,7 @@ function DevicesPage() {
     try {
       await NetworkAPIClient.updateDeviceTrust(editingDevice.device.id, deviceForm);
       setEditingDevice(null);
-      await load(true);
+      await Promise.all([load(true), appState.refresh()]);
     } catch (saveError) {
       setError(apiErrorMessage(saveError, 'Device settings could not be saved.'));
     } finally {
@@ -111,7 +106,7 @@ function DevicesPage() {
     }
   }
 
-  const privateApps = useMemo(() => state.apps.filter(isPrivateApp), [state.apps]);
+  const privateApps = useMemo(() => appState.apps.filter(isPrivateApp), [appState.apps]);
   const deviceViewsById = useMemo(() => new Map(state.deviceViews.map((view) => [view.device.id, view])), [state.deviceViews]);
   const onlineDevices = state.devices.filter((device) => device.online);
   const trustedDeviceCount = state.deviceViews.length ? state.deviceViews.filter((view) => view.metadata.trusted).length : onlineDevices.length;
@@ -122,7 +117,7 @@ function DevicesPage() {
   const healthyPrivateLinks = state.reconciliation?.apps.filter((app) => app.status === 'healthy').length ?? 0;
   const pageHero = getDeviceHero(state.tailscale, trustedDeviceCount, onlineDevices.length, privateApps.length);
 
-  if (loading) {
+  if (loading || appState.isLoading) {
     return (
       <PageLoadingState label="Loading trusted devices" sublabel="Checking device access, private links, and Tailscale status." />
     );
@@ -141,11 +136,11 @@ function DevicesPage() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Button className="border-cyan-300/25 bg-cyan-500/10 text-cyan-100 hover:bg-cyan-500/15" disabled={refreshing} onClick={() => void load(true)} type="button" variant="outline">
-                {refreshing ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
+              <Button className="border-cyan-300/25 bg-cyan-500/10 text-cyan-100 hover:bg-cyan-500/15" disabled={refreshing || appState.isFetching} onClick={() => void Promise.all([load(true), appState.refresh()])} type="button" variant="outline">
+                {refreshing || appState.isFetching ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
                 Check links
               </Button>
-              <RefreshStatus intervalLabel="Auto-updates every 8s" onRefresh={() => void load(true)} refreshing={refreshing} tone="cyan" updatedAt={updatedAt} />
+              <RefreshStatus intervalLabel="Auto-updates every 10s" onRefresh={() => void Promise.all([load(true), appState.refresh()])} refreshing={refreshing || appState.isFetching} tone="cyan" updatedAt={appState.updatedAt ?? updatedAt} />
             </div>
           </div>
         </div>

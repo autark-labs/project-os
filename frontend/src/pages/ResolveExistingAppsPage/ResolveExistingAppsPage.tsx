@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ExternalLink, Pin, RefreshCw, ShieldAlert } from 'lucide-react';
-import { ApplicationStateAPIClient } from '@/api/ApplicationStateAPIClient';
 import { ObservedServicesAPIClient } from '@/api/ObservedServicesAPIClient';
 import { apiErrorMessage } from '@/api/httpClient';
 import { PageErrorState, PageLoadingState } from '@/components/project-os/PageState';
 import { PageSection, PageShell, SoftCard, StatusPill } from '@/components/project-os/ProjectOSComponents';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useApplicationStateRepository } from '@/repositories/applicationStateRepository';
 import type { ObservedServiceActionResult, ObservedServiceView } from '@/types/observedService';
 import { toast } from 'sonner';
 import { ObservedServiceDetailsSheet } from '../ApplicationsPage/ObservedServiceDetailsSheet';
@@ -19,29 +19,13 @@ import {
 function ResolveExistingAppsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedServiceId = searchParams.get('service') || searchParams.get('resource');
-  const [services, setServices] = useState<ObservedServiceView[]>([]);
+  const appState = useApplicationStateRepository();
   const [selectedId, setSelectedId] = useState<string | null>(requestedServiceId);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const load = useCallback(async ({ forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const state = await ApplicationStateAPIClient.get({ refresh: forceRefresh });
-      setServices(state.observedServices);
-    } catch (loadError) {
-      setError(apiErrorMessage(loadError, 'Existing apps could not be loaded.'));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
+  const services = appState.observedServices;
+  const error = localError || (appState.error ? apiErrorMessage(appState.error, 'Existing apps could not be loaded.') : null);
   const visibleServices = useMemo(() => visibleResolveExistingServices(services) as ObservedServiceView[], [services]);
 
   useEffect(() => {
@@ -76,7 +60,8 @@ function ResolveExistingAppsPage() {
   }
 
   async function refreshObservedServices() {
-    await load({ forceRefresh: true });
+    setLocalError(null);
+    await appState.refresh();
   }
 
   async function pinService(service: ObservedServiceView) {
@@ -84,7 +69,7 @@ function ResolveExistingAppsPage() {
     try {
       const result = await ObservedServicesAPIClient.pin(service.id);
       showToast(result.severity, result.title, result.message || `${service.displayName} is pinned to My Apps.`);
-      await load({ forceRefresh: true });
+      await appState.refresh();
     } catch (pinError) {
       showToast('error', 'Service could not be pinned', apiErrorMessage(pinError), true);
     } finally {
@@ -94,6 +79,7 @@ function ResolveExistingAppsPage() {
 
   function handleObservedServiceResult(result: ObservedServiceActionResult) {
     showToast(result.severity, result.title, result.message || undefined, !result.ok);
+    void appState.refresh();
   }
 
   return (
@@ -106,8 +92,8 @@ function ResolveExistingAppsPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => void load({ forceRefresh: true })} type="button" variant="outline">
-            <RefreshCw className="size-4" />
+          <Button disabled={appState.isFetching} onClick={() => void refreshObservedServices()} type="button" variant="outline">
+            <RefreshCw className={cn('size-4', appState.isFetching && 'animate-spin')} />
             Refresh
           </Button>
           <Button asChild>
@@ -116,9 +102,9 @@ function ResolveExistingAppsPage() {
         </div>
       </div>
 
-      {error && <PageErrorState message={error} onRetry={() => void load({ forceRefresh: true })} title="Existing apps could not load" />}
+      {error && <PageErrorState message={error} onRetry={() => void refreshObservedServices()} title="Existing apps could not load" />}
 
-      {loading ? (
+      {appState.isLoading ? (
         <PageLoadingState label="Loading existing apps" sublabel="Checking observed services and ownership state." />
       ) : (
         <div className="grid items-start gap-5 xl:grid-cols-[minmax(360px,0.8fr)_minmax(0,1.2fr)]">
