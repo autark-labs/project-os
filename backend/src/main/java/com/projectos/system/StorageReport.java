@@ -14,6 +14,5 @@ public record StorageReport(
         List<OrphanedStorage> orphanedData,
         List<StorageRecommendation> recommendations,
         InstallStorageSafety installSafety,
-        RuntimeMigrationGuidance migrationGuidance,
         Instant checkedAt) {
 }

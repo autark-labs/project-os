@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { SystemAPIClient } from '@/api/SystemAPIClient';
-import type { RuntimeMigrationPlan, RuntimeMigrationPlanRequest, StorageCleanupResult, StorageReport } from '@/types/system';
+import type { StorageCleanupResult, StorageReport } from '@/types/system';
 
 export const storageQueryKeys = {
   all: ['storage'] as const,
@@ -40,12 +40,6 @@ export function useCleanupOrphanMutation() {
   return useMutation<StorageCleanupResult, unknown, string>({
     mutationFn: (name) => SystemAPIClient.cleanupOrphan(name),
     onSuccess: () => invalidateStorageQueries(queryClient),
-  });
-}
-
-export function useRuntimeMigrationPlanMutation() {
-  return useMutation<RuntimeMigrationPlan, unknown, RuntimeMigrationPlanRequest>({
-    mutationFn: (request) => SystemAPIClient.runtimeMigrationPlan(request),
   });
 }
 
