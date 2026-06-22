@@ -28,7 +28,7 @@ class AdminSecurityFilterTests {
     @Test
     void rejectsMutatingApiRequestsWithoutToken() throws ServletException, IOException {
         AdminSecurityFilter filter = new AdminSecurityFilter(new FakeSecurityService(false));
-        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/marketplace/apps/vaultwarden/install");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/discover/apps/vaultwarden/install");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         filter.doFilter(request, response, new MockFilterChain());

@@ -200,6 +200,34 @@ class DiscoverServiceTests {
         assertThat(installService.lastOptions.duplicateAcknowledgedRequested()).isTrue();
     }
 
+    @Test
+    void installPersistsSetupAnswersBeforeStartingInstallJob() {
+        RuntimeLayout layout = runtimeLayout();
+        DiscoverSetupRepository setupRepository = new DiscoverSetupRepository(layout);
+        DiscoverSetupService setupService = new DiscoverSetupService(setupRepository);
+        InstallCustomizationResolver customizationResolver = new InstallCustomizationResolver(new PortAllocator());
+        DiscoverService service = new DiscoverService(
+                catalogService(),
+                List::of,
+                setupService,
+                new DiscoverInstallPreviewService(new InstallPlanService(layout, customizationResolver), setupService),
+                new RecordingMarketplaceInstallService(),
+                jobService());
+
+        service.install("vaultwarden", new DiscoverInstallRequest(Map.of(
+                "displayName", "Family Passwords",
+                "accessMode", "private_lan",
+                "storageMode", "project_os_default",
+                "backupPolicy", "enabled_first_checkpoint",
+                "localBrowserPort", "auto"), false, true));
+
+        assertThat(setupRepository.findByAppId("vaultwarden")).hasValueSatisfying(record -> {
+            assertThat(record.displayName()).isEqualTo("Family Passwords");
+            assertThat(record.accessMode()).isEqualTo("private_lan");
+            assertThat(record.backupPolicy()).isEqualTo("enabled_first_checkpoint");
+        });
+    }
+
     private DiscoverService discoverService(ObservedServiceRepository observedRepository) {
         RuntimeLayout layout = runtimeLayout();
         InstalledAppRepository installedAppRepository = repository();

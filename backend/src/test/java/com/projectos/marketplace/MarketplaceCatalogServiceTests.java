@@ -6,7 +6,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import com.projectos.marketplace.api.MarketplaceController;
+import com.projectos.discover.DiscoverController;
+import com.projectos.discover.DiscoverInstallPreview;
+import com.projectos.discover.DiscoverSetupAnswersRequest;
 import com.projectos.marketplace.catalog.MarketplaceCatalogService;
 import com.projectos.marketplace.model.ApplicationManifest;
 import com.projectos.marketplace.plan.InstallPlan;
@@ -22,7 +24,7 @@ class MarketplaceCatalogServiceTests {
     InstallPlanService installPlanService;
 
     @Autowired
-    MarketplaceController marketplaceController;
+    DiscoverController discoverController;
 
     @Test
     void loadsCatalogAppsFromManifests() {
@@ -58,9 +60,11 @@ class MarketplaceCatalogServiceTests {
     }
 
     @Test
-    void exposesCatalogAndPlanThroughMarketplaceController() {
-        assertThat(marketplaceController.apps()).hasSize(26);
-        assertThat(marketplaceController.plan("vaultwarden", null).getBody())
+    void exposesCatalogAndInstallPreviewThroughDiscoverController() {
+        assertThat(discoverController.apps()).hasSize(26);
+        DiscoverInstallPreview preview = discoverController.installPreview("vaultwarden", new DiscoverSetupAnswersRequest(java.util.Map.of()));
+
+        assertThat(preview.technicalDetails())
                 .extracting(InstallPlan::appId)
                 .isEqualTo("vaultwarden");
     }
