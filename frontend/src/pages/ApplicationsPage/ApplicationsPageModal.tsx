@@ -143,9 +143,9 @@ export function ManageAppDialog({ access, app, health, onAction, open, onOpenCha
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[88vh] overflow-y-auto border-slate-700 bg-slate-950 text-slate-100 sm:max-w-4xl">
-        <form onSubmit={save}>
-          <DialogHeader>
+      <DialogContent className="h-[88vh] overflow-hidden border-slate-700 bg-slate-950 p-0 text-slate-100 sm:max-w-4xl">
+        <form className="flex h-full min-h-0 flex-col" onSubmit={save}>
+          <DialogHeader className="shrink-0 px-4 pb-0 pt-4 pr-12">
             <DialogTitle className="flex items-center gap-3 text-white">
               <AppIcon app={app} />
               Manage {app.appName}
@@ -154,14 +154,14 @@ export function ManageAppDialog({ access, app, health, onAction, open, onOpenCha
           </DialogHeader>
 
           {error && (
-            <div className="mt-4 flex items-center gap-3 rounded-lg border border-red-400/25 bg-red-500/10 p-3 text-sm text-red-100">
+            <div className="mx-4 mt-4 flex shrink-0 items-center gap-3 rounded-lg border border-red-400/25 bg-red-500/10 p-3 text-sm text-red-100">
               <AlertTriangle className="size-4" />
               {error}
             </div>
           )}
 
-          <Tabs className="mt-5 gap-4" defaultValue="settings">
-            <TabsList className="w-full justify-start overflow-x-auto border-b border-slate-700/30 bg-transparent p-0" variant="line">
+          <Tabs className="mt-5 min-h-0 flex-1 gap-0 overflow-hidden" defaultValue="settings">
+            <TabsList className="z-10 w-full justify-start overflow-x-auto border-b border-slate-700/30 bg-slate-950 px-4 py-2" variant="line">
               {app.usageGuide && app.usageGuide.kind !== 'web-app' && <TabsTrigger className="px-3 py-2 text-slate-400 data-active:text-white" value="use">Use</TabsTrigger>}
               {hasSetupGuide(app) && <TabsTrigger className="px-3 py-2 text-slate-400 data-active:text-white" value="setup">Setup</TabsTrigger>}
               <TabsTrigger className="px-3 py-2 text-slate-400 data-active:text-white" value="settings">Settings</TabsTrigger>
@@ -171,18 +171,18 @@ export function ManageAppDialog({ access, app, health, onAction, open, onOpenCha
             </TabsList>
 
             {app.usageGuide && app.usageGuide.kind !== 'web-app' && (
-              <TabsContent className="grid gap-4" value="use">
+              <TabsContent className="grid min-h-0 gap-4 overflow-y-auto px-4 py-4" value="use">
                 <ApplicationsUsageGuide guide={app.usageGuide} />
               </TabsContent>
             )}
 
             {hasSetupGuide(app) && app.setupGuide && (
-              <TabsContent className="grid gap-4" value="setup">
+              <TabsContent className="grid min-h-0 gap-4 overflow-y-auto px-4 py-4" value="setup">
                 <ApplicationsSetupGuide guide={app.setupGuide} />
               </TabsContent>
             )}
 
-            <TabsContent className="grid gap-4" value="settings">
+            <TabsContent className="grid min-h-0 gap-4 overflow-y-auto px-4 py-4" value="settings">
               <section className="grid gap-4 rounded-lg border border-slate-700/30 bg-slate-900/60 p-4">
                 <div className="flex items-start gap-3">
                   <SlidersHorizontal className="mt-1 size-4 text-violet-300" />
@@ -270,7 +270,7 @@ export function ManageAppDialog({ access, app, health, onAction, open, onOpenCha
               <SettingsChangePlanCard plan={changePlan} planning={planning} />
             </TabsContent>
 
-            <TabsContent className="grid gap-4" value="stability">
+            <TabsContent className="grid min-h-0 gap-4 overflow-y-auto px-4 py-4" value="stability">
               <ApplicationsStabilityTab
                 access={access}
                 app={app}
@@ -284,7 +284,7 @@ export function ManageAppDialog({ access, app, health, onAction, open, onOpenCha
               />
             </TabsContent>
 
-            <TabsContent className="grid gap-4" value="telemetry">
+            <TabsContent className="grid min-h-0 gap-4 overflow-y-auto px-4 py-4" value="telemetry">
               <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <TelemetryCard icon={Cpu} label="CPU" percent={percentFromTelemetry(liveTelemetry?.cpuPercent)} value={liveTelemetry?.cpuPercent || 'Unavailable'} />
                 <TelemetryCard icon={HardDrive} label="Memory" percent={percentFromTelemetry(liveTelemetry?.memoryPercent)} value={liveTelemetry?.memoryUsage || 'Unavailable'} />
@@ -313,7 +313,7 @@ export function ManageAppDialog({ access, app, health, onAction, open, onOpenCha
               </section>
             </TabsContent>
 
-            {showAdvancedMetrics && <TabsContent className="grid gap-4" value="app-config">
+            {showAdvancedMetrics && <TabsContent className="grid min-h-0 gap-4 overflow-y-auto px-4 py-4" value="app-config">
               <section className="rounded-lg border border-slate-700/30 bg-slate-900/60 p-4">
                 <h4 className="font-bold text-white">Access links</h4>
                 <p className="mt-1 text-sm text-slate-400">Known app routes from Project OS.</p>
@@ -347,7 +347,7 @@ export function ManageAppDialog({ access, app, health, onAction, open, onOpenCha
             </TabsContent>}
           </Tabs>
 
-          <DialogFooter className="mt-5 border-slate-800 bg-slate-900/80">
+          <DialogFooter className="m-0 shrink-0 rounded-none rounded-b-xl border-slate-800 bg-slate-900/80">
             <Button className="border-slate-700/50 bg-slate-950/50 text-slate-200 hover:bg-slate-800" onClick={() => onOpenChange(false)} type="button" variant="outline">Cancel</Button>
             <Button className="bg-violet-600 text-white hover:bg-violet-500" disabled={saving || planning || changePlan?.saveAllowed === false} type="submit">
               {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}

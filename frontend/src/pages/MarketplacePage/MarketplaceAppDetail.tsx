@@ -5,7 +5,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,9 +19,8 @@ import { cn } from '@/lib/utils';
 import type { DiscoverAppView, DiscoverInstalledAppSummary, DiscoverInstallPreview, DiscoverSetupSchema } from '@/types/discover';
 import type { ProjectOsJob } from '@/types/jobs';
 import type { InstallOptions, InstallPlan, MarketplaceApp } from '@/types/marketplace';
-import { InstallWizard, TechnicalPlanCard } from './MarketplaceInstallWizard';
+import { InstallWizard } from './MarketplaceInstallWizard';
 import { AppImage, InfoCard, Stat, SupportBadge } from './MarketplacePage.shared';
-import { InstallPlanPreview, MarketplaceSetupPanel } from './MarketplaceSetupPanel';
 import { DuplicateInstallWarningDialog } from './DuplicateInstallWarningDialog';
 
 type AppDetailProps = {
@@ -54,7 +52,6 @@ type AppDetailProps = {
 export function MarketplaceAppDetail({ app, appView, backupJob, installJob, installedApp, installLocked, installOptions, installPlan, installPreview, installStatusMessage, installing, onBack, onCreateBackup, onDuplicateInstallAcknowledged, onInstall, onReinstallCurrent, onRequestPlan, onSetupAnswersChange, planLoading, recoveryMode, setupAnswers, setupReady, setupSchema }: AppDetailProps) {
   const [duplicateWarningOpen, setDuplicateWarningOpen] = useState(false);
   const [installReviewOpen, setInstallReviewOpen] = useState(false);
-  const [technicalValidationOpen, setTechnicalValidationOpen] = useState(false);
   const isInstalled = Boolean(installedApp);
   const needsExistingServiceReview = !isInstalled && appView.installCopyWarningRequired;
 
@@ -73,7 +70,7 @@ export function MarketplaceAppDetail({ app, appView, backupJob, installJob, inst
   }
 
   return (
-    <Card className="rounded-lg border-white/10 bg-slate-900/55 text-slate-100 shadow-po-panel">
+    <Card className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-lg border-white/10 bg-slate-900/55 text-slate-100 shadow-po-panel">
       <CardContent className="grid gap-5 p-5">
         <Button className={poButtonClass('quiet', 'w-fit')} onClick={onBack} type="button" variant="outline">
           <ArrowLeft className="size-4" />
@@ -97,23 +94,11 @@ export function MarketplaceAppDetail({ app, appView, backupJob, installJob, inst
           </div>
         </div>
 
-        {requiresInstallCaution(app) && !isInstalled && (
-          <section className="rounded-lg border border-amber-300/25 bg-amber-500/10 p-4">
-            <div className="flex items-start gap-3">
-              <TriangleAlert className="mt-0.5 size-5 shrink-0 text-amber-200" />
-              <div>
-                <h4 className="font-bold text-white">Review before installing</h4>
-                <p className="mt-1 text-sm leading-6 text-amber-50/80">{app.supportSummary}</p>
-              </div>
-            </div>
-          </section>
-        )}
-
         <div className="flex flex-wrap gap-2">
           {app.tags.map((tag) => <Badge className="border-slate-700/40 bg-slate-950/50 text-slate-200" key={tag} variant="outline">{tag}</Badge>)}
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
           {isInstalled ? (
             <Button asChild className="bg-emerald-500 text-slate-950 hover:bg-emerald-400">
               <Link to="/apps">
@@ -143,37 +128,79 @@ export function MarketplaceAppDetail({ app, appView, backupJob, installJob, inst
           ) : (
             <Button className={poButtonClass('primary')} disabled={installing || installLocked || !setupReady} onClick={openInstallReview} type="button">
               {installing ? <Loader2 className="size-4 animate-spin" /> : null}
-              {installing ? 'Installing...' : installLocked ? 'Install blocked' : !setupReady ? 'Finish setup' : requiresInstallCaution(app) ? 'Review install' : 'Review install'}
+              {installing ? 'Installing...' : installLocked ? 'Install blocked' : !setupReady ? 'Finish install choices' : 'Install'}
             </Button>
           )}
-          {!isInstalled && <InstallWizard app={app} hideTrigger={needsExistingServiceReview} installLocked={installLocked || !setupReady} installOptions={installOptions} installPlan={installPlan} installPreview={installPreview} installStatusMessage={!setupReady ? 'Finish the required setup choices before installing.' : installStatusMessage} installing={installing} onInstall={onInstall} onOpenChange={setInstallReviewOpen} onRequestPlan={onRequestPlan} open={installReviewOpen} planLoading={planLoading} setupAnswers={setupAnswers} setupSchema={setupSchema} triggerLabel="Customize" />}
-          <DropdownMenu>
+          <DocsSourceMenu app={app} />
+          {!isInstalled && <InstallWizard app={app} hideTrigger installLocked={installLocked || !setupReady} installOptions={installOptions} installPlan={installPlan} installPreview={installPreview} installStatusMessage={!setupReady ? 'Finish the required install choices before installing.' : installStatusMessage} installing={installing} onInstall={onInstall} onOpenChange={setInstallReviewOpen} onRequestPlan={onRequestPlan} onSetupAnswersChange={onSetupAnswersChange} open={installReviewOpen} planLoading={planLoading} setupAnswers={setupAnswers} setupSchema={setupSchema} />}
+        </div>
+
+        {installLocked && <InstallBlockedNotice message={installStatusMessage} />}
+        {needsExistingServiceReview && <ExistingServiceNotice appView={appView} />}
+        {requiresInstallCaution(app) && !isInstalled && <InstallCautionNotice app={app} />}
+        <DuplicateInstallWarningDialog appName={app.name} onInstallCopy={acknowledgeDuplicateInstall} onOpenChange={setDuplicateWarningOpen} open={duplicateWarningOpen} reviewHref={appView.reviewExistingHref} />
+        {isInstalled && <InstalledAppNotice app={installedApp} />}
+        {isInstalled && recoveryMode && recoveryMode !== 'reset-reinstall' && (
+          <RecoveryInstallNotice
+            disabled={installLocked || installing}
+            mode={recoveryMode}
+            onReinstallCurrent={onReinstallCurrent}
+          />
+        )}
+        {(installJob || backupJob || installing) && <InlineInstallStatus app={app} backupJob={backupJob} installedApp={installedApp} installing={installing} job={installJob} onCreateBackup={onCreateBackup} />}
+
+        <section className="rounded-lg border border-slate-700/30 bg-slate-950/30 p-4">
+          <h4 className="font-bold text-white">About</h4>
+          <p className="mt-2 text-sm leading-6 text-slate-300">{app.plainLanguage}</p>
+        </section>
+
+        <div className="grid gap-4">
+          <InfoCard title="Key features" items={app.highlights} />
+          <InfoCard title="Best for" items={app.bestFor} />
+        </div>
+
+        <section className="rounded-lg border border-slate-700/30 bg-slate-950/30 p-4">
+          <h4 className="font-bold text-white">App details</h4>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <Stat label="Version" value={app.version || 'Unavailable'} />
+            <Stat label="Size" value={app.size || 'Unavailable'} />
+            <Stat label="Last updated" value={app.lastUpdated || 'Unavailable'} />
+            <Stat label="Source" value={app.source || 'Unavailable'} />
+            <Stat label="Maintainer" value={app.maintainer || 'Unavailable'} />
+            <Stat label="Downloads" value={app.downloads || 'Unavailable'} />
+          </div>
+        </section>
+
+        <Collapsible className="rounded-lg border border-slate-700/30 bg-slate-950/30 p-4">
+          <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between gap-3 text-left font-bold text-white">
+            Advanced app info
+            <ChevronDown className="size-4 text-slate-500" />
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="mt-4 grid gap-4">
+              {app.technicalSummary && <p className="text-sm leading-6 text-slate-300">{app.technicalSummary}</p>}
+              {app.requirements.length > 0 && <InfoCard title="Requirements" items={app.requirements} />}
+              {app.includes.length > 0 && <InfoCard title="Included services" items={app.includes} />}
+              {app.usage.notes.length > 0 && <InfoCard title="Good to know" items={app.usage.notes} />}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DocsSourceMenu({ app }: { app: MarketplaceApp }) {
+  return (
+    <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button className={poButtonClass('quiet')} type="button" variant="outline">
-                More
+                Docs + source
                 <ChevronDown className="size-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-64 border-slate-700 bg-slate-950 text-slate-100">
-              <DropdownMenuLabel>{isInstalled ? 'Installed app options' : 'Install options'}</DropdownMenuLabel>
-              <DropdownMenuSeparator className="bg-slate-800" />
-              <DropdownMenuItem className="focus:bg-slate-800 focus:text-white" onSelect={() => onRequestPlan(installOptions)}>
-                Refresh install check
-                <span className="ml-auto text-xs text-slate-500">{planLoading ? 'Checking' : 'Preview'}</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="focus:bg-slate-800 focus:text-white" onSelect={() => setTechnicalValidationOpen(true)}>
-                Technical validation
-                <span className="ml-auto text-xs text-slate-500">Advanced</span>
-              </DropdownMenuItem>
-              {isInstalled && (
-                <>
-                  <DropdownMenuSeparator className="bg-slate-800" />
-                  <DropdownMenuItem className="focus:bg-slate-800 focus:text-white" disabled={installLocked || installing} onSelect={onReinstallCurrent}>
-                    Reinstall with current settings
-                    <span className="ml-auto text-xs text-amber-300">Advanced</span>
-                  </DropdownMenuItem>
-                </>
-              )}
+              <DropdownMenuLabel>{app.name}</DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-slate-800" />
               {app.sourceUrl ? (
                 <DropdownMenuItem asChild className="focus:bg-slate-800 focus:text-white">
@@ -205,58 +232,20 @@ export function MarketplaceAppDetail({ app, appView, backupJob, installJob, inst
               )}
             </DropdownMenuContent>
           </DropdownMenu>
+  );
+}
+
+function InstallCautionNotice({ app }: { app: MarketplaceApp }) {
+  return (
+    <section className="rounded-lg border border-amber-300/25 bg-amber-500/10 p-4">
+      <div className="flex items-start gap-3">
+        <TriangleAlert className="mt-0.5 size-5 shrink-0 text-amber-200" />
+        <div>
+          <h4 className="font-bold text-white">Review before installing</h4>
+          <p className="mt-1 text-sm leading-6 text-amber-50/80">{app.supportSummary}</p>
         </div>
-
-        {installLocked && <InstallBlockedNotice message={installStatusMessage} />}
-        {needsExistingServiceReview && <ExistingServiceNotice appView={appView} />}
-        <DuplicateInstallWarningDialog appName={app.name} onInstallCopy={acknowledgeDuplicateInstall} onOpenChange={setDuplicateWarningOpen} open={duplicateWarningOpen} reviewHref={appView.reviewExistingHref} />
-        <TechnicalValidationDialog app={app} installPlan={installPlan} open={technicalValidationOpen} onOpenChange={setTechnicalValidationOpen} />
-        {isInstalled && <InstalledAppNotice app={installedApp} />}
-        {isInstalled && recoveryMode && recoveryMode !== 'reset-reinstall' && (
-          <RecoveryInstallNotice
-            disabled={installLocked || installing}
-            mode={recoveryMode}
-            onReinstallCurrent={onReinstallCurrent}
-          />
-        )}
-        {(installJob || backupJob || installing) && <InlineInstallStatus app={app} backupJob={backupJob} installedApp={installedApp} installing={installing} job={installJob} onCreateBackup={onCreateBackup} />}
-
-        <section className="grid gap-4">
-          <section className="rounded-lg border border-slate-700/30 bg-slate-950/30 p-4">
-            <h4 className="font-bold text-white">About</h4>
-            <p className="mt-2 text-sm leading-6 text-slate-300">{app.plainLanguage}</p>
-          </section>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <InfoCard title="Key features" items={app.highlights} />
-            <InfoCard title="Best for" items={app.bestFor} />
-          </div>
-
-          <MarketplaceSetupPanel app={app} answers={setupAnswers} preview={installPreview} schema={setupSchema} onAnswersChange={onSetupAnswersChange} />
-          <InstallPlanPreview preview={installPreview} />
-
-          <section className="rounded-lg border border-slate-700/30 bg-slate-950/30 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <Badge className="border-emerald-300/30 bg-emerald-400/10 text-emerald-200" variant="outline">
-                  {serviceKindLabel(app.usage.kind)}
-                </Badge>
-                <h4 className="mt-3 font-bold text-white">{app.usage.headline}</h4>
-              </div>
-              <span className="rounded-full border border-slate-700/40 px-3 py-1 text-xs font-semibold text-slate-300">{app.usage.openUrlLabel}</span>
-            </div>
-            <p className="mt-3 text-sm leading-6 text-slate-300">{app.usage.summary}</p>
-            <div className="mt-4 grid gap-3 rounded-lg border border-slate-700/30 bg-slate-900/45 p-3 sm:grid-cols-3">
-              <Stat label="Service type" value={serviceKindLabel(app.usage.kind)} />
-              <Stat label="Ready state" value={app.health.successLabel} />
-              <Stat label="Startup window" value={`${app.health.startupGraceSeconds}s`} />
-              <p className="text-sm leading-6 text-slate-400 sm:col-span-3">{app.health.description}</p>
-            </div>
-            {app.usage.notes.length > 0 && <div className="mt-4"><InfoCard title="Good to know" items={app.usage.notes} /></div>}
-          </section>
-        </section>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }
 
@@ -354,51 +343,6 @@ function InstalledAppNotice({ app }: { app: DiscoverInstalledAppSummary | null }
         </div>
       </div>
     </section>
-  );
-}
-
-function TechnicalValidationDialog({
-  app,
-  installPlan,
-  onOpenChange,
-  open,
-}: {
-  app: MarketplaceApp;
-  installPlan: InstallPlan | null;
-  onOpenChange: (open: boolean) => void;
-  open: boolean;
-}) {
-  const checksPassed = app.smokeTests.filter((test) => test.status === 'Passed').length;
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[86vh] overflow-y-auto border-slate-700 bg-slate-950 text-slate-100 sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Technical validation for {app.name}</DialogTitle>
-          <DialogDescription className="text-slate-400">
-            Advanced details for install confidence and troubleshooting. Normal installs do not require reviewing this information.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4">
-          <section className="rounded-lg border border-slate-700/30 bg-slate-900/45 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h4 className="font-bold text-white">Project OS checks</h4>
-                <p className="mt-1 text-sm leading-6 text-slate-400">{checksPassed}/{app.smokeTests.length} checks are marked passed in the catalog.</p>
-              </div>
-              <Badge className={requiresInstallCaution(app) ? 'border-amber-300/25 bg-amber-500/10 text-amber-100' : 'border-emerald-300/25 bg-emerald-500/10 text-emerald-100'} variant="outline">
-                {requiresInstallCaution(app) ? 'Needs review' : 'Ready to install'}
-              </Badge>
-            </div>
-          </section>
-          <CatalogConfidenceCard app={app} />
-          {installPlan ? <TechnicalPlanCard plan={installPlan} /> : (
-            <section className="rounded-lg border border-slate-700/30 bg-slate-900/45 p-4 text-sm text-slate-400">
-              Generate an install preview to see the technical plan for this app.
-            </section>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }
 

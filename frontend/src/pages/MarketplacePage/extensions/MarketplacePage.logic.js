@@ -100,6 +100,10 @@ export function starterCatalogForDiscover(apps) {
   return catalog;
 }
 
+export function safeBasicCatalogForDiscover(apps) {
+  return apps.filter((app) => app.supportLevel === 'Ready');
+}
+
 export function starterAppNotes(app, context) {
   const notes = [];
   if (context.appInstallsBlocked) {

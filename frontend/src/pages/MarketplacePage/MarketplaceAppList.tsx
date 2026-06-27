@@ -22,15 +22,17 @@ import { AppImage } from './MarketplacePage.shared';
 
 type MarketplaceAppListProps = {
   apps: DiscoverAppView[];
+  basicCatalogMode?: 'starter' | 'all-safe';
   density?: 'basic' | 'full';
   modeLabel?: string;
   selectedAppId: string;
   sortBy: string;
+  onBasicCatalogModeChange?: (value: 'starter' | 'all-safe') => void;
   onSelect: (appId: string) => void;
   onSortChange: (value: string) => void;
 };
 
-export function MarketplaceAppList({ apps, density = 'full', modeLabel = 'All apps', selectedAppId, sortBy, onSelect, onSortChange }: MarketplaceAppListProps) {
+export function MarketplaceAppList({ apps, basicCatalogMode, density = 'full', modeLabel = 'All apps', selectedAppId, sortBy, onBasicCatalogModeChange, onSelect, onSortChange }: MarketplaceAppListProps) {
   const basic = density === 'basic';
   return (
     <Card className={cn('rounded-lg py-0 text-slate-100 shadow-po-panel', basic ? 'border-slate-800/80 bg-slate-950/35' : 'border-white/10 bg-slate-900/55')}>
@@ -39,26 +41,38 @@ export function MarketplaceAppList({ apps, density = 'full', modeLabel = 'All ap
           <CardTitle className="text-lg font-bold text-white">{modeLabel}</CardTitle>
           <p className="mt-1 text-sm text-slate-400">{apps.length} available</p>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button className={poButtonClass('quiet')} type="button" variant="outline">
-              <SlidersHorizontal className="size-4" />
-              {sortBy}
-              <ChevronDown className="size-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 border-slate-700 bg-slate-950 text-slate-100">
-            <DropdownMenuLabel>Sort apps</DropdownMenuLabel>
-            <DropdownMenuSeparator className="bg-slate-800" />
-            <DropdownMenuRadioGroup value={sortBy} onValueChange={onSortChange}>
-              {sortOptions.map((option) => (
-                <DropdownMenuRadioItem className="focus:bg-slate-800 focus:text-white" key={option} value={option}>
-                  {option}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {basicCatalogMode && onBasicCatalogModeChange && (
+            <div className="inline-flex rounded-full border border-slate-700/50 bg-slate-950/50 p-1" aria-label="Basic catalog view">
+              <Button className={cn('h-8 rounded-full px-3 text-xs', basicCatalogMode === 'starter' ? 'bg-sky-500 text-white hover:bg-sky-400' : 'bg-transparent text-slate-400 hover:bg-slate-800 hover:text-white')} onClick={() => onBasicCatalogModeChange('starter')} size="sm" type="button" variant="ghost">
+                Starter apps
+              </Button>
+              <Button className={cn('h-8 rounded-full px-3 text-xs', basicCatalogMode === 'all-safe' ? 'bg-sky-500 text-white hover:bg-sky-400' : 'bg-transparent text-slate-400 hover:bg-slate-800 hover:text-white')} onClick={() => onBasicCatalogModeChange('all-safe')} size="sm" type="button" variant="ghost">
+                View all apps
+              </Button>
+            </div>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button className={poButtonClass('quiet')} type="button" variant="outline">
+                <SlidersHorizontal className="size-4" />
+                {sortBy}
+                <ChevronDown className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 border-slate-700 bg-slate-950 text-slate-100">
+              <DropdownMenuLabel>Sort apps</DropdownMenuLabel>
+              <DropdownMenuSeparator className="bg-slate-800" />
+              <DropdownMenuRadioGroup value={sortBy} onValueChange={onSortChange}>
+                {sortOptions.map((option) => (
+                  <DropdownMenuRadioItem className="focus:bg-slate-800 focus:text-white" key={option} value={option}>
+                    {option}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </CardHeader>
       <CardContent className={cn('grid gap-4 p-4 pt-0 md:p-5 md:pt-0', basic ? 'sm:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-2' : 'md:grid-cols-2 2xl:grid-cols-3')}>
         {apps.length ? apps.map((app) => <AppStoreCard app={app} density={density} isSelected={selectedAppId === app.id} key={app.id} onSelect={() => onSelect(app.id)} />) : (
@@ -75,6 +89,7 @@ function AppStoreCard({ app, density, isSelected, onSelect }: { app: DiscoverApp
   }
   const primaryActionId = app.primaryAction.id;
   const actionVariant = primaryActionId === 'review_setup' ? 'default' : 'outline';
+  const actionLabel = marketplaceActionLabel(app);
   return (
     <div className={cn('group relative grid min-h-[258px] overflow-hidden rounded-xl border p-4 text-slate-100 shadow-po-card transition hover:-translate-y-0.5 hover:border-violet-300/45', marketplaceCardToneClass(app), isSelected && 'border-violet-300/55 outline outline-1 outline-violet-300/35 shadow-po-brand-glow')}>
       <div className="absolute inset-0 bg-po-card-hover-sheen opacity-0 transition group-hover:opacity-100" />
@@ -100,7 +115,7 @@ function AppStoreCard({ app, density, isSelected, onSelect }: { app: DiscoverApp
         <div className="min-w-0 text-xs text-slate-400">{app.serviceKindLabel}</div>
         <Button className={cn('h-8 px-3 text-xs', primaryActionId === 'review_setup' && 'border-sky-400/30 bg-sky-500 text-white shadow-po-info-glow hover:bg-sky-400', primaryActionId === 'manage' && 'border-sky-300/25 bg-sky-500/10 text-sky-100 hover:bg-sky-500/15', primaryActionId === 'review_existing' && 'border-amber-300/25 bg-amber-500/10 text-amber-100 hover:bg-amber-500/15')} disabled={app.primaryAction.disabled} onClick={onSelect} type="button" variant={actionVariant}>
           {primaryActionId === 'manage' ? <CheckCircle2 className="size-3.5" /> : <Sparkles className="size-3.5" />}
-          {app.primaryAction.label}
+          {actionLabel}
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -123,6 +138,7 @@ function AppStoreCard({ app, density, isSelected, onSelect }: { app: DiscoverApp
 }
 
 function BasicAppStoreCard({ app, isSelected, onSelect }: { app: DiscoverAppView; isSelected: boolean; onSelect: () => void }) {
+  const actionLabel = marketplaceActionLabel(app);
   return (
     <button
       className={cn(
@@ -160,10 +176,14 @@ function BasicAppStoreCard({ app, isSelected, onSelect }: { app: DiscoverAppView
       </span>
 
       <span className="mt-4 grid h-10 place-items-center rounded-lg bg-sky-500 px-4 text-sm font-semibold text-white shadow-po-info-glow transition group-hover:bg-sky-400">
-        {app.primaryAction.label}
+        {actionLabel}
       </span>
     </button>
   );
+}
+
+function marketplaceActionLabel(app: DiscoverAppView) {
+  return app.primaryAction.id === 'review_setup' ? 'Install' : app.primaryAction.label;
 }
 
 function stateBadgeClass(tone: string) {

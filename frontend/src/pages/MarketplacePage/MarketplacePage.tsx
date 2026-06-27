@@ -46,6 +46,7 @@ import {
   formatMarketplaceActivityTime,
   marketplaceActivityTone,
   marketplaceVisibleAppViews,
+  safeBasicCatalogForDiscover,
   starterCatalogForDiscover,
   shouldShowStartHereSection,
   starterAppsForMarketplace,
@@ -69,6 +70,7 @@ function MarketplacePage() {
   const [sortBy, setSortBy] = useState('Recommended');
   const [searchQuery, setSearchQuery] = useState('');
   const [hideInstalled, setHideInstalled] = useState(false);
+  const [basicCatalogMode, setBasicCatalogMode] = useState<'starter' | 'all-safe'>('starter');
   const [marketplaceError, setMarketplaceError] = useState('');
   const [setupAnswers, setSetupAnswers] = useState<Record<string, unknown>>({});
   const [setupAnswersAppId, setSetupAnswersAppId] = useState<string | null>(null);
@@ -91,13 +93,20 @@ function MarketplacePage() {
   const storage = readinessQuery.data?.storage ?? null;
   const lastRefreshAt = appsQuery.dataUpdatedAt > 0 ? new Date(appsQuery.dataUpdatedAt) : null;
   const installedById = useMemo(() => new Map(apps.filter((app) => app.state === 'installed_managed' && app.installedApp).map((app) => [app.id, app.installedApp])), [apps]);
+  const starterCatalogApps = useMemo(() => {
+    const starterIds = new Set(starterCatalogForDiscover(apps.map((view) => view.app)).map((app) => app.id));
+    return apps.filter((view) => starterIds.has(view.id));
+  }, [apps]);
+  const safeBasicCatalogApps = useMemo(() => {
+    const safeIds = new Set(safeBasicCatalogForDiscover(apps.map((view) => view.app)).map((app) => app.id));
+    return apps.filter((view) => safeIds.has(view.id));
+  }, [apps]);
   const catalogApps = useMemo(() => {
     if (showAdvancedMetrics) {
       return apps;
     }
-    const starterIds = new Set(starterCatalogForDiscover(apps.map((view) => view.app)).map((app) => app.id));
-    return apps.filter((view) => starterIds.has(view.id));
-  }, [apps, showAdvancedMetrics]);
+    return basicCatalogMode === 'all-safe' ? safeBasicCatalogApps : starterCatalogApps;
+  }, [apps, basicCatalogMode, safeBasicCatalogApps, showAdvancedMetrics, starterCatalogApps]);
   const selectedView = useMemo(() => apps.find((app) => app.id === selectedAppId) ?? catalogApps[0] ?? apps[0], [apps, catalogApps, selectedAppId]);
   const selectedApp = selectedView?.app;
   const selectedInstalledApp = selectedView?.installedApp ?? null;
@@ -344,7 +353,7 @@ function MarketplacePage() {
         <div aria-label="Discover filters" className="flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-2 text-sm text-slate-500">
             <Filter className="size-4" />
-            {showAdvancedMetrics ? 'Show' : 'Starter catalog'}
+            {showAdvancedMetrics ? 'Show' : basicCatalogMode === 'all-safe' ? 'Safe apps' : 'Starter catalog'}
           </span>
           {showAdvancedMetrics && categories.map((category) => (
             <Button className={cn('h-9 border-slate-700/40 bg-slate-900/65 px-4 text-slate-300 hover:bg-slate-800 hover:text-white', selectedCategory === category && 'border-sky-300/40 bg-sky-600/20 text-sky-100 hover:bg-sky-600/25')} key={category} onClick={() => setSelectedCategory(category)} type="button" variant="outline">
@@ -363,7 +372,7 @@ function MarketplacePage() {
       </div>
 
       <div className="grid items-start gap-6 2xl:grid-cols-[minmax(620px,1fr)_minmax(420px,560px)]">
-        <MarketplaceAppList apps={visibleApps} density={showAdvancedMetrics ? 'full' : 'basic'} modeLabel={showAdvancedMetrics ? 'All apps' : 'Starter apps'} onSelect={setSelectedAppId} onSortChange={setSortBy} selectedAppId={selectedApp.id} sortBy={sortBy} />
+        <MarketplaceAppList apps={visibleApps} basicCatalogMode={showAdvancedMetrics ? undefined : basicCatalogMode} density={showAdvancedMetrics ? 'full' : 'basic'} modeLabel={showAdvancedMetrics ? 'All apps' : basicCatalogMode === 'all-safe' ? 'Ready apps' : 'Starter apps'} onBasicCatalogModeChange={showAdvancedMetrics ? undefined : setBasicCatalogMode} onSelect={setSelectedAppId} onSortChange={setSortBy} selectedAppId={selectedApp.id} sortBy={sortBy} />
         <MarketplaceAppDetail app={selectedApp} appView={selectedView} backupJob={backupJob?.subjectId === selectedApp.id ? backupJob : null} installJob={installJob?.subjectId === selectedApp.id ? installJob : null} installLocked={selectedAppInstallLocked} installOptions={installOptions ?? fallbackInstallOptions} installPreview={installPreview} installStatusMessage={installStatusMessage} installing={selectedAppInstalling} installPlan={installPlan} installedApp={selectedInstalledApp} onBack={() => { setSearchQuery(''); setSelectedCategory('All'); }} onCreateBackup={createFirstBackup} onDuplicateInstallAcknowledged={() => setDuplicateAcknowledgedAppId(selectedApp.id)} onInstall={(options) => installApp(selectedApp.id, options)} onReinstallCurrent={reinstallWithCurrentSettings} onRequestPlan={(options) => requestPlan(selectedApp.id, options)} onSetupAnswersChange={changeSetupAnswers} planLoading={planLoading} recoveryMode={recoveryAppId === selectedApp.id ? recoveryMode : null} setupAnswers={setupAnswers} setupReady={installPreview?.valid ?? true} setupSchema={selectedView.setupSchema} />
       </div>
     </PageShell>

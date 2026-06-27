@@ -146,13 +146,13 @@ function NetworkPage() {
           <AccessZoneDiagram zones={accessZones} />
           <PrivateAccessSetupPath reconciliation={network.reconciliation} setup={network.setupStatus} tailscale={network.tailscale} />
           <Tabs className="gap-5" onValueChange={setActiveTab} value={selectedTab}>
-            <TabsList className="w-full justify-start overflow-x-auto border-b border-slate-700/30 bg-transparent p-0" variant="line">
+            <TabsList className="sticky top-0 z-10 w-full justify-start overflow-x-auto border-b border-slate-700/30 bg-slate-950/90 p-0 py-2 backdrop-blur" variant="line">
               <TabsTrigger className="px-3 py-2 text-slate-400 data-active:text-white" value="private-apps">Private app links</TabsTrigger>
               <TabsTrigger className="px-3 py-2 text-slate-400 data-active:text-white" value="issues">Issues</TabsTrigger>
               {showAdvancedMetrics && <TabsTrigger className="px-3 py-2 text-slate-400 data-active:text-white" value="devices">Trusted devices</TabsTrigger>}
               {showAdvancedMetrics && <TabsTrigger className="px-3 py-2 text-slate-400 data-active:text-white" value="advanced">Map and diagnostics</TabsTrigger>}
             </TabsList>
-            <TabsContent value="private-apps">
+            <TabsContent className="min-h-[560px]" value="private-apps">
               <PrivateAccessManager
                 copiedAppId={copiedAppId}
                 installedApps={apps}
@@ -167,13 +167,13 @@ function NetworkPage() {
                 tailscale={network.tailscale}
               />
             </TabsContent>
-            <TabsContent value="issues">
+            <TabsContent className="min-h-[560px]" value="issues">
               <NetworkIssuesPanel issues={issues} />
             </TabsContent>
-            {showAdvancedMetrics && <TabsContent value="devices">
+            {showAdvancedMetrics && <TabsContent className="min-h-[560px]" value="devices">
               <NetworkDevicesPanel devices={devices} />
             </TabsContent>}
-            {showAdvancedMetrics && <TabsContent value="advanced">
+            {showAdvancedMetrics && <TabsContent className="min-h-[560px]" value="advanced">
               <div className="grid gap-5">
                 <HostSetupPanel setup={network.setupStatus} />
                 <NetworkAdvancedPanel diagnostics={network.diagnostics} guide={network.guide} tailscale={network.tailscale} />

@@ -291,14 +291,14 @@ function BackupsPage() {
             <SurfacePanel>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <SectionHeader icon={RotateCcw} title="Restore" description="Browse restore points as a visual routine timeline or a compact list." />
-                <Tabs className="w-fit" onValueChange={(value) => setRestoreView(value as RestoreView)} value={restoreView}>
+                <Tabs className="w-fit shrink-0" onValueChange={(value) => setRestoreView(value as RestoreView)} value={restoreView}>
                   <TabsList className="border border-slate-800 bg-slate-900/80">
                     <TabsTrigger className="px-3 text-slate-400 data-active:text-white" value="timeline">Timeline</TabsTrigger>
                     <TabsTrigger className="px-3 text-slate-400 data-active:text-white" value="list">List</TabsTrigger>
                   </TabsList>
                 </Tabs>
               </div>
-              <div className="mt-5">
+              <div className="mt-5 min-h-[520px]">
                 {restoreView === 'timeline' ? (
                   <RoutineTimeline apps={report.apps} latestRestore={latestRestore} nextRun={report.settings.nextRoutineRun} onDetails={openRestorePointDetails} onRestore={openRestore} onVerify={verifyRestorePoint} points={routineRestorePoints} running={running} />
                 ) : (

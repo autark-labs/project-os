@@ -21,6 +21,8 @@ test('marketplace detail and install wizard do not carry legacy install result p
 
   assert.doesNotMatch(detail, /\bInstallResult\b|installResult/);
   assert.doesNotMatch(wizard, /\bInstallResult\b|installResult|InstallResultCard|PostInstallGuideCard/);
+  assert.doesNotMatch(detail, /<MarketplaceSetupPanel|<InstallPlanPreview/);
+  assert.match(wizard, /Installation choices/);
   assert.doesNotMatch(marketplaceTypes, /\bInstallResult\b|PostInstallGuide|ResolvedSetupField|ResolvedSetupIntegration/);
 });
 

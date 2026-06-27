@@ -5,6 +5,7 @@ import {
   marketplaceVisibleAppViews,
   marketplaceVisibleApps,
   optionsFromInstalledSettings,
+  safeBasicCatalogForDiscover,
   shouldShowStartHereSection,
   starterCatalogForDiscover,
   starterAppsForMarketplace,
@@ -147,6 +148,17 @@ test('starterCatalogForDiscover keeps the basic catalog focused on ready starter
   ];
 
   assert.deepEqual(starterCatalogForDiscover(apps).map((item) => item.id), ['vaultwarden', 'jellyfin', 'homepage', 'immich', 'easy-ready']);
+});
+
+test('safeBasicCatalogForDiscover shows only ready apps for basic view all', () => {
+  const apps = [
+    app({ id: 'ready', name: 'Ready App', supportLevel: 'Ready' }),
+    app({ id: 'needs-testing', name: 'Needs Testing App', supportLevel: 'Needs testing' }),
+    app({ id: 'advanced', name: 'Advanced App', supportLevel: 'Advanced' }),
+    app({ id: 'experimental', name: 'Experimental App', supportLevel: 'Experimental' }),
+  ];
+
+  assert.deepEqual(safeBasicCatalogForDiscover(apps).map((item) => item.id), ['ready']);
 });
 
 test('optionsFromInstalledSettings preserves installed app choices for reinstall', () => {
