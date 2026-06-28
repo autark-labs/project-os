@@ -1,10 +1,28 @@
+import type { AppEvent, AppHealthSnapshot, AppRemediationView, AppRuntimeView, InstallSettings } from '@/types/app';
+
 const HEALTHY_STATES = new Set(['Ready', 'Running']);
 const ATTENTION_STATES = new Set(['Needs attention', 'Unavailable', 'Missing']);
 
-/**
- * @param {{ app?: any, health?: any }} input
- */
-export function appRemediationDisplay({ app, health = null } = {}) {
+type RepairAwareHealth = Partial<AppHealthSnapshot> & {
+  repairAvailable?: boolean;
+};
+
+type RemediationEvent = Partial<AppEvent> & {
+  tone?: string | null;
+};
+
+type RemediationApp = Partial<Omit<AppRuntimeView, 'recentEvents' | 'settings'>> & {
+  backupState?: string | null;
+  recentEvents?: RemediationEvent[] | null;
+  settings?: Partial<InstallSettings> | null;
+};
+
+type AppRemediationInput = {
+  app?: RemediationApp | null;
+  health?: RepairAwareHealth | null;
+};
+
+export function appRemediationDisplay({ app, health = null }: AppRemediationInput = {}): AppRemediationView {
   if (app?.remediation?.state) {
     return app.remediation;
   }
@@ -48,7 +66,7 @@ export function appRemediationDisplay({ app, health = null } = {}) {
     };
   }
 
-  if (ATTENTION_STATES.has(healthStatus) || ATTENTION_STATES.has(app?.friendlyStatus)) {
+  if (ATTENTION_STATES.has(healthStatus) || (app?.friendlyStatus ? ATTENTION_STATES.has(app.friendlyStatus) : false)) {
     if (autoRepairEnabled && health?.repairAvailable) {
       return {
         state: 'needs_user_action',
@@ -86,15 +104,15 @@ export function appRemediationDisplay({ app, health = null } = {}) {
   };
 }
 
-export function shouldShowRemediation(display) {
-  return display?.state && !['healthy', 'watching'].includes(display.state);
+export function shouldShowRemediation(display?: AppRemediationView | null): boolean {
+  return Boolean(display?.state && !['healthy', 'watching'].includes(display.state));
 }
 
-function appName(app) {
+function appName(app?: RemediationApp | null): string {
   return app?.appName || 'This app';
 }
 
-function latestRepairStatus(events) {
+function latestRepairStatus(events: RemediationEvent[]): string | null {
   const event = events.find((item) => String(item?.type || '').includes('repair'));
   const type = String(event?.type || '').toLowerCase();
   const tone = String(event?.tone || '').toLowerCase();
@@ -104,7 +122,7 @@ function latestRepairStatus(events) {
   return null;
 }
 
-function recentRepairStarted(events) {
+function recentRepairStarted(events: RemediationEvent[]): boolean {
   return events.some((item) => {
     const type = String(item?.type || '').toLowerCase();
     return type.includes('repair') && (type.includes('start') || type.includes('running'));

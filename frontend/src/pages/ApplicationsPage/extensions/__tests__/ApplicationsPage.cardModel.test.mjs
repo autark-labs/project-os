@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { appCardPrimaryUrl, pinnedExternalServiceCard } from './ApplicationsPage.cardModel.js';
+import { appCardPrimaryUrl, pinnedExternalServiceCard } from '../ApplicationsPage.cardModel.ts';
 
 test('pinned external services get a distinct card model without managed runtime actions', () => {
   const card = pinnedExternalServiceCard({

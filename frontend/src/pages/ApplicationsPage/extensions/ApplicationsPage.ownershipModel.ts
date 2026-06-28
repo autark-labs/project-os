@@ -1,4 +1,7 @@
-export function splitOwnershipViews(views = []) {
+import type { AppOwnershipTone, AppOwnershipView } from '@/types/appOwnership';
+import type { ObservedServiceUserStatus, ObservedServiceView } from '@/types/observedService';
+
+export function splitOwnershipViews(views: AppOwnershipView[] = []) {
   const managed = views.filter((view) => view.state === 'installed_managed' && view.installed && view.ownedByCurrentInstance);
   const pinned = views.filter((view) => view.state === 'pinned_external');
   return {
@@ -9,7 +12,7 @@ export function splitOwnershipViews(views = []) {
   };
 }
 
-export function observedServicesWithoutOwnership(observedServices = [], ownershipViews = []) {
+export function observedServicesWithoutOwnership(observedServices: ObservedServiceView[] = [], ownershipViews: AppOwnershipView[] = []): AppOwnershipView[] {
   const representedServiceIds = new Set(
     ownershipViews
       .map((view) => view.observedService?.id)
@@ -68,13 +71,13 @@ export function observedServicesWithoutOwnership(observedServices = [], ownershi
     }));
 }
 
-export function pinnedExternalViewsFromObservedServices(observedServices = []) {
+export function pinnedExternalViewsFromObservedServices(observedServices: ObservedServiceView[] = []): AppOwnershipView[] {
   return observedServices
     .filter((service) => service.pinned || service.userStatus === 'pinned_external')
     .map((service) => observedServiceOwnershipView(service));
 }
 
-function observedServiceOwnershipView(service) {
+function observedServiceOwnershipView(service: ObservedServiceView): AppOwnershipView {
   return {
     catalogAppId: service.catalogAppId || '',
     name: service.displayName,
@@ -106,14 +109,14 @@ function observedServiceOwnershipView(service) {
   };
 }
 
-function serviceTone(service) {
+function serviceTone(service: ObservedServiceView): AppOwnershipTone {
   if (service.userStatus === 'managed_elsewhere' || service.userStatus === 'blocked') return 'danger';
   if (service.userStatus === 'recoverable') return 'warning';
   if (service.userStatus === 'pinned_external') return 'info';
   return 'neutral';
 }
 
-function serviceCardTone(service) {
+function serviceCardTone(service: Pick<ObservedServiceView, 'userStatus'> & { userStatus?: ObservedServiceUserStatus }): AppOwnershipTone {
   if (service.userStatus === 'managed_elsewhere' || service.userStatus === 'blocked') return 'danger';
   if (service.userStatus === 'recoverable') return 'warning';
   if (service.userStatus === 'pinned_external') return 'info';

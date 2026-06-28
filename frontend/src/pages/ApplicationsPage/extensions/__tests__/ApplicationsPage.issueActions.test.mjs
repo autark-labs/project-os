@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildAppIssueGuidance } from './ApplicationsPage.issueActions.js';
+import { buildAppIssueGuidance } from '../ApplicationsPage.issueActions.ts';
 
 const app = {
   appId: 'vaultwarden',

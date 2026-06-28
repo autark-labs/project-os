@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { appRemediationDisplay } from './ApplicationsPage.remediation.js';
+import { appRemediationDisplay } from '../ApplicationsPage.remediation.ts';
 
 const baseApp = {
   appId: 'vaultwarden',

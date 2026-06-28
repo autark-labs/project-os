@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { observedServicesWithoutOwnership, pinnedExternalViewsFromObservedServices, splitOwnershipViews } from './ApplicationsPage.ownershipModel.js';
+import { observedServicesWithoutOwnership, pinnedExternalViewsFromObservedServices, splitOwnershipViews } from '../ApplicationsPage.ownershipModel.ts';
 
 test('splitOwnershipViews separates managed, pinned, and observed services', () => {
   const split = splitOwnershipViews([
