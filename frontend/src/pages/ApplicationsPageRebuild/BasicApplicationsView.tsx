@@ -34,7 +34,7 @@ export function BasicApplicationsView({ items, onSelect, selectedId }: BasicAppl
       {items.map((item) => (
         <Card
           className={[
-            'rounded-2xl border-neutral-300 bg-white shadow-none transition-colors hover:bg-neutral-50',
+            'overflow-visible rounded-2xl border border-neutral-300 bg-white shadow-none ring-0 transition-colors hover:bg-neutral-50',
             selectedId === item.id ? 'border-neutral-950 outline outline-2 outline-offset-2 outline-neutral-950' : '',
           ].join(' ')}
           key={item.id}
@@ -57,7 +57,7 @@ export function BasicApplicationsView({ items, onSelect, selectedId }: BasicAppl
               </div>
             </div>
           </CardContent>
-          <CardFooter className="justify-between gap-3 rounded-none border-neutral-300 bg-neutral-50">
+          <CardFooter className="justify-between gap-3 border-neutral-300 bg-white">
             <Button className="bg-emerald-600 text-white hover:bg-emerald-700" onClick={() => onSelect(item.id)} type="button">
               {item.nextStep === 'Open' ? <ExternalLink data-icon="inline-start" /> : <Play data-icon="inline-start" />}
               {item.nextStep}
@@ -94,7 +94,7 @@ function ApplicationsEmptyState() {
           <Search />
         </EmptyMedia>
         <EmptyTitle>No matching apps or services</EmptyTitle>
-        <EmptyDescription>Change the search text to continue shaping this layout.</EmptyDescription>
+        <EmptyDescription>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</EmptyDescription>
       </EmptyHeader>
     </Empty>
   );

@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Plus, RefreshCw, Search } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -101,49 +100,33 @@ export const ApplicationsPage = () => {
         <header className="rounded-2xl border border-neutral-300 bg-white">
           <div className="flex flex-col gap-5 p-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="flex max-w-3xl flex-col gap-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge className="bg-neutral-950 text-white">Applications</Badge>
-                <Badge className="bg-emerald-600 text-white">Design frame</Badge>
-                <Badge className="bg-neutral-200 text-neutral-950">{viewMode === 'advanced' ? 'Advanced view' : 'Basic view'}</Badge>
-              </div>
               <div className="flex flex-col gap-2">
                 <h1 className="text-4xl font-semibold tracking-tight text-neutral-950">Your apps and services</h1>
                 <p className="text-base leading-7 text-neutral-700">
-                  A simpler parent page for browsing installed apps, pinned shortcuts, and services Project OS found locally.
+                  Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer vitae arcu sed tortor facilisis
+                  volutpat.
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="relative min-w-72">
-                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
-                <Input
-                  aria-label="Search apps and services"
-                  className="border-neutral-300 bg-white pl-9 text-neutral-950 placeholder:text-neutral-500"
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search apps and services"
-                  value={query}
-                />
-              </div>
-              <Button className="bg-neutral-950 text-white hover:bg-neutral-800" type="button">
-                <Plus data-icon="inline-start" />
-                Add
-              </Button>
+            <div className="relative min-w-72">
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+              <Input
+                aria-label="Search apps and services"
+                className="border-neutral-300 bg-white pl-9 text-neutral-950 placeholder:text-neutral-500"
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search apps and services"
+                value={query}
+              />
             </div>
           </div>
 
           <Separator className="bg-neutral-300" />
 
-          <div className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <PageMetric label="Managed" value={managedCount} />
-              <PageMetric label="Pinned" value={pinnedCount} />
-              <PageMetric label="Found" value={observedCount} />
-            </div>
-
-            <div className="rounded-xl border border-neutral-300 bg-neutral-100 px-4 py-3 text-sm text-neutral-700">
-              Use the sidebar view-mode control to switch page detail.
-            </div>
+          <div className="grid gap-3 p-5 sm:grid-cols-3">
+            <PageMetric label="Managed" value={managedCount} />
+            <PageMetric label="Pinned" value={pinnedCount} />
+            <PageMetric label="Found" value={observedCount} />
           </div>
         </header>
 
@@ -154,10 +137,12 @@ export const ApplicationsPage = () => {
             <AdvancedApplicationsView items={visibleItems} onSelect={setSelectedId} selectedId={selectedItem?.id} />
           )}
 
-          <Card className="h-fit overflow-visible rounded-2xl border-neutral-300 bg-white shadow-none lg:sticky lg:top-5">
+          <Card className="h-fit overflow-visible rounded-2xl border border-neutral-300 bg-white shadow-none ring-0 lg:sticky lg:top-5">
             <CardHeader>
               <CardTitle className="text-neutral-950">Selected item</CardTitle>
-              <CardDescription className="text-neutral-600">Placeholder for the future details drawer and contextual help.</CardDescription>
+              <CardDescription className="text-neutral-600">
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {selectedItem ? (
@@ -182,14 +167,6 @@ export const ApplicationsPage = () => {
             </CardContent>
           </Card>
         </section>
-
-        <footer className="flex flex-col gap-3 rounded-2xl border border-neutral-300 bg-white p-4 text-sm text-neutral-700 md:flex-row md:items-center md:justify-between">
-          <span>This is a design-only frame. Runtime management stays intentionally out of this pass.</span>
-          <Button className="border-neutral-300 text-neutral-900" type="button" variant="outline">
-            <RefreshCw data-icon="inline-start" />
-            Refresh frame
-          </Button>
-        </footer>
       </div>
     </main>
   );

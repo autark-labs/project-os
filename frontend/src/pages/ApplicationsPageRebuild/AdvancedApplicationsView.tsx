@@ -26,15 +26,15 @@ type AdvancedApplicationsViewProps = {
 
 export function AdvancedApplicationsView({ items, onSelect, selectedId }: AdvancedApplicationsViewProps) {
   return (
-    <Card className="overflow-visible rounded-2xl border-neutral-300 bg-white shadow-none">
+    <Card className="overflow-visible rounded-2xl border border-neutral-300 bg-white shadow-none ring-0">
       <CardHeader>
         <CardTitle className="text-neutral-950">Advanced operations</CardTitle>
         <CardDescription className="text-neutral-600">
-          Dense management shape for runtime, access, backup, and found-service review. Controls are visual only in this pass.
+          Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse vitae sem at arcu porta pretium.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="overflow-hidden rounded-xl border border-neutral-300">
+        <div className="rounded-xl border border-neutral-300">
           <Table>
             <TableHeader>
               <TableRow className="border-neutral-300 bg-neutral-100 hover:bg-neutral-100">
