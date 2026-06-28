@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
@@ -31,58 +30,54 @@ export function BasicApplicationsView({ items, onSelect, selectedId }: BasicAppl
   }
 
   return (
-    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       {items.map((item) => (
         <Card
           className={cn(
-            'cursor-pointer overflow-visible rounded-2xl border bg-white shadow-none ring-0 transition-colors hover:bg-neutral-50',
+            'relative cursor-pointer overflow-visible rounded-2xl border bg-white py-0 shadow-none ring-0 transition-colors hover:bg-neutral-50',
             item.nextAction && 'border-amber-300 bg-amber-50/70 hover:bg-amber-50',
             item.runtimeState === 'paused' && 'border-neutral-300 bg-neutral-50',
             !item.nextAction && item.runtimeState !== 'paused' && 'border-neutral-300',
-            selectedId === item.id && 'border-neutral-950 outline outline-2 outline-offset-2 outline-neutral-950',
+            selectedId === item.id && 'border-neutral-950 shadow-md',
           )}
           key={item.id}
           onClick={() => onSelect(item.id)}
         >
-          <CardHeader>
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex min-w-0 items-start gap-3">
-                <AppIcon item={item} />
-                <div className="flex min-w-0 flex-col gap-1">
-                  <CardTitle className="truncate text-xl text-neutral-950">{item.name}</CardTitle>
-                  <StatusBadge item={item} />
-                  {/* <CardDescription className="text-neutral-600">{labelForKind(item.kind)}</CardDescription> */}
-                </div>
+          <CardHeader className="px-4 pt-5 pb-2">
+            <StatusBadge item={item} />
+            <div className="flex min-w-0 flex-col items-center gap-3">
+              <AppIcon item={item} />
+              <div className="flex min-w-0 flex-col items-center gap-1 text-center">
+                <CardTitle className="max-w-full truncate text-lg text-neutral-950">{item.name}</CardTitle>
               </div>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="flex min-h-28 flex-col justify-between gap-4 rounded-xl bg-neutral-100 p-4">
-              <p className="line-clamp-3 text-sm leading-6 text-neutral-700">{item.description}</p>
-              <div className="flex flex-wrap gap-between">
+          <CardContent className="px-4 py-2">
+            <div className="rounded-xl bg-neutral-100 p-2">
+              <div className="flex flex-wrap justify-center gap-2">
                 <Badge className="bg-white text-neutral-950">{item.access}</Badge>
                 <Badge className="bg-white text-neutral-950">{item.backup}</Badge>
               </div>
             </div>
           </CardContent>
-          <CardFooter className="flex-wrap justify-between gap-3 border-neutral-300 bg-white">
+          <CardFooter className="gap-2 rounded-b-2xl border-neutral-300 bg-white px-4 py-4">
             {item.href ? (
-              <Button asChild className="bg-neutral-950 text-white hover:bg-neutral-800">
+              <Button asChild className="flex-1 bg-neutral-950 text-white hover:bg-neutral-800" size="lg">
                 <a href={item.href} onClick={(event) => event.stopPropagation()} rel="noreferrer" target="_blank">
-                  <ExternalLink data-icon="inline-start" />
+                  <ExternalLink className="size-5" data-icon="inline-start" />
                   Open
                 </a>
               </Button>
             ) : (
-              <Button disabled type="button">
-                <ExternalLink data-icon="inline-start" />
+              <Button className="flex-1" disabled size="lg" type="button">
+                <ExternalLink className="size-5" data-icon="inline-start" />
                 No link
               </Button>
             )}
             <Button className="border-neutral-300 text-neutral-900" onClick={(event) => {
               event.stopPropagation();
               onSelect(item.id);
-            }} type="button" variant="outline">
+            }} size="lg" type="button" variant="outline">
               Details
               <ArrowRight data-icon="inline-end" />
             </Button>
@@ -95,20 +90,20 @@ export function BasicApplicationsView({ items, onSelect, selectedId }: BasicAppl
 
 function StatusBadge({ item }: { item: ApplicationSurfaceItem }) {
   if (item.status === 'Ready') {
-    return <Badge className="bg-emerald-600 text-white">Ready</Badge>;
+    return <Badge className="absolute right-3 top-3 bg-emerald-600 text-white">Ready</Badge>;
   }
   if (item.status === 'Needs review') {
     return (
-      <Badge className="bg-amber-500 text-neutral-950">
+      <Badge className="absolute right-3 top-3 bg-amber-500 text-neutral-950">
         <AlertTriangle data-icon="inline-start" />
         Needs review
       </Badge>
     );
   }
   if (item.status === 'Paused') {
-    return <Badge className="bg-neutral-700 text-white">Paused</Badge>;
+    return <Badge className="absolute right-3 top-3 bg-neutral-700 text-white">Paused</Badge>;
   }
-  return <Badge className="bg-neutral-200 text-neutral-950">{item.status}</Badge>;
+  return <Badge className="absolute right-3 top-3 bg-neutral-200 text-neutral-950">{item.status}</Badge>;
 }
 
 function ApplicationsEmptyState() {
@@ -127,22 +122,12 @@ function ApplicationsEmptyState() {
 
 function AppIcon({ item }: { item: ApplicationSurfaceItem }) {
   return (
-    <div className="grid size-12 shrink-0 place-items-center rounded-xl border border-neutral-300 bg-white">
+    <div className="grid size-24 shrink-0 place-items-center rounded-2xl border border-neutral-300 bg-white">
       {item.iconUrl ? (
-        <img alt="" className="size-9 object-contain" src={item.iconUrl} />
+        <img alt="" className="size-20 object-contain" src={item.iconUrl} />
       ) : (
-        <span className="text-sm font-semibold text-neutral-700">{item.name.slice(0, 2).toUpperCase()}</span>
+        <span className="text-xl font-semibold text-neutral-700">{item.name.slice(0, 2).toUpperCase()}</span>
       )}
     </div>
   );
-}
-
-function labelForKind(kind: ApplicationSurfaceItem['kind']) {
-  if (kind === 'managed') {
-    return 'Managed by Project OS';
-  }
-  if (kind === 'pinned') {
-    return 'Pinned shortcut';
-  }
-  return 'Found on this machine';
 }
