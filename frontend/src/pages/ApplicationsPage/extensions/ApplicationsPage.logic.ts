@@ -33,7 +33,7 @@ export function backupLabel(backup?: BackupPolicy | null) {
   if (!backup.enabled) {
     return 'Disabled';
   }
-  return 'Protected';
+  return 'Backups on';
 }
 
 export function storageLabel(subfolders?: Record<string, string> | null) {

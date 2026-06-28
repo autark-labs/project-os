@@ -31,7 +31,7 @@ export function ProtectionPanel({ latestRestore, report }: { latestRestore: Rest
     <SurfacePanel className="bg-slate-950/55 shadow-none">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-bold text-white">{report?.settings.automaticBackupsEnabled ? 'Routine protection on' : 'Routine protection off'}</p>
+          <p className="text-sm font-bold text-white">{report?.settings.automaticBackupsEnabled ? 'Routine backups on' : 'Routine backups off'}</p>
           <p className="mt-1 text-xs text-slate-400">{report?.settings.nextRunLabel || 'Schedule unavailable'}</p>
         </div>
         <span className={cn('grid size-11 place-items-center rounded-lg border', report?.settings.automaticBackupsEnabled ? 'border-emerald-300/20 bg-emerald-500/10 text-emerald-200' : 'border-amber-300/20 bg-amber-500/10 text-amber-100')}>
@@ -40,7 +40,7 @@ export function ProtectionPanel({ latestRestore, report }: { latestRestore: Rest
       </div>
       <div className="mt-5">
         <div className="flex items-center justify-between text-xs text-slate-500">
-          <span>Protected apps</span>
+          <span>Protected by restore point</span>
           <span>{report?.protectedApps ?? 0}/{report?.totalApps ?? 0}</span>
         </div>
         <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800">
@@ -66,7 +66,7 @@ export function RoutineHealthPanel({ report, showAdvancedMetrics }: { report: Ba
       <div className="mt-5 grid gap-3 md:grid-cols-3">
         <FactRow label="Last successful backup" value={report.settings.lastSuccessfulRoutineRun ? formatBackupDate(report.settings.lastSuccessfulRoutineRun.createdAt) : 'None yet'} />
         <FactRow label="Next scheduled backup" value={report.settings.nextRoutineRun ? formatBackupDate(report.settings.nextRoutineRun) : 'Not scheduled'} />
-        <FactRow label="Protected apps" value={`${report.protectedApps}/${report.totalApps}`} />
+        <FactRow label="Protected by restore point" value={`${report.protectedApps}/${report.totalApps}`} />
       </div>
       <SurfaceInset className="mt-4 text-sm leading-6 text-slate-300">{report.settings.schedulerMessage}</SurfaceInset>
       {showAdvancedMetrics && (

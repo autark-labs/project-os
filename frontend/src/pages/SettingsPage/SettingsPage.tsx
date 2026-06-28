@@ -417,7 +417,7 @@ function StoragePanel({ metrics }: { metrics: SystemMetrics | null }) {
 }
 
 function BackupsPanel({ apps, backupRoot, draft, onUpdate }: PanelProps & { apps: AppRuntimeView[]; backupRoot: string | null }) {
-  const protectedApps = apps.filter((app) => settingsForApp(app).backup.enabled).length;
+  const appsWithBackupsOn = apps.filter((app) => settingsForApp(app).backup.enabled).length;
   return (
     <SettingsGroup description="Control automatic backup behavior for all app data." title="Backups">
       <SettingRow helpId="automaticBackupsEnabled" label="Automatic backups" note="Back up all supported app data on a schedule.">
@@ -433,7 +433,7 @@ function BackupsPanel({ apps, backupRoot, draft, onUpdate }: PanelProps & { apps
         <Input className="max-w-28 border-slate-700 bg-slate-950/70 text-slate-100" max={90} min={1} onChange={(event) => onUpdate({ backupRetentionDays: Number(event.target.value) })} type="number" value={draft.backupRetentionDays} />
       </SettingRow>
       <ReadOnlyRow label="Backup folder" note="Current destination used by routine and manual restore points." value={backupRoot || 'Unavailable'} />
-      <ReadOnlyRow label="Protected apps" note="Installed apps that currently have backup protection enabled." value={`${protectedApps}/${apps.length}`} />
+      <ReadOnlyRow label="Apps with backups on" note="Installed apps that currently have scheduled backups enabled. A completed restore point is required before an app is protected." value={`${appsWithBackupsOn}/${apps.length}`} />
     </SettingsGroup>
   );
 }

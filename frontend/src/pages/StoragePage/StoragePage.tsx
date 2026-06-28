@@ -51,7 +51,7 @@ function StoragePage() {
   }
 
   const largestApps = useMemo(() => report?.apps.slice(0, 8) ?? [], [report]);
-  const protectedApps = report?.apps.filter((app) => app.backupEnabled).length ?? 0;
+  const appsWithBackupsOn = report?.apps.filter((app) => app.backupEnabled).length ?? 0;
   const appDataBytes = useMemo(() => report?.apps.reduce((total, app) => total + app.usedBytes, 0) ?? 0, [report]);
   const storageHero = getStorageHero(report);
   const cleanupCandidates = report?.orphanedData.slice(0, 4) ?? [];
@@ -98,7 +98,7 @@ function StoragePage() {
           <SignalCard icon={statusIcon(report?.status)} label="Health" value={report?.headline || 'Unknown'} detail={storageHero.action} tone={statusTone(report?.status)} />
           <SignalCard icon={HardDrive} label="Free space" value={report ? formatBytes(report.hostDisk.usableBytes) : 'Unknown'} detail={report ? `${percentLabel(report.hostDisk.usedPercent)} used overall` : 'Not reported'} tone={usageTone(report?.hostDisk.usedPercent)} />
           <SignalCard icon={Database} label="App data" value={formatBytes(appDataBytes)} detail={`${report?.apps.length ?? 0} installed apps tracked`} tone="violet" />
-          <SignalCard icon={Archive} label="Backup data" value={report ? formatBytes(report.backupStorage.usedBytes) : 'Unknown'} detail={`${protectedApps}/${report?.apps.length ?? 0} apps protected`} tone="green" />
+          <SignalCard icon={Archive} label="Backup data" value={report ? formatBytes(report.backupStorage.usedBytes) : 'Unknown'} detail={`${appsWithBackupsOn}/${report?.apps.length ?? 0} apps with backups on`} tone="green" />
         </div>
       </SurfaceFrame>
 
@@ -110,7 +110,7 @@ function StoragePage() {
                 <SectionHeader icon={HardDrive} title="Space breakdown" description="The main places storage goes: apps you run, backups that protect them, and free room for growth." />
                 <div className="mt-5 grid gap-4 lg:grid-cols-3">
                   <StorageShareCard color="bg-violet-400" detail={`${report.apps.length} installed apps`} label="App data" totalBytes={report.hostDisk.totalBytes} valueBytes={appDataBytes} />
-                  <StorageShareCard color="bg-emerald-400" detail={`${protectedApps}/${report.apps.length} apps protected`} label="Backups" totalBytes={report.hostDisk.totalBytes} valueBytes={report.backupStorage.usedBytes} />
+                  <StorageShareCard color="bg-emerald-400" detail={`${appsWithBackupsOn}/${report.apps.length} apps with backups on`} label="Backups" totalBytes={report.hostDisk.totalBytes} valueBytes={report.backupStorage.usedBytes} />
                   <StorageShareCard color="bg-sky-400" detail="Ready for installs and growth" label="Free room" totalBytes={report.hostDisk.totalBytes} valueBytes={report.hostDisk.usableBytes} />
                 </div>
               </SurfacePanel>
@@ -149,7 +149,7 @@ function StoragePage() {
               <SurfacePanel>
                 <SectionHeader compact icon={Archive} title="Backups" />
                 <div className="mt-4 grid gap-3">
-                  <FactRow label="Apps with backups on" value={`${protectedApps}/${report.apps.length}`} />
+                  <FactRow label="Apps with backups on" value={`${appsWithBackupsOn}/${report.apps.length}`} />
                   <FactRow label="Backup storage used" value={formatBytes(report.backupStorage.usedBytes)} />
                   {showAdvancedMetrics && <FactRow label="Backup folder" value={report.backupStorage.path} />}
                 </div>

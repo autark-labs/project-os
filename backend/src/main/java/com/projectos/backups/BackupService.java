@@ -581,7 +581,7 @@ public class BackupService {
                 app.appId(),
                 app.appName(),
                 status,
-                policy.enabled() && !contract.reviewRequired(),
+                "protected".equals(status),
                 policy.frequency(),
                 policy.retention(),
                 contract,
@@ -607,7 +607,10 @@ public class BackupService {
         if ("failed".equals(latest.status())) {
             return "failed";
         }
-        return "protected";
+        if ("completed".equals(latest.status())) {
+            return "protected";
+        }
+        return "not_backed_up";
     }
 
     private String statusMessage(BackupPolicy policy, RestorePoint latest, BackupContract contract) {
@@ -618,12 +621,15 @@ public class BackupService {
             return "Needs backup review: " + contract.summary();
         }
         if (latest == null) {
-            return "No backup has run yet.";
+            return "No restore point yet.";
         }
         if ("failed".equals(latest.status())) {
             return latest.message();
         }
-        return "Latest backup is ready.";
+        if ("completed".equals(latest.status())) {
+            return "Protected by restore point.";
+        }
+        return "No completed restore point yet.";
     }
 
     private BackupContract backupContract(InstalledApp app) {
@@ -912,7 +918,7 @@ public class BackupService {
         if (failedBackups > 0) {
             return failedBackups + " recent backup failure" + (failedBackups == 1 ? "" : "s") + " recorded.";
         }
-        return protectedApps + " of " + totalApps + " apps have backups turned on.";
+        return protectedApps + " of " + totalApps + " apps are protected by a restore point.";
     }
 
     private Path backupRoot() {

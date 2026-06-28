@@ -330,7 +330,7 @@ function BackupsPage() {
               <div className="mt-4 grid gap-3">
                 <FactRow label="Used" value={formatBackupBytes(report.backupStorageBytes)} />
                 <FactRow label="Restore points" value={`${report.recentRestorePoints.length}`} />
-                <FactRow label="Protected apps" value={`${report.protectedApps}/${report.totalApps}`} />
+                <FactRow label="Protected by restore point" value={`${report.protectedApps}/${report.totalApps}`} />
                 {showAdvancedMetrics && <FactRow label="Backup folder" value={report.backupRoot} />}
               </div>
             </SurfacePanel>
@@ -338,7 +338,7 @@ function BackupsPage() {
             <SurfacePanel>
               <SectionHeader compact icon={AlertTriangle} title="Needs attention" />
               <div className="mt-4 grid gap-3">
-                {needsAttention.length ? needsAttention.map((app) => <AttentionCard app={app} key={app.appId} />) : <EmptyState compact title={report.totalApps ? 'All protected' : 'No apps installed'} message={report.totalApps ? 'Installed apps have backup protection enabled.' : 'Install an app before backup protection can begin.'} />}
+                {needsAttention.length ? needsAttention.map((app) => <AttentionCard app={app} key={app.appId} />) : <EmptyState compact title={report.totalApps ? 'All apps have restore points' : 'No apps installed'} message={report.totalApps ? 'Installed apps are protected by completed restore points.' : 'Install an app before backup protection can begin.'} />}
               </div>
             </SurfacePanel>
           </aside>

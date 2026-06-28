@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { activeBackupJobs, backupJobBannerTitle, backupJobCompletedMessage, backupJobRunningId, backupJobStartedMessage, backupPageViewModel, selectActiveBackupJob } from './BackupsPage.logic.js';
+import { activeBackupJobs, backupJobBannerTitle, backupJobCompletedMessage, backupJobRunningId, backupJobStartedMessage, backupPageViewModel, backupStatusLabel, selectActiveBackupJob } from './BackupsPage.logic.js';
 
 const baseReport = {
   apps: [
@@ -42,8 +42,18 @@ test('backupPageViewModel explains protected and failed backup hero states', () 
     apps: baseReport.apps.map((app) => ({ ...app, status: 'protected' })),
   });
 
-  assert.equal(protectedModel.protectionHero.title, 'Your data is protected');
+  assert.equal(protectedModel.protectionHero.title, 'Protected by restore point');
   assert.match(protectedModel.protectionHero.summary, /latest restore point/i);
+
+  const configuredWithoutRestorePoint = backupPageViewModel({
+    ...baseReport,
+    status: 'protected',
+    protectedApps: 2,
+    recentRestorePoints: [],
+  });
+
+  assert.equal(configuredWithoutRestorePoint.protectionHero.title, 'Create the first restore point');
+  assert.doesNotMatch(configuredWithoutRestorePoint.protectionHero.summary, /protected/i);
 
   const failedModel = backupPageViewModel({
     ...baseReport,
@@ -61,6 +71,12 @@ test('backupPageViewModel handles a missing report without throwing', () => {
   assert.deepEqual(model.routineRestorePoints, []);
   assert.equal(model.latestRestore, null);
   assert.equal(model.protectionHero.title, 'Protection status is unknown');
+});
+
+test('backup status labels distinguish backups on from recoverable restore points', () => {
+  assert.equal(backupStatusLabel('unprotected'), 'Backups off');
+  assert.equal(backupStatusLabel('not_backed_up'), 'No restore point yet');
+  assert.equal(backupStatusLabel('protected'), 'Protected by restore point');
 });
 
 test('backup job copy distinguishes backup, verification, and restore jobs', () => {

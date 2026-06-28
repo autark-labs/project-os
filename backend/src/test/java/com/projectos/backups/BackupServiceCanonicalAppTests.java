@@ -69,6 +69,51 @@ class BackupServiceCanonicalAppTests {
         assertThat(report.apps()).extracting(AppBackupStatus::appId).containsExactly("homepage");
     }
 
+    @Test
+    void backupEnabledWithoutRestorePointIsNotProtected() throws Exception {
+        RuntimeLayout runtimeLayout = runtimeLayout();
+        InstalledAppRepository installedRepository = new InstalledAppRepository(runtimeLayout);
+        BackupRepository backupRepository = new BackupRepository(runtimeLayout);
+        MarketplaceCatalogService catalogService = new MarketplaceCatalogService(new ManifestYamlReader(), new ManifestValidator());
+        InstalledApp homepage = installed("homepage", "Homepage", runtimeLayout);
+        installedRepository.save(homepage);
+        installedRepository.saveSettings("homepage", new InstallSettings(homepage.accessUrl(), null, false, java.util.Map.of(), new BackupPolicy(true, "daily", 7)));
+
+        BackupReport report = backupService(runtimeLayout, installedRepository, backupRepository, catalogService).report();
+
+        assertThat(report.protectedApps()).isZero();
+        assertThat(report.status()).isEqualTo("attention");
+        assertThat(report.summary()).isEqualTo("0 of 1 apps are protected by a restore point.");
+        assertThat(report.apps()).singleElement().satisfies(app -> {
+            assertThat(app.status()).isEqualTo("not_backed_up");
+            assertThat(app.protectedByBackups()).isFalse();
+            assertThat(app.message()).isEqualTo("No restore point yet.");
+        });
+    }
+
+    @Test
+    void completedRestorePointMakesAppProtected() throws Exception {
+        RuntimeLayout runtimeLayout = runtimeLayout();
+        InstalledAppRepository installedRepository = new InstalledAppRepository(runtimeLayout);
+        BackupRepository backupRepository = new BackupRepository(runtimeLayout);
+        MarketplaceCatalogService catalogService = new MarketplaceCatalogService(new ManifestYamlReader(), new ManifestValidator());
+        InstalledApp homepage = installed("homepage", "Homepage", runtimeLayout);
+        installedRepository.save(homepage);
+        installedRepository.saveSettings("homepage", new InstallSettings(homepage.accessUrl(), null, false, java.util.Map.of(), new BackupPolicy(true, "daily", 7)));
+        backupRepository.record("homepage", "Homepage", "app", "manual", "homepage", "/backups/homepage.tar", "completed", 1024, "Backup completed.");
+
+        BackupReport report = backupService(runtimeLayout, installedRepository, backupRepository, catalogService).report();
+
+        assertThat(report.protectedApps()).isEqualTo(1);
+        assertThat(report.status()).isEqualTo("protected");
+        assertThat(report.summary()).isEqualTo("1 of 1 apps are protected by a restore point.");
+        assertThat(report.apps()).singleElement().satisfies(app -> {
+            assertThat(app.status()).isEqualTo("protected");
+            assertThat(app.protectedByBackups()).isTrue();
+            assertThat(app.message()).isEqualTo("Protected by restore point.");
+        });
+    }
+
     private AppLifecycleService appLifecycleService(RuntimeLayout runtimeLayout, InstalledAppRepository repository, MarketplaceCatalogService catalogService, BackupRepository backupRepository) {
         return new AppLifecycleService(
                 repository,
@@ -81,6 +126,20 @@ class BackupServiceCanonicalAppTests {
                 false,
                 null,
                 backupRepository);
+    }
+
+    private BackupService backupService(RuntimeLayout runtimeLayout, InstalledAppRepository installedRepository, BackupRepository backupRepository, MarketplaceCatalogService catalogService) {
+        return new BackupService(
+                runtimeLayout,
+                installedRepository,
+                backupRepository,
+                new ActivityLogService(new ActivityLogRepository(runtimeLayout)),
+                new ProjectSettingsRepository(runtimeLayout),
+                new ProjectSettingsService(new ProjectSettingsRepository(runtimeLayout), new ActivityLogService(new ActivityLogRepository(runtimeLayout))),
+                appLifecycleService(runtimeLayout, installedRepository, catalogService, backupRepository),
+                catalogService,
+                () -> List.of(appInstance("homepage", "Homepage")),
+                new RuntimeFileOperations());
     }
 
     private AppInstanceView appInstance(String appId, String name) {

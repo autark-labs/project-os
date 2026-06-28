@@ -40,7 +40,9 @@ export function capitalizeBackupLabel(value) {
 export function backupStatusLabel(status) {
   if (status === 'manual_only') return 'Manual run required';
   if (status === 'needs_backup_review') return 'Needs backup review';
-  if (status === 'not_backed_up') return 'No backup yet';
+  if (status === 'not_backed_up') return 'No restore point yet';
+  if (status === 'unprotected') return 'Backups off';
+  if (status === 'protected') return 'Protected by restore point';
   return status.replaceAll('_', ' ');
 }
 
@@ -159,11 +161,15 @@ export function backupProtectionHero(report, latestRestore) {
     };
   }
   if (report.status === 'protected') {
+    if (!latestRestore) {
+      return {
+        summary: 'Backups are configured, but Project OS has not created a completed restore point yet.',
+        title: 'Create the first restore point',
+      };
+    }
     return {
-      summary: latestRestore
-        ? `Your apps have backup protection. The latest restore point was created ${formatBackupDate(latestRestore.createdAt)}, and the next scheduled backup is ${report.settings.nextRoutineRun ? formatBackupDate(report.settings.nextRoutineRun) : 'not scheduled'}.`
-        : 'Your apps are configured for protection. Run a routine backup to create the first restore point.',
-      title: 'Your data is protected',
+      summary: `Your apps are protected by a restore point. The latest restore point was created ${formatBackupDate(latestRestore.createdAt)}, and the next scheduled backup is ${report.settings.nextRoutineRun ? formatBackupDate(report.settings.nextRoutineRun) : 'not scheduled'}.`,
+      title: 'Protected by restore point',
     };
   }
   if (report.failedBackups > 0) {

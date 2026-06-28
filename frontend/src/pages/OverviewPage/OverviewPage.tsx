@@ -322,7 +322,7 @@ function accessModeLabel(mode?: string) {
 function backupStateLabel(state?: string) {
   if (state === 'needs_restore_point') return 'First backup needed';
   if (state === 'not_configured') return 'Not configured';
-  return 'Ready';
+  return 'Protected by restore point';
 }
 
 function formatRelativeTime(value?: string | null) {
