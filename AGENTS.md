@@ -538,6 +538,18 @@ Prioritize coverage for:
 - access status mapping
 - action result handling
 
+### Validate before reporting completion
+
+For implementation work, agents should run targeted validation before telling the user the work is complete.
+
+Minimum expectation:
+
+- Run the smallest relevant backend, frontend, or contract tests that cover the changed behavior.
+- If the change is UI-only and automated coverage is unavailable, run an appropriate smoke check or clearly state what was manually validated.
+- Report the exact validation command and result.
+- If validation cannot be run, say why before claiming the work is complete.
+- Do not describe a change as done, fixed, or passing without validation evidence.
+
 ### Manual validation checklist for UI slices
 
 Before considering a slice done, verify:

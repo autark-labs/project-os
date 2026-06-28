@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import org.junit.jupiter.api.Test;
 
@@ -78,7 +79,7 @@ class RecommendedActionServiceTests {
     }
 
     private RecommendedActionService service(SystemSummary summary, RecommendedActionDismissals dismissals) {
-        return new RecommendedActionService(() -> summary, dismissals);
+        return new RecommendedActionService((Supplier<SystemSummary>) () -> summary, dismissals);
     }
 
     private SystemSummary summary(boolean setupComplete, List<ProjectOsIssue> issues) {

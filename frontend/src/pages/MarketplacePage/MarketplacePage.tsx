@@ -89,7 +89,7 @@ function MarketplacePage() {
   const jobsQuery = useDiscoverJobsQuery();
   const installMutation = useDiscoverInstallMutation();
   const backupMutation = useDiscoverBackupMutation();
-  const apps = appsQuery.data ?? [];
+  const apps: DiscoverAppView[] = appsQuery.data ?? [];
   const marketplaceActivity = activityQuery.data ?? [];
   const onboarding = readinessQuery.data?.onboarding ?? null;
   const doctor = readinessQuery.data?.doctor ?? null;
@@ -97,11 +97,11 @@ function MarketplacePage() {
   const lastRefreshAt = appsQuery.dataUpdatedAt > 0 ? new Date(appsQuery.dataUpdatedAt) : null;
   const installedById = useMemo(() => new Map(apps.filter((app) => app.state === 'installed_managed' && app.installedApp).map((app) => [app.id, app.installedApp])), [apps]);
   const starterCatalogApps = useMemo(() => {
-    const starterIds = new Set(starterCatalogForDiscover(apps.map((view) => view.app)).map((app) => app.id));
+    const starterIds = new Set(starterCatalogForDiscover(apps.map((view) => view.app)).map((app: MarketplaceApp) => app.id));
     return apps.filter((view) => starterIds.has(view.id));
   }, [apps]);
   const safeBasicCatalogApps = useMemo(() => {
-    const safeIds = new Set(safeBasicCatalogForDiscover(apps.map((view) => view.app)).map((app) => app.id));
+    const safeIds = new Set(safeBasicCatalogForDiscover(apps.map((view) => view.app)).map((app: MarketplaceApp) => app.id));
     return apps.filter((view) => safeIds.has(view.id));
   }, [apps]);
   const catalogApps = useMemo(() => {

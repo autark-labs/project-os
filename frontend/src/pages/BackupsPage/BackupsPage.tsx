@@ -3,6 +3,7 @@ import { AlertTriangle, AppWindow, Boxes, CalendarClock, DatabaseBackup, HardDri
 import { apiErrorMessage } from '@/api/httpClient';
 import { RefreshStatus } from '@/components/RefreshStatus';
 import { CanonicalRecommendedAction } from '@/components/project-os/CanonicalRecommendedAction';
+import { DisabledAction } from '@/components/project-os/DisabledAction';
 import { JobProgress } from '@/components/project-os/JobProgress';
 import { PageErrorState, PageLoadingState } from '@/components/project-os/PageState';
 import { PageShell, SurfaceFrame, SurfacePanel } from '@/components/project-os/ProjectOSComponents';
@@ -231,14 +232,20 @@ function BackupsPage() {
               <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300 md:text-base">{protectionHero.summary}</p>
             </div>
             <div className="mt-5 flex flex-wrap gap-2">
-              <Button className="bg-violet-600 text-white hover:bg-violet-500" disabled={running === 'routine' || !report?.settings.automaticBackupsEnabled} onClick={() => void runRoutineBackup()} type="button">
-                {running === 'routine' ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
-                Run routine backup
-              </Button>
-              {showAdvancedMetrics && <Button className="border-violet-300/30 bg-slate-950/50 text-violet-100 hover:bg-slate-900" disabled={running === 'full'} onClick={() => void runFullBackup()} type="button" variant="outline">
-                {running === 'full' ? <Loader2 className="size-4 animate-spin" /> : <Layers3 className="size-4" />}
-                Full checkpoint
-              </Button>}
+              <DisabledAction disabled={running === 'routine' || !report?.settings.automaticBackupsEnabled} reason={running === 'routine' ? 'Wait for the current routine backup to finish.' : 'Turn on routine backups in Settings first.'}>
+                <Button className="bg-violet-600 text-white hover:bg-violet-500" disabled={running === 'routine' || !report?.settings.automaticBackupsEnabled} onClick={() => void runRoutineBackup()} type="button">
+                  {running === 'routine' ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
+                  Run routine backup
+                </Button>
+              </DisabledAction>
+              {showAdvancedMetrics && (
+                <DisabledAction disabled={running === 'full'} reason="Wait for the current full checkpoint to finish.">
+                  <Button className="border-violet-300/30 bg-slate-950/50 text-violet-100 hover:bg-slate-900" disabled={running === 'full'} onClick={() => void runFullBackup()} type="button" variant="outline">
+                    {running === 'full' ? <Loader2 className="size-4 animate-spin" /> : <Layers3 className="size-4" />}
+                    Full checkpoint
+                  </Button>
+                </DisabledAction>
+              )}
               <RefreshStatus intervalLabel={restorePoint || running ? 'Auto-update paused' : 'Auto-updates every 30s'} onRefresh={() => void backupReport.refresh()} refreshing={backupReport.isFetching || activeJobQuery.isFetching} updatedAt={backupReport.updatedAt} />
             </div>
           </div>
@@ -282,6 +289,7 @@ function BackupsPage() {
                   busy={running === 'routine'}
                   description={report.settings.automaticBackupsEnabled ? `${capitalizeBackupLabel(report.settings.frequency)} near ${report.settings.backupTime}` : 'Turn on routine backups in Settings.'}
                   disabled={!report.settings.automaticBackupsEnabled}
+                  disabledReason="Turn on routine backups in Settings first."
                   icon={CalendarClock}
                   label="Routine path"
                   onClick={() => void runRoutineBackup()}

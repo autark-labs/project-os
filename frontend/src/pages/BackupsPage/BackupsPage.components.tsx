@@ -2,6 +2,7 @@ import { AlertTriangle, AppWindow, Archive, CalendarClock, CheckCircle2, Clock3,
 import type { LucideIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { DisabledAction } from '@/components/project-os/DisabledAction';
 import {
   Dialog,
   DialogContent,
@@ -79,23 +80,26 @@ export function RoutineHealthPanel({ report, showAdvancedMetrics }: { report: Ba
   );
 }
 
-export function ActionCard({ busy, description, disabled = false, icon: Icon, label, onClick, title, tone }: { busy: boolean; description: string; disabled?: boolean; icon: LucideIcon; label: string; onClick: () => void; title: string; tone: 'violet' | 'sky' | 'emerald' }) {
+export function ActionCard({ busy, description, disabled = false, disabledReason = 'This action is not available yet.', icon: Icon, label, onClick, title, tone }: { busy: boolean; description: string; disabled?: boolean; disabledReason?: string; icon: LucideIcon; label: string; onClick: () => void; title: string; tone: 'violet' | 'sky' | 'emerald' }) {
   const tones = {
     violet: 'border-violet-300/20 bg-violet-500/10 text-violet-100',
     sky: 'border-sky-300/20 bg-sky-500/10 text-sky-100',
     emerald: 'border-emerald-300/20 bg-emerald-500/10 text-emerald-100',
   };
+  const isDisabled = busy || disabled;
   return (
-    <button className={cn('group rounded-lg border p-4 text-left transition hover:-translate-y-0.5 hover:bg-slate-900/70 disabled:cursor-not-allowed disabled:opacity-50', tones[tone])} disabled={busy || disabled} onClick={onClick} type="button">
-      <div className="flex items-start justify-between gap-3">
-        <span className="grid size-11 place-items-center rounded-lg border border-white/10 bg-slate-950/55 text-white">
-          {busy ? <Loader2 className="size-5 animate-spin" /> : <Icon className="size-5" />}
-        </span>
-        <Badge className="border-white/10 bg-slate-950/60 text-current">{label}</Badge>
-      </div>
-      <p className="mt-4 font-black text-white">{title}</p>
-      <p className="mt-2 text-sm leading-6 text-current/75">{description}</p>
-    </button>
+    <DisabledAction className="w-full" disabled={isDisabled} reason={busy ? 'Wait for the current backup job to finish.' : disabledReason}>
+      <button className={cn('group w-full rounded-lg border p-4 text-left transition hover:-translate-y-0.5 hover:bg-slate-900/70 disabled:cursor-not-allowed disabled:opacity-50', tones[tone])} disabled={isDisabled} onClick={onClick} type="button">
+        <div className="flex items-start justify-between gap-3">
+          <span className="grid size-11 place-items-center rounded-lg border border-white/10 bg-slate-950/55 text-white">
+            {busy ? <Loader2 className="size-5 animate-spin" /> : <Icon className="size-5" />}
+          </span>
+          <Badge className="border-white/10 bg-slate-950/60 text-current">{label}</Badge>
+        </div>
+        <p className="mt-4 font-black text-white">{title}</p>
+        <p className="mt-2 text-sm leading-6 text-current/75">{description}</p>
+      </button>
+    </DisabledAction>
   );
 }
 
@@ -157,10 +161,12 @@ export function AppBackupCard({ app, onRun, running, showAdvancedMetrics }: { ap
           <p className="mt-1 text-xs leading-5 text-slate-500">{app.backupContract.summary}</p>
         </div>
       )}
-      <Button className="mt-4 w-full border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" disabled={running || app.status === 'unprotected'} onClick={() => onRun(app)} size="sm" type="button" variant="outline">
-        {running ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
-        {running ? 'Running' : 'Back up app'}
-      </Button>
+      <DisabledAction className="mt-4 w-full" disabled={running || app.status === 'unprotected'} reason={running ? 'Wait for the current app backup to finish.' : 'Turn backups on for this app before creating a restore point.'}>
+        <Button className="mt-4 w-full border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" disabled={running || app.status === 'unprotected'} onClick={() => onRun(app)} size="sm" type="button" variant="outline">
+          {running ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
+          {running ? 'Running' : 'Back up app'}
+        </Button>
+      </DisabledAction>
     </SurfaceInset>
   );
 }
@@ -254,10 +260,12 @@ export function RestoreDialog({ appOptions, loading, onClose, onRestore, onTarge
         )}
         <DialogFooter>
           <Button className="border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" onClick={onClose} type="button" variant="outline">Cancel</Button>
-          <Button className="bg-violet-600 text-white hover:bg-violet-500" disabled={!plan?.executable || loading} onClick={onRestore} type="button">
-            {loading ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />}
-            Restore
-          </Button>
+          <DisabledAction disabled={!plan?.executable || loading} reason={loading ? 'Wait for the restore job to start.' : 'This restore point cannot be restored until the restore plan is executable.'}>
+            <Button className="bg-violet-600 text-white hover:bg-violet-500" disabled={!plan?.executable || loading} onClick={onRestore} type="button">
+              {loading ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />}
+              Restore
+            </Button>
+          </DisabledAction>
         </DialogFooter>
       </DialogContent>
     </Dialog>

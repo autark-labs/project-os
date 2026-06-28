@@ -13,6 +13,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DisabledAction } from '@/components/project-os/DisabledAction';
 import { cn } from '@/lib/utils';
 import type { AppRuntimeView } from '@/types/app';
 import type { PrivateAccessReconciliationReport, TailscaleStatus } from '@/types/network';
@@ -98,10 +99,12 @@ export function PrivateAccessManager({
                   <span className="block truncate text-sm font-semibold text-white">{app.appName}</span>
                   <span className="block truncate text-xs text-slate-400">{app.accessUrl || app.settings?.accessUrl || 'No local link yet'}</span>
                 </span>
-                <Button className="ml-auto shrink-0 bg-violet-600 text-white hover:bg-violet-500" disabled={!tailscale?.connected || loadingAppId === app.appId} onClick={() => onEnablePrivateAccess(app)} type="button">
-                  <Lock className={cn('size-4', loadingAppId === app.appId && 'animate-pulse')} />
-                  Turn on private access
-                </Button>
+                <DisabledAction className="ml-auto shrink-0" disabled={!tailscale?.connected || loadingAppId === app.appId} reason={!tailscale?.connected ? 'Connect Tailscale before enabling private app links.' : 'Wait for the current private access update to finish.'}>
+                  <Button className="ml-auto shrink-0 bg-violet-600 text-white hover:bg-violet-500" disabled={!tailscale?.connected || loadingAppId === app.appId} onClick={() => onEnablePrivateAccess(app)} type="button">
+                    <Lock className={cn('size-4', loadingAppId === app.appId && 'animate-pulse')} />
+                    Turn on private access
+                  </Button>
+                </DisabledAction>
               </div>
             ))
           )}
@@ -208,19 +211,25 @@ function PrivateLinksTable({
                   </a>
                 </Button>
               ) : (
-                <Button className="border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" disabled size="sm" type="button" variant="outline">
-                  <ExternalLink className="size-3.5" />
-                  Open
-                </Button>
+                <DisabledAction disabled reason="No private link exists yet. Connect Tailscale or repair private access first.">
+                  <Button className="border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" disabled size="sm" type="button" variant="outline">
+                    <ExternalLink className="size-3.5" />
+                    Open
+                  </Button>
+                </DisabledAction>
               )}
-              <Button className="border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" disabled={!access.privateUrl} onClick={() => onCopyPrivateLink(access.app.appId, access.privateUrl)} size="sm" type="button" variant="outline">
-                {copiedAppId === access.app.appId ? <CheckCircle2 className="size-3.5" /> : <Copy className="size-3.5" />}
-                {copiedAppId === access.app.appId ? 'Copied' : 'Copy'}
-              </Button>
-              <Button className="border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" disabled={loadingAppId === access.app.appId} onClick={() => onRepairPrivateAccess(access.app)} size="sm" type="button" variant="outline">
-                <Wrench className={cn('size-3.5', loadingAppId === access.app.appId && 'animate-pulse')} />
-                Check
-              </Button>
+              <DisabledAction disabled={!access.privateUrl} reason="No private link exists yet. Connect Tailscale or repair private access first.">
+                <Button className="border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" disabled={!access.privateUrl} onClick={() => onCopyPrivateLink(access.app.appId, access.privateUrl)} size="sm" type="button" variant="outline">
+                  {copiedAppId === access.app.appId ? <CheckCircle2 className="size-3.5" /> : <Copy className="size-3.5" />}
+                  {copiedAppId === access.app.appId ? 'Copied' : 'Copy'}
+                </Button>
+              </DisabledAction>
+              <DisabledAction disabled={loadingAppId === access.app.appId} reason="Wait for the current private access check to finish.">
+                <Button className="border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" disabled={loadingAppId === access.app.appId} onClick={() => onRepairPrivateAccess(access.app)} size="sm" type="button" variant="outline">
+                  <Wrench className={cn('size-3.5', loadingAppId === access.app.appId && 'animate-pulse')} />
+                  Check
+                </Button>
+              </DisabledAction>
               <Button aria-label={`Turn off private access for ${access.app.appName}`} className="border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" disabled={loadingAppId === access.app.appId} onClick={() => onTurnOffPrivateAccess(access.app)} size="icon-sm" type="button" variant="outline">
                 <ShieldOff className={cn('size-3.5', loadingAppId === access.app.appId && 'animate-pulse')} />
               </Button>
