@@ -10,8 +10,22 @@ test('Access zones place public, private, LAN, pinned external, and server-only 
     local: { apps: [{ appId: 'worker', appName: 'Worker' }] },
   }, [{ id: 'obs_router', displayName: 'Router', url: 'http://192.168.1.1', pinned: true, userStatus: 'pinned_external' }]);
 
-  assert.deepEqual(zones.map((zone) => zone.label), ['Open Internet', 'Private / Tailscale', 'Home Network / LAN', 'This Server']);
+  assert.deepEqual(zones.map((zone) => zone.label), ['Public Internet', 'Private / Tailscale', 'Home Network', 'This Server']);
   assert.deepEqual(zones[2].apps.map((app) => app.label), ['Homepage', 'Router']);
   assert.equal(zones[2].apps[1].external, true);
   assert.equal(zones[0].apps[0].url, 'https://public.example');
+});
+
+test('Access zones make public exposure visibly off by default', () => {
+  const zones = buildAccessZones({
+    public: { apps: [] },
+    tailnet: { apps: [] },
+    lan: { apps: [] },
+    local: { apps: [] },
+  });
+
+  assert.equal(zones[0].id, 'public');
+  assert.equal(zones[0].label, 'Public Internet');
+  assert.equal(zones[0].emptyText, 'Public access is off');
+  assert.equal(zones[0].statusLabel, 'Off');
 });

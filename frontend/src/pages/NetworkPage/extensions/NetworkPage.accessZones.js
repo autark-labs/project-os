@@ -1,8 +1,8 @@
 export function buildAccessZones(exposureGroups, pinnedExternalServices = []) {
   return [
-    zone('public', 'Open Internet', exposureGroups?.public?.apps || [], 'No apps exposed publicly'),
+    zone('public', 'Public Internet', exposureGroups?.public?.apps || [], 'Public access is off', 'Off'),
     zone('tailnet', 'Private / Tailscale', exposureGroups?.tailnet?.apps || [], 'No private links yet'),
-    zone('lan', 'Home Network / LAN', [...(exposureGroups?.lan?.apps || []), ...pinnedExternalServices], 'No LAN links yet'),
+    zone('lan', 'Home Network', [...(exposureGroups?.lan?.apps || []), ...pinnedExternalServices], 'No home network links yet'),
     zone('local', 'This Server', exposureGroups?.local?.apps || [], 'No server-only apps'),
   ];
 }
@@ -26,11 +26,12 @@ export function zoneAppChip(item) {
   };
 }
 
-function zone(id, label, apps, emptyText) {
+function zone(id, label, apps, emptyText, emptyStatusLabel = '0') {
   return {
     id,
     label,
     emptyText,
+    statusLabel: apps.length ? String(apps.length) : emptyStatusLabel,
     apps: apps.map(zoneAppChip),
   };
 }

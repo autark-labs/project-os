@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { tailscaleHeaderStatus, tailscaleSetupGuidance, tailscaleSetupTasks } from './NetworkPage.tailscaleSetup.js';
+import { tailscaleAccessDisplay, tailscaleHeaderStatus, tailscaleSetupGuidance, tailscaleSetupTasks } from './NetworkPage.tailscaleSetup.js';
 
 test('asks users to sign in when Tailscale is installed but disconnected', () => {
   const guidance = tailscaleSetupGuidance({ installed: true, connected: false, message: 'Needs login' });
@@ -72,4 +72,18 @@ test('maps header status to green when connected', () => {
 
   assert.equal(status.tone, 'green');
   assert.equal(status.label, 'Signed in');
+});
+
+test('labels development mock Tailscale as development-only instead of private ready', () => {
+  const display = tailscaleAccessDisplay({
+    connected: true,
+    installed: true,
+    message: 'Development mock connected',
+    state: 'mocked_dev',
+  });
+
+  assert.equal(display.badge, 'Development mock');
+  assert.equal(display.heading, 'Tailscale is mocked for development');
+  assert.equal(display.tone, 'warning');
+  assert.match(display.summary, /not production private access/i);
 });

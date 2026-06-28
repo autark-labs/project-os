@@ -38,7 +38,7 @@ import {
   buildPrivateAppAccess,
 } from './extensions/NetworkPage.logic';
 import { buildAccessZones } from './extensions/NetworkPage.accessZones';
-import { tailscaleSetupTasks } from './extensions/NetworkPage.tailscaleSetup';
+import { tailscaleAccessDisplay, tailscaleSetupTasks } from './extensions/NetworkPage.tailscaleSetup';
 
 function NetworkPage() {
   const { showAdvancedMetrics } = useProjectSettings();
@@ -145,9 +145,11 @@ function NetworkPage() {
         <PageLoadingState label="Loading Access" sublabel="Checking private app links, local links, and Tailscale status." />
       ) : (
         <>
-          <TailscaleAccessCard posture={posture} setup={network.setupStatus} tailscale={network.tailscale} />
           <AccessZoneDiagram zones={accessZones} />
-          <PrivateAccessSetupPath reconciliation={network.reconciliation} setup={network.setupStatus} tailscale={network.tailscale} />
+          <TailscaleAccessCard posture={posture} setup={network.setupStatus} tailscale={network.tailscale} />
+          {(showAdvancedMetrics || !network.tailscale?.connected) && (
+            <PrivateAccessSetupPath reconciliation={network.reconciliation} setup={network.setupStatus} tailscale={network.tailscale} />
+          )}
           <Tabs className="gap-5" onValueChange={setActiveTab} value={selectedTab}>
             <TabsList className="sticky top-0 z-10 w-full justify-start overflow-x-auto border-b border-slate-700/30 bg-slate-950/90 p-0 py-2 backdrop-blur" variant="line">
               <TabsTrigger className="px-3 py-2 text-slate-400 data-active:text-white" value="private-apps">Private app links</TabsTrigger>
@@ -217,20 +219,20 @@ function appWithOptimisticPrivateAccess(app: AppRuntimeView, enabled: boolean): 
 }
 
 function TailscaleAccessCard({ posture, setup, tailscale }: { posture: ReturnType<typeof buildNetworkPosture>; setup: SystemSetupStatus | null; tailscale: TailscaleStatus | null }) {
-  const connected = Boolean(tailscale?.connected);
+  const display = tailscaleAccessDisplay(tailscale) as { badge: string; heading: string; summary: string; tone: 'success' | 'warning' };
   const check = setup?.checks?.find((item) => item.id === 'tailscale') || null;
   return (
     <section className="overflow-hidden rounded-2xl border border-sky-300/18 bg-po-hero-devices p-5 shadow-po-panel">
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
         <div>
           <p className="text-xs font-black uppercase tracking-normal text-sky-200">Private access</p>
-          <h3 className="mt-2 text-2xl font-black text-white">{connected ? 'Tailscale is connected' : 'Connect Tailscale for private links'}</h3>
+          <h3 className="mt-2 text-2xl font-black text-white">{display.heading}</h3>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-            {connected ? posture.summary : 'Local app links still work on your home network. Tailscale adds private links for trusted phones, laptops, and other devices.'}
+            {display.tone === 'success' ? posture.summary : display.summary}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <StatusPill tone={connected ? 'success' : 'warning'}>{connected ? 'Private ready' : 'Local-only available'}</StatusPill>
+          <StatusPill tone={display.tone}>{display.badge}</StatusPill>
           <TailscaleControlPopover align="end" check={check} triggerLabel="full" />
         </div>
       </div>
@@ -250,8 +252,8 @@ function AccessZoneDiagram({ zones }: { zones: ReturnType<typeof buildAccessZone
           <div className="rounded-xl border border-white/10 bg-slate-900/50 p-4" key={zone.id}>
             <div className="flex items-center justify-between gap-2">
               <h4 className="font-bold text-white">{zone.label}</h4>
-              <Badge className={zone.id === 'public' && zone.apps.length > 0 ? 'border-red-300/25 bg-red-500/10 text-red-100' : 'border-slate-600/40 bg-slate-950/50 text-slate-300'} variant="outline">
-                {zone.apps.length}
+              <Badge className={zone.id === 'public' && zone.apps.length > 0 ? 'border-red-300/25 bg-red-500/10 text-red-100' : zone.id === 'public' ? 'border-emerald-300/25 bg-emerald-500/10 text-emerald-100' : 'border-slate-600/40 bg-slate-950/50 text-slate-300'} variant="outline">
+                {zone.statusLabel}
               </Badge>
             </div>
             <div className="mt-3 grid gap-2">

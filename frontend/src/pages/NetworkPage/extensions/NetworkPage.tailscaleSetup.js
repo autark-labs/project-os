@@ -38,6 +38,36 @@ export function tailscaleSetupGuidance(tailscale) {
   };
 }
 
+export function tailscaleAccessDisplay(tailscale) {
+  const message = tailscale?.message || '';
+  const isDevelopmentMock = tailscale?.state === 'mocked_dev' || /dev(elopment)? mock/i.test(message);
+
+  if (isDevelopmentMock) {
+    return {
+      badge: 'Development mock',
+      heading: 'Tailscale is mocked for development',
+      summary: 'This is not production private access. Real installs must sign in to Tailscale before private app links are ready.',
+      tone: 'warning',
+    };
+  }
+
+  if (tailscale?.connected) {
+    return {
+      badge: 'Private ready',
+      heading: 'Tailscale is connected',
+      summary: 'Private links are available for trusted phones, laptops, and other devices.',
+      tone: 'success',
+    };
+  }
+
+  return {
+    badge: 'Local-only available',
+    heading: 'Connect Tailscale for private links',
+    summary: 'Local app links still work on your home network. Tailscale adds private links for trusted phones, laptops, and other devices.',
+    tone: 'warning',
+  };
+}
+
 /**
  * @param {{ tailscale?: any, setup?: any, reconciliation?: any }} input
  * @returns {TailscaleSetupTask[]}
