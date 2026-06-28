@@ -15,6 +15,7 @@ test('app shell hides desktop sidebar on mobile and renders a compact mobile app
   assert.match(appShell, /<MobileAppBar\s*\/>/);
   assert.match(appShell, /className="hidden lg:block"/);
   assert.match(appShell, /<Sidebar collapsed=\{sidebarCollapsed\} onToggleCollapse=\{toggleSidebar\} \/>/);
+  assert.match(appShell, /className="hidden lg:block"[\s\S]*<SystemStatusHeader \/>/);
 });
 
 test('mobile app bar uses an accessible sheet navigation drawer', () => {
@@ -26,5 +27,8 @@ test('mobile app bar uses an accessible sheet navigation drawer', () => {
   assert.match(mobileAppBar, /<SheetTitle/);
   assert.match(mobileAppBar, /<SheetDescription/);
   assert.match(mobileAppBar, /aria-label="Open navigation"/);
+  assert.match(mobileAppBar, /aria-label="Open system status"/);
+  assert.match(mobileAppBar, /useGlobalActiveProjectOsJob/);
+  assert.match(mobileAppBar, /useSystemDoctorQuery/);
   assert.match(mobileAppBar, /navigationGroups\(viewMode\)/);
 });
