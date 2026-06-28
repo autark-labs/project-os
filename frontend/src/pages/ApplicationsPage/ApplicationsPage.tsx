@@ -9,6 +9,7 @@ import { PageErrorState, PageLoadingState } from '@/components/project-os/PageSt
 import { PageShell } from '@/components/project-os/ProjectOSComponents';
 import { Button } from '@/components/ui/button';
 import { InstalledAppsAPIClient } from '@/api/InstalledAppsAPIClient';
+import { showActionNotification } from '@/lib/actionNotifications';
 import {
   applicationStateQueryKey,
   invalidateAppUpdates,
@@ -21,7 +22,7 @@ import {
   updatesByAppId as buildUpdatesByAppId,
 } from '@/repositories/applicationStateRepository';
 import { usePrivateAccessReconciliationQuery } from '@/repositories/networkRepository';
-import type { AppActionResult, AppRuntimeView, AppUpdateResult, InstallSettings } from '@/types/app';
+import type { AppRuntimeView, AppUpdateResult, InstallSettings } from '@/types/app';
 import type { ApplicationState } from '@/types/applicationState';
 import type { ObservedServiceActionResult, ObservedServiceView } from '@/types/observedService';
 import { ApplicationsDashboard, EmptyState } from './ApplicationsDashboard';
@@ -47,7 +48,6 @@ function ApplicationsPage() {
   const [manageAppId, setManageAppId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
-  const [actionResult, setActionResult] = useState<AppActionResult | null>(null);
   const [updateResult, setUpdateResult] = useState<AppUpdateResult | null>(null);
 
   const apps = appState.apps;
@@ -105,7 +105,6 @@ function ApplicationsPage() {
     const previousState = queryClient.getQueryData<ApplicationState | undefined>(applicationStateQueryKey);
     setActionLoading(action);
     setLocalError(null);
-    setActionResult(null);
     setUpdateResult(null);
     setRuntimeAppStatusInApplicationStateCache(queryClient, appId, optimisticStatusForAction(action));
     try {
@@ -113,7 +112,7 @@ function ApplicationsPage() {
       if (data.app) {
         setRuntimeAppInApplicationStateCache(queryClient, data.app);
       }
-      setActionResult(data);
+      showActionNotification(data, appActionTitle(action));
       refreshAfterMutation();
     } catch (err) {
       restoreApplicationState(previousState);
@@ -128,12 +127,11 @@ function ApplicationsPage() {
   async function uninstall(appId: string) {
     setActionLoading('uninstall');
     setLocalError(null);
-    setActionResult(null);
     setUpdateResult(null);
     try {
       const data = await InstalledAppsAPIClient.uninstall(appId);
       removeManagedAppFromApplicationStateCache(queryClient, appId);
-      setActionResult(data);
+      showActionNotification(data, 'App removed');
       refreshAfterMutation({ updates: true });
     } catch (err) {
       const message = errorMessage(err);
@@ -147,7 +145,6 @@ function ApplicationsPage() {
   async function updateApp(appId: string) {
     setActionLoading('update');
     setLocalError(null);
-    setActionResult(null);
     setUpdateResult(null);
     try {
       const data = await InstalledAppsAPIClient.updateApp(appId);
@@ -165,7 +162,6 @@ function ApplicationsPage() {
   async function rollbackApp(appId: string) {
     setActionLoading('rollback');
     setLocalError(null);
-    setActionResult(null);
     setUpdateResult(null);
     try {
       const data = await InstalledAppsAPIClient.rollbackApp(appId);
@@ -191,7 +187,7 @@ function ApplicationsPage() {
       const data = await InstalledAppsAPIClient.updateSettings(appId, settings);
       setRuntimeAppInApplicationStateCache(queryClient, data);
       refreshAfterMutation();
-      setActionResult({ message: data.appName + ' settings were saved.' });
+      showActionNotification({ status: 'completed', message: data.appName + ' settings were saved.' }, 'Settings saved');
       return data;
     } catch (err) {
       restoreApplicationState(previousState);
@@ -219,7 +215,7 @@ function ApplicationsPage() {
   }
 
   function handleObservedServiceResult(result: ObservedServiceActionResult) {
-    setActionResult({ message: result.message || result.title });
+    showActionNotification(result, result.title || 'Service action finished');
   }
 
   return (
@@ -240,13 +236,6 @@ function ApplicationsPage() {
       <CanonicalRecommendedAction />
 
       {error && <PageErrorState message={error} onRetry={refreshApps} />}
-
-      {actionResult && (
-        <div className="flex items-center gap-3 rounded-lg border border-emerald-400/25 bg-emerald-500/10 p-4 text-sm text-emerald-100">
-          <CheckCircle2 className="size-4" />
-          {actionResult.message}
-        </div>
-      )}
 
       {updateResult && (
         <div className="flex items-center gap-3 rounded-lg border border-sky-400/25 bg-sky-500/10 p-4 text-sm text-sky-100">
@@ -311,6 +300,14 @@ export default ApplicationsPage;
 
 function optimisticStatusForAction(action: AppAction) {
   return action === 'stop' ? 'Paused' : 'Starting';
+}
+
+function appActionTitle(action: AppAction) {
+  if (action === 'start') return 'App started';
+  if (action === 'stop') return 'App paused';
+  if (action === 'restart') return 'App restarted';
+  if (action === 'repair') return 'Repair finished';
+  return 'App action finished';
 }
 
 function appWithOptimisticSettings(app: AppRuntimeView, settings: InstallSettings): AppRuntimeView {
