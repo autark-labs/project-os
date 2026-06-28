@@ -23,7 +23,7 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty';
 import { cn } from '@/lib/utils';
-import { ApplicationIcon, ApplicationStatusBadge } from './ApplicationVisuals';
+import { ApplicationIcon, ApplicationStatusBadge } from './extensions/ApplicationVisuals';
 import type { ApplicationSurfaceItem } from './extensions/ApplicationsPage.types';
 
 type BasicApplicationsViewProps = {

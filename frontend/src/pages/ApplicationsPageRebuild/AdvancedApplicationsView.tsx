@@ -16,7 +16,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { ApplicationIcon, ApplicationKindBadge, ApplicationStatusBadge } from './ApplicationVisuals';
+import { ApplicationIcon, ApplicationKindBadge, ApplicationStatusBadge } from './extensions/ApplicationVisuals';
 import type { ApplicationActionHandlers, ApplicationSurfaceItem } from './extensions/ApplicationsPage.types';
 
 type AdvancedApplicationsViewProps = {

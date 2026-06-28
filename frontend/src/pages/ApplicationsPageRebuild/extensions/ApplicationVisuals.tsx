@@ -1,7 +1,7 @@
 import { AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import type { ApplicationSurfaceItem } from './extensions/ApplicationsPage.types';
+import type { ApplicationSurfaceItem } from './ApplicationsPage.types';
 
 type ApplicationIconSize = 'sm' | 'md' | 'lg';
 

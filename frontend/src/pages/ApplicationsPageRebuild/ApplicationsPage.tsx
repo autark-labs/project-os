@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
-import { ApplicationIcon, labelForKind } from './ApplicationVisuals';
+import { ApplicationIcon, labelForKind } from './extensions/ApplicationVisuals';
 import { BasicApplicationsView } from './BasicApplicationsView';
 import { AdvancedApplicationsView } from './AdvancedApplicationsView';
 import type { ApplicationSurfaceItem } from './extensions/ApplicationsPage.types';
