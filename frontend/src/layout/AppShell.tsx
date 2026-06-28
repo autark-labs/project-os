@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import MobileAppBar from './MobileAppBar';
 import Sidebar from './Sidebar';
 import SystemStatusHeader from './SystemStatusHeader';
 
@@ -27,7 +28,10 @@ function AppShell() {
       'grid min-h-screen grid-cols-1 bg-po-bg text-po-text transition-[grid-template-columns] duration-300',
       sidebarCollapsed ? 'lg:grid-cols-[72px_minmax(0,1fr)]' : 'lg:grid-cols-[210px_minmax(0,1fr)]',
     )}>
-      <Sidebar collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebar} />
+      <MobileAppBar />
+      <div className="hidden lg:block">
+        <Sidebar collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebar} />
+      </div>
       <main className="min-w-0 bg-po-bg-mesh">
         <SystemStatusHeader />
         <div className="p-4 md:p-6">
