@@ -4,11 +4,11 @@ export const primaryNavigation = [
   { id: 'discover', label: 'Discover', to: '/discover', icon: 'discover', activePaths: ['/discover', '/marketplace'] },
   { id: 'access', label: 'Access', to: '/access', icon: 'access', activePaths: ['/access', '/network'] },
   { id: 'backups', label: 'Backups', to: '/backups', icon: 'backups', activePaths: ['/backups'] },
-  { id: 'storage', label: 'Storage', to: '/storage', icon: 'storage', activePaths: ['/storage', '/files-storage'] },
-  { id: 'settings', label: 'Settings', to: '/settings', icon: 'settings', activePaths: ['/settings'] },
 ];
 
 export const advancedNavigation = [
+  { id: 'storage', label: 'Storage', to: '/storage', icon: 'storage', activePaths: ['/storage', '/files-storage'] },
+  { id: 'settings', label: 'Settings', to: '/settings', icon: 'settings', activePaths: ['/settings'] },
   { id: 'diagnostics', label: 'Diagnostics', to: '/diagnostics', icon: 'diagnostics', activePaths: ['/diagnostics', '/terminal', '/safe-diagnostics'] },
   { id: 'activity', label: 'Activity Log', to: '/activity', icon: 'activity', activePaths: ['/activity', '/monitoring', '/system-activity'] },
 ];

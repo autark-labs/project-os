@@ -2,20 +2,20 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { advancedNavigation, navigationGroups, primaryNavigation, routeAliases } from './navigationModel.js';
 
-test('basic navigation exposes only seven MVP routes', () => {
+test('basic navigation focuses on the five core appliance routes', () => {
   const items = navigationGroups('basic').flatMap((group) => group.items);
 
-  assert.equal(items.length, 7);
-  assert.deepEqual(items.map((item) => item.label), ['Home', 'My Apps', 'Discover', 'Access', 'Backups', 'Storage', 'Settings']);
-  assert.equal(items.some((item) => ['Automation', 'Updates', 'Devices', 'Access Map'].includes(item.label)), false);
+  assert.deepEqual(items.map((item) => item.label), ['Home', 'My Apps', 'Discover', 'Access', 'Backups']);
+  assert.equal(items.some((item) => ['Storage', 'Settings', 'Diagnostics', 'Activity Log'].includes(item.label)), false);
 });
 
-test('advanced navigation separates diagnostics and activity log', () => {
+test('advanced navigation keeps operational pages reachable outside basic mode', () => {
   const groups = navigationGroups('advanced');
 
   assert.equal(groups.length, 2);
-  assert.deepEqual(groups[1].items.map((item) => item.label), ['Diagnostics', 'Activity Log']);
-  assert.deepEqual(advancedNavigation.map((item) => item.to), ['/diagnostics', '/activity']);
+  assert.deepEqual(groups[0].items.map((item) => item.label), ['Home', 'My Apps', 'Discover', 'Access', 'Backups']);
+  assert.deepEqual(groups[1].items.map((item) => item.label), ['Storage', 'Settings', 'Diagnostics', 'Activity Log']);
+  assert.deepEqual(advancedNavigation.map((item) => item.to), ['/storage', '/settings', '/diagnostics', '/activity']);
 });
 
 test('old active concepts have intentional aliases to MVP routes', () => {
@@ -27,6 +27,6 @@ test('old active concepts have intentional aliases to MVP routes', () => {
 });
 
 test('primary navigation remains within MVP scope', () => {
-  assert.equal(primaryNavigation.length <= 7, true);
+  assert.equal(primaryNavigation.length, 5);
   assert.equal(primaryNavigation.find((item) => item.id === 'access')?.to, '/access');
 });
