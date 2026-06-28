@@ -5,6 +5,10 @@ const ATTENTION_STATES = new Set(['Needs attention', 'Unavailable', 'Missing']);
  * @param {{ app?: any, health?: any }} input
  */
 export function appRemediationDisplay({ app, health = null } = {}) {
+  if (app?.remediation?.state) {
+    return app.remediation;
+  }
+
   const settings = app?.settings || {};
   const healthStatus = health?.status || app?.canonicalUserStatus || app?.friendlyStatus || 'Unknown';
   const lastRepairStatus = settings.lastRepairStatus || latestRepairStatus(app?.recentEvents || []);

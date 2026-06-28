@@ -33,6 +33,7 @@ import com.projectos.marketplace.install.AppActionResult;
 import com.projectos.marketplace.install.AppLifecycleService;
 import com.projectos.marketplace.install.AppInstanceView;
 import com.projectos.marketplace.install.AppInstanceViewProvider;
+import com.projectos.marketplace.install.AppRemediationView;
 import com.projectos.marketplace.install.BackupPolicy;
 import com.projectos.marketplace.install.InstallSettings;
 import com.projectos.marketplace.install.InstallationException;
@@ -81,6 +82,7 @@ public class BackupService {
                         null,
                         List.of(),
                         List.of(),
+                        new AppRemediationView("watching", "Project OS is watching", app.appName() + " is ready. If it drifts, Project OS will try safe repair before asking you to intervene.", "No action needed", "success"),
                         Instant.now()))
                 .toList(), new RuntimeFileOperations());
     }

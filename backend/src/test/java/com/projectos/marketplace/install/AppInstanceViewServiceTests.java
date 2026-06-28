@@ -41,6 +41,8 @@ class AppInstanceViewServiceTests {
         assertThat(view.accessState()).isEqualTo("private_ready");
         assertThat(view.localUrl()).isEqualTo("http://localhost:8090");
         assertThat(view.privateUrl()).isEqualTo("https://project-os.example.ts.net:12890");
+        assertThat(view.remediation().state()).isEqualTo("watching");
+        assertThat(view.remediation().label()).isEqualTo("Project OS is watching");
         assertThat(view.actions()).extracting(action -> action.id()).contains("open-vaultwarden", "restart-vaultwarden");
         assertThat(view.actions())
                 .filteredOn(action -> action.id().equals("open-vaultwarden"))
@@ -146,6 +148,39 @@ class AppInstanceViewServiceTests {
         assertThat(service.list().getFirst().backupState()).isEqualTo("backup_failed");
     }
 
+    @Test
+    void failedRepairWithoutRestorePointRequiresRepairReview() {
+        InstalledAppRepository repository = repository();
+        repository.save(installed("vaultwarden", "Ready"));
+        repository.saveOwnershipMetadata(owned("vaultwarden", "ready"));
+        repository.saveSettings("vaultwarden", settingsWithRepairStatus("failed", true, new BackupPolicy(true, "daily", 7)));
+        AppInstanceViewService service = service(repository, List.of());
+
+        AppInstanceView view = service.list().getFirst();
+
+        assertThat(view.userStatus()).isEqualTo("Missing");
+        assertThat(view.remediation().state()).isEqualTo("repair_failed");
+        assertThat(view.remediation().nextActionLabel()).isEqualTo("Review repair");
+        assertThat(view.remediation().summary()).doesNotContain("restore point");
+    }
+
+    @Test
+    void failedRepairWithRestorePointRecommendsRestore() {
+        InstalledAppRepository repository = repository();
+        BackupRepository backupRepository = backupRepository();
+        repository.save(installed("vaultwarden", "Ready"));
+        repository.saveOwnershipMetadata(owned("vaultwarden", "ready"));
+        repository.saveSettings("vaultwarden", settingsWithRepairStatus("failed", true, new BackupPolicy(true, "daily", 7)));
+        backupRepository.record("vaultwarden", "Vaultwarden", "app", "manual", "vaultwarden", "/backups/vaultwarden.zip", "completed", 128, "Backup completed.");
+        AppInstanceViewService service = service(repository, backupRepository, List.of());
+
+        AppRemediationView remediation = service.list().getFirst().remediation();
+
+        assertThat(remediation.state()).isEqualTo("restore_recommended");
+        assertThat(remediation.nextActionLabel()).isEqualTo("Review restore");
+        assertThat(remediation.summary()).contains("restore point");
+    }
+
     private AppInstanceViewService service(InstalledAppRepository repository, List<ManagedContainer> containers) {
         return service(repository, backupRepository(), containers);
     }
@@ -186,5 +221,23 @@ class AppInstanceViewServiceTests {
                 "owned",
                 Instant.parse("2026-06-20T12:00:00Z"),
                 Instant.parse("2026-06-20T12:00:00Z"));
+    }
+
+    private InstallSettings settingsWithRepairStatus(String lastRepairStatus, boolean autoRepairEnabled, BackupPolicy backupPolicy) {
+        return new InstallSettings(
+                "http://localhost:8090",
+                null,
+                false,
+                java.util.Map.of(),
+                backupPolicy,
+                "local",
+                "optional",
+                null,
+                "http",
+                null,
+                null,
+                Instant.parse("2026-06-20T12:05:00Z"),
+                lastRepairStatus,
+                autoRepairEnabled);
     }
 }

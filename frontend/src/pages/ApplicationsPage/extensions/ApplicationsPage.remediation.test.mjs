@@ -22,6 +22,26 @@ test('shows healthy apps as being watched by Project OS when auto repair is enab
   assert.match(display.summary, /will try safe repair/i);
 });
 
+test('prefers canonical backend remediation copy when app view provides it', () => {
+  const display = appRemediationDisplay({
+    app: {
+      ...baseApp,
+      remediation: {
+        state: 'restore_recommended',
+        label: 'Restore recommended',
+        summary: 'Backend says a completed restore point is ready.',
+        nextActionLabel: 'Review restore',
+        tone: 'critical',
+      },
+    },
+    health: { status: 'Needs attention', message: 'Container keeps restarting', repairAvailable: false },
+  });
+
+  assert.equal(display.state, 'restore_recommended');
+  assert.equal(display.summary, 'Backend says a completed restore point is ready.');
+  assert.equal(display.nextActionLabel, 'Review restore');
+});
+
 test('shows active repair without asking the user to take another action', () => {
   const display = appRemediationDisplay({
     app: {

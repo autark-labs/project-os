@@ -191,6 +191,14 @@ function appInstanceToRuntimeView(app) {
     setupGuide: null,
     appConfiguration: [],
     recentEvents: [],
+    canonicalUserStatus: app.userStatus,
+    canonicalRuntimeState: app.runtimeState,
+    canonicalOwnershipState: app.ownershipState,
+    canonicalAccessState: app.accessState,
+    canonicalBackupState: app.backupState,
+    canonicalIssues: app.issues ?? [],
+    canonicalActions: app.actions ?? [],
+    remediation: app.remediation ?? null,
   };
 }
 

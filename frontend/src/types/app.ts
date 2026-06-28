@@ -27,6 +27,14 @@ export type ProjectOsIssue = {
   advancedDetails: Record<string, unknown>;
 };
 
+export type AppRemediationView = {
+  state: 'healthy' | 'watching' | 'auto_repairing' | 'repair_succeeded' | 'repair_failed' | 'needs_user_action' | 'restore_recommended' | string;
+  label: string;
+  summary: string;
+  nextActionLabel: string;
+  tone: 'success' | 'warning' | 'critical' | string;
+};
+
 export type AppInstanceView = {
   appInstanceId: string;
   catalogAppId: string;
@@ -43,6 +51,7 @@ export type AppInstanceView = {
   privateUrl: string;
   issues: ProjectOsIssue[];
   actions: ProjectOsAction[];
+  remediation?: AppRemediationView | null;
   updatedAt: string;
 };
 
@@ -219,6 +228,7 @@ export type AppRuntimeView = {
   canonicalBackupState?: string;
   canonicalIssues?: ProjectOsIssue[];
   canonicalActions?: ProjectOsAction[];
+  remediation?: AppRemediationView | null;
 };
 
 export type AppSettingsChangePlan = {

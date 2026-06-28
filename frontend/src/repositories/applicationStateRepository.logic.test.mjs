@@ -48,6 +48,13 @@ test('repository falls back from managed app instances when runtime apps are not
         backupState: 'protected_by_restore_point',
         localUrl: 'http://localhost:3005',
         privateUrl: null,
+        remediation: {
+          state: 'watching',
+          label: 'Project OS is watching',
+          summary: 'Homepage is ready. If it drifts, Project OS will try safe repair before asking you to intervene.',
+          nextActionLabel: 'No action needed',
+          tone: 'success',
+        },
         updatedAt,
       },
     ],
@@ -59,6 +66,8 @@ test('repository falls back from managed app instances when runtime apps are not
   assert.equal(app.appId, 'homepage');
   assert.equal(app.friendlyStatus, 'Ready');
   assert.equal(app.accessUrl, 'http://localhost:3005');
+  assert.equal(app.canonicalBackupState, 'protected_by_restore_point');
+  assert.equal(app.remediation.state, 'watching');
 });
 
 test('ready cached health does not mark every app as needing attention', () => {

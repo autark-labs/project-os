@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import com.projectos.activity.ActivityLogService;
 import com.projectos.marketplace.install.AppInstanceView;
 import com.projectos.marketplace.install.AppInstanceViewProvider;
+import com.projectos.marketplace.install.AppRemediationView;
 import com.projectos.marketplace.install.InstallSettings;
 import com.projectos.marketplace.install.InstalledApp;
 import com.projectos.marketplace.install.InstalledAppRepository;
@@ -63,6 +64,7 @@ public class StorageService {
                         null,
                         List.of(),
                         List.of(),
+                        new AppRemediationView("watching", "Project OS is watching", app.appName() + " is ready. If it drifts, Project OS will try safe repair before asking you to intervene.", "No action needed", "success"),
                         Instant.now()))
                 .toList(), fileOperations);
     }

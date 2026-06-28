@@ -64,6 +64,7 @@ public class AppGuardianService {
                         null,
                         List.of(),
                         List.of(),
+                        new AppRemediationView("watching", "Project OS is watching", app.appName() + " is ready. If it drifts, Project OS will try safe repair before asking you to intervene.", "No action needed", "success"),
                         Instant.now()))
                 .toList());
     }
