@@ -222,6 +222,16 @@ export const ApplicationsPage = () => {
     }));
   };
 
+  const handleUninstall = (id: string) => {
+    setItems((currentItems) => {
+      const nextItems = currentItems.filter((item) => item.id !== id);
+      if (selectedId === id) {
+        setSelectedId(nextItems[0]?.id ?? '');
+      }
+      return nextItems;
+    });
+  };
+
   const actions = {
     onCreateBackup: handleCreateBackup,
     onRestart: handleRestart,
@@ -268,7 +278,7 @@ export const ApplicationsPage = () => {
 
         <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
           {viewMode === 'basic' ? (
-            <BasicApplicationsView items={visibleItems} onSelect={setSelectedId} selectedId={selectedItem?.id} />
+            <BasicApplicationsView items={visibleItems} onSelect={setSelectedId} onUninstall={handleUninstall} selectedId={selectedItem?.id} />
           ) : (
             <AdvancedApplicationsView actions={actions} items={visibleItems} onSelect={setSelectedId} selectedId={selectedItem?.id} />
           )}

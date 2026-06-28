@@ -1,4 +1,5 @@
-import { AlertTriangle, ArrowRight, ExternalLink, Search } from 'lucide-react';
+import { useState } from 'react';
+import { AlertTriangle, ExternalLink, LockIcon, MoreHorizontal, Search, Trash2, Server } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -8,6 +9,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Empty,
   EmptyDescription,
@@ -20,11 +28,14 @@ import type { ApplicationSurfaceItem } from './ApplicationsPage.types';
 
 type BasicApplicationsViewProps = {
   items: ApplicationSurfaceItem[];
+  onUninstall: (id: string) => void;
   onSelect: (id: string) => void;
   selectedId?: string;
 };
 
-export function BasicApplicationsView({ items, onSelect, selectedId }: BasicApplicationsViewProps) {
+export function BasicApplicationsView({ items, onSelect, onUninstall, selectedId }: BasicApplicationsViewProps) {
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
   if (!items.length) {
     return <ApplicationsEmptyState />;
   }
@@ -53,15 +64,24 @@ export function BasicApplicationsView({ items, onSelect, selectedId }: BasicAppl
             </div>
           </CardHeader>
           <CardContent className="px-4 py-2">
-            <div className="rounded-xl bg-blue-200 p-0 border-2xl border-2 border-black">
-              <div className="flex flex-wrap justify-center gap-2">
-                <p className="text-sm text-foreground">{item.access}</p> 
-                <p className="text-xs text-neutral-950">●</p>
-                <p className="text-sm text-foreground">{item.backup}</p>
+            <div className="rounded-xl bg-blue-200 p-0 border-2xl border-2 border-black items-center text-center justify-center justify-items-center align-items-center">
+              <div className="flex flex-col justify-center gap-2 p-2">
+                <div className="flex flex-row gap-2">
+                  <LockIcon size="20" className="text-sm text-foreground"/>
+                  <p className="text-sm text-foreground">{item.access}</p>
+                </div>
+                <div className="flex flex-row gap-2">
+                  <Server size="20" className="text-sm text-foreground"/>
+                  <p className="text-sm text-foreground">{item.backup}</p>
+                </div>
               </div>
             </div>
           </CardContent>
-          <CardFooter className="gap-2 p-2">
+          <CardFooter
+            className="gap-2 p-2"
+            onClick={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
+          >
             {item.href ? (
               <Button asChild className="flex-1 bg-neutral-950 text-white hover:bg-neutral-800" size="lg">
                 <a href={item.href} onClick={(event) => event.stopPropagation()} rel="noreferrer" target="_blank">
@@ -75,13 +95,42 @@ export function BasicApplicationsView({ items, onSelect, selectedId }: BasicAppl
                 No link
               </Button>
             )}
-            <Button className="border-neutral-300 text-neutral-900" onClick={(event) => {
-              event.stopPropagation();
-              onSelect(item.id);
-            }} size="lg" type="button" variant="outline">
-              Details
-              <ArrowRight data-icon="inline-end" />
-            </Button>
+            <DropdownMenu
+              onOpenChange={(open) => {
+                setOpenMenuId(open ? item.id : null);
+              }}
+              open={openMenuId === item.id}
+            >
+              <DropdownMenuTrigger asChild>
+                <Button
+                  aria-label={`${item.name} options`}
+                  className="border-neutral-300 text-neutral-900"
+                  size="icon-lg"
+                  type="button"
+                  variant="outline"
+                >
+                  <MoreHorizontal />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="z-[100] w-40 border-neutral-300 bg-white text-neutral-950"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      setOpenMenuId(null);
+                      onUninstall(item.id);
+                    }}
+                    variant="destructive"
+                  >
+                    <Trash2 data-icon="inline-start" />
+                    Uninstall
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </CardFooter>
         </Card>
       ))}
