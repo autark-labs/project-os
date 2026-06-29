@@ -192,6 +192,9 @@ function appInstanceToRuntimeView(app) {
     appConfiguration: [],
     recentEvents: [],
     canonicalUserStatus: app.userStatus,
+    managementState: app.managementState,
+    readinessState: app.readinessState,
+    attentionState: app.attentionState,
     canonicalRuntimeState: app.runtimeState,
     canonicalOwnershipState: app.ownershipState,
     canonicalAccessState: app.accessState,
@@ -208,6 +211,8 @@ function serviceWithPinnedState(service, pinned) {
     return {
       ...next,
       userStatus: 'pinned_external',
+      managementState: 'linked',
+      attentionState: 'none',
       userStatusLabel: 'Pinned',
       userStatusDescription: 'Pinned to My Apps. Project OS can open it but does not manage its runtime.',
     };
@@ -216,6 +221,8 @@ function serviceWithPinnedState(service, pinned) {
     return {
       ...next,
       userStatus: 'found_on_server',
+      managementState: 'found',
+      attentionState: 'needs_review',
       userStatusLabel: 'Found',
       userStatusDescription: 'Found on this server.',
     };
@@ -230,6 +237,9 @@ function observedServiceAsManaged(service) {
     userStatusLabel: 'Managed',
     userStatusDescription: 'Managed by this Project OS installation.',
     ownershipState: 'owned_managed',
+    managementState: 'managed',
+    readinessState: service.readinessState ?? (service.runtimeState === 'running' ? 'ready' : 'starting'),
+    attentionState: 'none',
     managedByThisProjectOs: true,
     pinned: false,
   };
@@ -271,6 +281,9 @@ function runtimeAppFromObservedService(service) {
     appConfiguration: [],
     recentEvents: [],
     canonicalUserStatus: service.runtimeState === 'running' ? 'Ready' : 'Starting',
+    managementState: 'managed',
+    readinessState: service.readinessState ?? (service.runtimeState === 'running' ? 'ready' : 'starting'),
+    attentionState: 'none',
     canonicalRuntimeState: service.runtimeState || 'recovering',
     canonicalOwnershipState: 'owned',
     canonicalAccessState: service.url ? 'local_ready' : 'not_ready',
@@ -288,6 +301,9 @@ function managedAppFromObservedService(service) {
     category: service.category || 'Application',
     icon: '',
     userStatus: service.runtimeState === 'running' ? 'Ready' : 'Starting',
+    managementState: 'managed',
+    readinessState: service.readinessState ?? (service.runtimeState === 'running' ? 'ready' : 'starting'),
+    attentionState: 'none',
     installState: 'adopted',
     runtimeState: service.runtimeState || 'recovering',
     ownershipState: 'owned',

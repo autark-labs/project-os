@@ -47,10 +47,11 @@ function managedAppSurfaceItem(
 ): ApplicationSurfaceItem {
   const displayStatus = displayStatusFromCanonicalState(app, health);
   const backup = backupLabel(app);
-  const status = managedStatus(displayStatus, app);
   const needsAttention = appNeedsAttentionFromCanonicalState(app, health, access, telemetry);
-  const readinessState = managedReadinessState(displayStatus, app, access);
-  const attentionState = managedAttentionState(displayStatus, app, needsAttention);
+  const managementState = backendManagementState(app.managementState ?? 'managed');
+  const readinessState = backendReadinessState(app.readinessState ?? managedReadinessState(displayStatus, app, access));
+  const attentionState = backendAttentionState(app.attentionState ?? managedAttentionState(displayStatus, app, needsAttention));
+  const status = managedStatus(displayStatus, app);
 
   return {
     access: accessLabel(app, access),
@@ -63,7 +64,7 @@ function managedAppSurfaceItem(
     kind: 'managed',
     lastEvent: app.recentEvents?.[0]?.message || health?.message || app.remediation?.summary || undefined,
     links: appLinks(app),
-    managementState: 'managed',
+    managementState,
     name: app.appName,
     nextAction: managedNextAction(app, readinessState, attentionState, backup),
     operationState: idleOperationState(),
@@ -78,7 +79,9 @@ function managedAppSurfaceItem(
 function observedServiceSurfaceItem(service: ObservedServiceView): ApplicationSurfaceItem {
   const pinned = service.pinned || service.userStatus === 'pinned_external';
   const needsReview = ['recoverable', 'managed_elsewhere', 'blocked'].includes(service.userStatus) || !pinned;
-  const attentionState = observedAttentionState(service, needsReview);
+  const managementState = backendManagementState(service.managementState ?? (pinned ? 'linked' : 'found'));
+  const readinessState = backendReadinessState(service.readinessState ?? observedReadinessState(service, pinned));
+  const attentionState = backendAttentionState(service.attentionState ?? observedAttentionState(service, needsReview));
 
   return {
     access: observedAccessLabel(service),
@@ -90,11 +93,11 @@ function observedServiceSurfaceItem(service: ObservedServiceView): ApplicationSu
     kind: pinned ? 'pinned' : 'observed',
     lastEvent: service.userStatusLabel || undefined,
     links: observedLinks(service),
-    managementState: pinned ? 'linked' : 'found',
+    managementState,
     name: service.displayName || service.id,
     nextAction: needsReview ? observedNextAction(service) : undefined,
     operationState: idleOperationState(),
-    readinessState: observedReadinessState(service, pinned),
+    readinessState,
     runtimeState: pinned ? 'shortcut' : 'found',
     settings: observedSettings(service),
     sourceId: service.id,
@@ -178,6 +181,27 @@ function observedAttentionState(service: ObservedServiceView, needsReview: boole
     return 'needs_review';
   }
   return 'none';
+}
+
+function backendManagementState(value: string): ApplicationSurfaceItem['managementState'] {
+  if (value === 'managed' || value === 'found' || value === 'linked') {
+    return value;
+  }
+  return 'found';
+}
+
+function backendReadinessState(value: string): AppReadinessState {
+  if (value === 'ready' || value === 'starting' || value === 'paused' || value === 'stopped' || value === 'unreachable' || value === 'unknown') {
+    return value;
+  }
+  return 'unknown';
+}
+
+function backendAttentionState(value: string): AppAttentionState {
+  if (value === 'none' || value === 'needs_review' || value === 'conflict' || value === 'blocked') {
+    return value;
+  }
+  return 'needs_review';
 }
 
 function idleOperationState(): AppOperationState {

@@ -3,6 +3,7 @@ package com.projectos.marketplace.install;
 import java.time.Instant;
 import java.util.List;
 
+import com.projectos.api.ApplicationBehaviorStates;
 import com.projectos.marketplace.model.ConfigurationItem;
 
 public record AppRuntimeView(
@@ -13,6 +14,9 @@ public record AppRuntimeView(
         String version,
         String image,
         String friendlyStatus,
+        String managementState,
+        String readinessState,
+        String attentionState,
         String technicalStatus,
         String healthCheck,
         String runtimePath,
@@ -56,6 +60,7 @@ public record AppRuntimeView(
             PostInstallGuide usageGuide,
             AppSetupGuide setupGuide,
             List<ConfigurationItem> appConfiguration,
+            AppRemediationView remediation,
             List<AppEvent> recentEvents) {
         this(
                 appId,
@@ -65,6 +70,65 @@ public record AppRuntimeView(
                 version,
                 image,
                 friendlyStatus,
+                ApplicationBehaviorStates.managedManagementState(),
+                ApplicationBehaviorStates.managedReadinessState(friendlyStatus),
+                ApplicationBehaviorStates.managedAttentionState(friendlyStatus),
+                technicalStatus,
+                healthCheck,
+                runtimePath,
+                composeProject,
+                accessUrl,
+                accessRoute,
+                desiredAccess,
+                observedAccess,
+                installedAt,
+                lastBackup,
+                settings,
+                telemetry,
+                healthSnapshot,
+                usageGuide,
+                setupGuide,
+                appConfiguration,
+                remediation,
+                recentEvents);
+    }
+
+    public AppRuntimeView(
+            String appId,
+            String appName,
+            String category,
+            String description,
+            String version,
+            String image,
+            String friendlyStatus,
+            String technicalStatus,
+            String healthCheck,
+            String runtimePath,
+            String composeProject,
+            String accessUrl,
+            AppAccessRoute accessRoute,
+            AccessDesiredState desiredAccess,
+            AccessObservedState observedAccess,
+            Instant installedAt,
+            String lastBackup,
+            InstallSettings settings,
+            AppTelemetry telemetry,
+            AppHealthSnapshot healthSnapshot,
+            PostInstallGuide usageGuide,
+            AppSetupGuide setupGuide,
+            List<ConfigurationItem> appConfiguration,
+            List<AppEvent> recentEvents) {
+        this(
+                appId,
+                appName,
+                category,
+                description,
+                version,
+                image,
+                friendlyStatus,
+                ApplicationBehaviorStates.managedManagementState(),
+                ApplicationBehaviorStates.managedReadinessState(friendlyStatus),
+                ApplicationBehaviorStates.managedAttentionState(friendlyStatus),
                 technicalStatus,
                 healthCheck,
                 runtimePath,

@@ -37,6 +37,9 @@ class AppInstanceViewServiceTests {
         assertThat(view.name()).isEqualTo("Vaultwarden");
         assertThat(view.category()).isEqualTo("Security");
         assertThat(view.userStatus()).isEqualTo("Ready");
+        assertThat(view.managementState()).isEqualTo("managed");
+        assertThat(view.readinessState()).isEqualTo("ready");
+        assertThat(view.attentionState()).isEqualTo("none");
         assertThat(view.ownershipState()).isEqualTo("owned");
         assertThat(view.accessState()).isEqualTo("private_ready");
         assertThat(view.localUrl()).isEqualTo("http://localhost:8090");
@@ -62,6 +65,9 @@ class AppInstanceViewServiceTests {
 
         assertThat(view.userStatus()).isEqualTo("Missing");
         assertThat(view.runtimeState()).isEqualTo("missing");
+        assertThat(view.managementState()).isEqualTo("managed");
+        assertThat(view.readinessState()).isEqualTo("unreachable");
+        assertThat(view.attentionState()).isEqualTo("blocked");
         assertThat(view.issues()).singleElement().satisfies(issue -> {
             assertThat(issue.reasonCode()).isEqualTo("app_missing_container");
             assertThat(issue.severity()).isEqualTo("critical");
@@ -106,6 +112,21 @@ class AppInstanceViewServiceTests {
                     assertThat(view.ownershipState()).isEqualTo("owned");
                     assertThat(view.localUrl()).isEqualTo("http://localhost:3005");
                 });
+    }
+
+    @Test
+    void stoppedManagedAppViewIsPausedReadiness() {
+        InstalledAppRepository repository = repository();
+        repository.save(installed("vaultwarden", "Ready"));
+        repository.saveOwnershipMetadata(owned("vaultwarden", "ready"));
+        AppInstanceViewService service = service(repository, List.of(
+                new ManagedContainer("vaultwarden", "projectos_homelab-box_vaultwarden", "Exited 1 minute ago", DockerResourceOwnership.OWNED, "appinst_vaultwarden", "projectos_homelab-box_vaultwarden")));
+
+        AppInstanceView view = service.list().getFirst();
+
+        assertThat(view.userStatus()).isEqualTo("Stopped");
+        assertThat(view.readinessState()).isEqualTo("paused");
+        assertThat(view.attentionState()).isEqualTo("none");
     }
 
     @Test

@@ -91,6 +91,9 @@ class AppLifecycleServiceTests {
         AppRuntimeView app = service.getApp("vaultwarden");
 
         assertThat(app.friendlyStatus()).isEqualTo("Ready");
+        assertThat(app.managementState()).isEqualTo("managed");
+        assertThat(app.readinessState()).isEqualTo("ready");
+        assertThat(app.attentionState()).isEqualTo("none");
         assertThat(app.healthCheck()).isEqualTo("passing");
         assertThat(app.category()).isEqualTo("Security");
         assertThat(app.telemetry().cpuPercent()).isEqualTo("Unavailable");
@@ -194,6 +197,35 @@ class AppLifecycleServiceTests {
         assertThat(snapshot.status()).isEqualTo("Paused");
         assertThat(snapshot.message()).isEqualTo("Paused");
         assertThat(snapshot.dockerStatus()).isEqualTo("Stopped");
+    }
+
+    @Test
+    void runtimeViewExposesPausedAndUnreachableApplicationStates() {
+        composeExecutor.containers = List.of(new DockerContainerStatus(
+                "project-os-vaultwarden",
+                "vaultwarden",
+                "exited",
+                "",
+                "Exited 1 minute ago",
+                "0.0.0.0:8090->80/tcp"));
+
+        AppRuntimeView paused = service.getApp("vaultwarden");
+
+        assertThat(paused.readinessState()).isEqualTo("paused");
+        assertThat(paused.attentionState()).isEqualTo("none");
+
+        composeExecutor.containers = List.of(new DockerContainerStatus(
+                "project-os-vaultwarden",
+                "vaultwarden",
+                "running",
+                "unhealthy",
+                "Up 1 minute (unhealthy)",
+                "0.0.0.0:8090->80/tcp"));
+
+        AppRuntimeView unreachable = service.getApp("vaultwarden");
+
+        assertThat(unreachable.readinessState()).isEqualTo("unreachable");
+        assertThat(unreachable.attentionState()).isEqualTo("needs_review");
     }
 
     @Test

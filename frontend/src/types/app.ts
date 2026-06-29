@@ -27,6 +27,10 @@ export type ProjectOsIssue = {
   advancedDetails: Record<string, unknown>;
 };
 
+export type BackendAppManagementState = 'managed' | 'found' | 'linked' | string;
+export type BackendAppReadinessState = 'ready' | 'starting' | 'paused' | 'stopped' | 'unreachable' | 'unknown' | string;
+export type BackendAppAttentionState = 'none' | 'needs_review' | 'conflict' | 'blocked' | string;
+
 export type AppRemediationView = {
   state: 'healthy' | 'watching' | 'auto_repairing' | 'repair_succeeded' | 'repair_failed' | 'needs_user_action' | 'restore_recommended' | string;
   label: string;
@@ -42,6 +46,9 @@ export type AppInstanceView = {
   category: string;
   icon: string;
   userStatus: 'Ready' | 'Starting' | 'Stopped' | 'Needs setup' | 'Needs attention' | 'Missing' | 'Managed elsewhere' | string;
+  managementState?: BackendAppManagementState;
+  readinessState?: BackendAppReadinessState;
+  attentionState?: BackendAppAttentionState;
   installState: string;
   runtimeState: string;
   ownershipState: string;
@@ -204,6 +211,9 @@ export type AppRuntimeView = {
   version: string;
   image: string | null;
   friendlyStatus: 'Ready' | 'Starting' | 'Stopped' | 'Needs attention' | string;
+  managementState?: BackendAppManagementState;
+  readinessState?: BackendAppReadinessState;
+  attentionState?: BackendAppAttentionState;
   technicalStatus: string;
   healthCheck: string;
   runtimePath: string;

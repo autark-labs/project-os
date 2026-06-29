@@ -3,6 +3,7 @@ package com.projectos.host;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.projectos.activity.ActivityLogService;
+import com.projectos.api.ApplicationBehaviorStates;
 import com.projectos.marketplace.catalog.MarketplaceCatalogService;
 import com.projectos.marketplace.install.DockerOwnershipService;
 import com.projectos.marketplace.install.InstallSettings;
@@ -302,6 +303,8 @@ public class ObservedServiceService {
 
     public static ObservedServiceView toView(ObservedService service) {
         String userStatus = userStatus(service);
+        boolean pinned = "pinned".equals(service.userVisibility());
+        boolean managedByThisProjectOs = "owned_managed".equals(service.ownershipState());
         return new ObservedServiceView(
                 service.id(),
                 service.source(),
@@ -314,10 +317,13 @@ public class ObservedServiceService {
                 userStatus,
                 userStatusLabel(userStatus),
                 userStatusDescription(service, userStatus),
+                ApplicationBehaviorStates.observedManagementState(userStatus, pinned, managedByThisProjectOs),
+                ApplicationBehaviorStates.observedReadinessState(service.runtimeState(), service.url(), pinned),
+                ApplicationBehaviorStates.observedAttentionState(userStatus),
                 service.ownershipState(),
                 service.runtimeState(),
-                "pinned".equals(service.userVisibility()),
-                "owned_managed".equals(service.ownershipState()),
+                pinned,
+                managedByThisProjectOs,
                 adoptable(service),
                 service.catalogAppId() != null && !"owned_managed".equals(service.ownershipState()),
                 actions(service),

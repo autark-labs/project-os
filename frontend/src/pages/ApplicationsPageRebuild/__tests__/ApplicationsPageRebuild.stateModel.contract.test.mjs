@@ -27,10 +27,13 @@ test('applications rebuild uses split behavior states instead of a single app st
   assert.match(types, /attentionState: AppAttentionState/);
   assert.match(types, /operationState: AppOperationState/);
 
-  assert.match(liveModel, /managementState: 'managed'/);
-  assert.match(liveModel, /managementState: pinned \? 'linked' : 'found'/);
-  assert.match(liveModel, /const readinessState = managedReadinessState/);
-  assert.match(liveModel, /const attentionState = managedAttentionState/);
+  assert.match(liveModel, /app\.managementState \?\? 'managed'/);
+  assert.match(liveModel, /service\.managementState \?\? \(pinned \? 'linked' : 'found'\)/);
+  assert.match(liveModel, /app\.readinessState \?\? managedReadinessState/);
+  assert.match(liveModel, /app\.attentionState \?\? managedAttentionState/);
+  assert.match(liveModel, /service\.managementState \?\? \(pinned \? 'linked' : 'found'\)/);
+  assert.match(liveModel, /service\.readinessState \?\? observedReadinessState/);
+  assert.match(liveModel, /service\.attentionState \?\? observedAttentionState/);
   assert.match(liveModel, /readinessState,/);
   assert.match(liveModel, /attentionState,/);
   assert.match(liveModel, /operationState: idleOperationState\(\)/);

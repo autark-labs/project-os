@@ -88,6 +88,54 @@ class ObservedServiceServiceTests {
     }
 
     @Test
+    void observedServiceViewsExposeCanonicalApplicationStates() {
+        ObservedServiceRepository repository = repository();
+        repository.upsert(observed("docker:managed", "docker", "managed", "Managed", "homepage", "owned_managed", "observed", "running"));
+        repository.upsert(observed("docker:linked", "docker", "linked", "Linked", "gitlab", "external_docker", "pinned", "running"));
+        repository.upsert(observed("docker:found", "docker", "found", "Found", null, "external_docker", "visible", "paused"));
+        repository.upsert(observed("docker:recoverable", "docker", "recoverable", "Recoverable", "vaultwarden", "legacy_project_os", "visible", "running"));
+        repository.upsert(observed("docker:foreign", "docker", "foreign", "Foreign", "jellyfin", "foreign_project_os", "visible", "running"));
+        repository.upsert(observed("docker:conflict", "docker", "conflict", "Conflict", "pi-hole", "unknown_conflict", "visible", "unhealthy"));
+        ObservedServiceService service = service(repository, List.of());
+
+        List<ObservedServiceView> views = service.list(true);
+
+        assertThat(views).filteredOn(view -> view.id().equals("docker:managed"))
+                .singleElement()
+                .satisfies(view -> {
+                    assertThat(view.managementState()).isEqualTo("managed");
+                    assertThat(view.readinessState()).isEqualTo("ready");
+                    assertThat(view.attentionState()).isEqualTo("none");
+                });
+        assertThat(views).filteredOn(view -> view.id().equals("docker:linked"))
+                .singleElement()
+                .satisfies(view -> {
+                    assertThat(view.managementState()).isEqualTo("linked");
+                    assertThat(view.readinessState()).isEqualTo("ready");
+                    assertThat(view.attentionState()).isEqualTo("none");
+                });
+        assertThat(views).filteredOn(view -> view.id().equals("docker:found"))
+                .singleElement()
+                .satisfies(view -> {
+                    assertThat(view.managementState()).isEqualTo("found");
+                    assertThat(view.readinessState()).isEqualTo("paused");
+                    assertThat(view.attentionState()).isEqualTo("needs_review");
+                });
+        assertThat(views).filteredOn(view -> view.id().equals("docker:recoverable"))
+                .singleElement()
+                .satisfies(view -> assertThat(view.attentionState()).isEqualTo("needs_review"));
+        assertThat(views).filteredOn(view -> view.id().equals("docker:foreign"))
+                .singleElement()
+                .satisfies(view -> assertThat(view.attentionState()).isEqualTo("conflict"));
+        assertThat(views).filteredOn(view -> view.id().equals("docker:conflict"))
+                .singleElement()
+                .satisfies(view -> {
+                    assertThat(view.readinessState()).isEqualTo("unreachable");
+                    assertThat(view.attentionState()).isEqualTo("blocked");
+                });
+    }
+
+    @Test
     void adoptRecoverableServiceCreatesManagedAppStateAndPreservesObservedTruth() {
         ObservedServiceRepository observedRepository = repository();
         InstalledAppRepository installedRepository = new InstalledAppRepository(runtimeLayout());
@@ -168,10 +216,18 @@ class ObservedServiceServiceTests {
     }
 
     private ObservedService observed(String id, String source, String fingerprint, String displayName, String catalogAppId, String ownershipState, String visibility) {
-        return observed(id, source, fingerprint, displayName, catalogAppId, ownershipState, visibility, null);
+        return observed(id, source, fingerprint, displayName, catalogAppId, ownershipState, visibility, (Instant) null);
+    }
+
+    private ObservedService observed(String id, String source, String fingerprint, String displayName, String catalogAppId, String ownershipState, String visibility, String runtimeState) {
+        return observed(id, source, fingerprint, displayName, catalogAppId, ownershipState, visibility, null, runtimeState);
     }
 
     private ObservedService observed(String id, String source, String fingerprint, String displayName, String catalogAppId, String ownershipState, String visibility, Instant pinnedAt) {
+        return observed(id, source, fingerprint, displayName, catalogAppId, ownershipState, visibility, pinnedAt, "unknown");
+    }
+
+    private ObservedService observed(String id, String source, String fingerprint, String displayName, String catalogAppId, String ownershipState, String visibility, Instant pinnedAt, String runtimeState) {
         Instant seenAt = Instant.parse("2026-06-21T12:00:00Z");
         return new ObservedService(
                 id,
@@ -185,7 +241,7 @@ class ObservedServiceServiceTests {
                 catalogAppId == null ? "unknown" : "user",
                 ownershipState,
                 visibility,
-                "unknown",
+                runtimeState,
                 false,
                 "",
                 seenAt,

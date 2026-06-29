@@ -19,6 +19,10 @@ export type ObservedServiceAction = {
   reason: string;
 };
 
+export type ObservedServiceManagementState = 'managed' | 'found' | 'linked' | string;
+export type ObservedServiceReadinessState = 'ready' | 'starting' | 'paused' | 'stopped' | 'unreachable' | 'unknown' | string;
+export type ObservedServiceAttentionState = 'none' | 'needs_review' | 'conflict' | 'blocked' | string;
+
 export type ObservedServiceView = {
   id: string;
   source: string;
@@ -31,6 +35,9 @@ export type ObservedServiceView = {
   userStatus: ObservedServiceUserStatus;
   userStatusLabel: string;
   userStatusDescription: string;
+  managementState?: ObservedServiceManagementState;
+  readinessState?: ObservedServiceReadinessState;
+  attentionState?: ObservedServiceAttentionState;
   ownershipState: string;
   runtimeState: string;
   pinned: boolean;
