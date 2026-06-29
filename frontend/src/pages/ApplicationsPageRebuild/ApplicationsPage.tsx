@@ -301,6 +301,28 @@ export const ApplicationsPage = () => {
       return undefined;
     }
 
+    window.requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        const rail = railRef.current;
+        if (!rail) {
+          return;
+        }
+
+        const margin = 20;
+        const rect = rail.getBoundingClientRect();
+        const availableHeight = window.innerHeight - margin * 2;
+
+        if (rect.height > availableHeight && rect.top !== margin) {
+          window.scrollBy({ behavior: 'smooth', top: rect.top - margin });
+          return;
+        }
+
+        if (rect.bottom > window.innerHeight - margin) {
+          window.scrollBy({ behavior: 'smooth', top: rect.bottom - window.innerHeight + margin });
+        }
+      }, 320);
+    });
+
     const handlePointerDown = (event: PointerEvent) => {
       const target = event.target;
       if (target instanceof Node && railRef.current?.contains(target)) {
@@ -537,13 +559,19 @@ export const ApplicationsPage = () => {
             />
           ) : (
             <div className="max-h-[44rem] min-h-[44rem] overflow-y-auto pr-1">
-              <AdvancedApplicationsView actions={actions} items={visibleItems} onSelect={setSelectedId} selectedId={selectedItem?.id} />
+              <AdvancedApplicationsView
+                actions={actions}
+                items={visibleItems}
+                managementOpen={managementOpen}
+                onSelect={setSelectedId}
+                selectedId={selectedItem?.id}
+              />
             </div>
           )}
 
           <Card
             className={cn(
-              'relative z-30 h-fit w-full justify-self-end overflow-hidden rounded-2xl border border-sky-400/30 bg-slate-900 text-slate-50 shadow-xl shadow-slate-950/30 ring-0 transition-[width,box-shadow] duration-300 ease-out lg:sticky lg:top-5 lg:w-[22rem]',
+              'relative z-30 h-fit w-full scroll-mt-5 justify-self-end overflow-hidden rounded-2xl border border-sky-400/30 bg-slate-900 text-slate-50 shadow-xl shadow-slate-950/30 ring-0 transition-[width,box-shadow] duration-300 ease-out lg:sticky lg:top-5 lg:w-[22rem]',
               managementOpen && 'shadow-2xl shadow-cyan-950/50 lg:w-[58rem]',
             )}
             onPointerDown={(event) => event.stopPropagation()}
@@ -587,8 +615,8 @@ export const ApplicationsPage = () => {
                   <div
                     aria-hidden={!managementOpen}
                     className={cn(
-                      'min-w-0 overflow-hidden transition-opacity duration-200',
-                      managementOpen ? 'opacity-100 delay-100' : 'pointer-events-none opacity-0',
+                      'min-w-0 overflow-hidden transition-[max-height,opacity] duration-200',
+                      managementOpen ? 'max-h-[80rem] opacity-100 delay-100' : 'max-h-0 pointer-events-none opacity-0',
                     )}
                   >
                     <div className="mb-3">

@@ -44,16 +44,26 @@ export function BasicApplicationsView({ items, managementOpen, onSelect, onUnins
     <section className="grid min-h-[44rem] grid-cols-[repeat(auto-fill,12rem)] items-start justify-start gap-3">
       {items.map((item) => (
         <Card
+          aria-hidden={managementOpen}
           className={cn(
-            'relative h-60 w-48 cursor-pointer overflow-visible rounded-2xl border bg-sky-100 py-0 shadow-lg shadow-slate-950/20 ring-0 transition-all duration-200 hover:-translate-y-1 hover:bg-sky-50 hover:shadow-xl hover:shadow-slate-950/25',
-            item.nextAction && 'border-orange-500 bg-orange-200 hover:bg-orange-100',
-            item.runtimeState === 'paused' && 'border-slate-400 bg-slate-200 hover:bg-slate-100',
+            'relative h-60 w-48 overflow-visible rounded-2xl border bg-sky-100 py-0 shadow-lg shadow-slate-950/20 ring-0 transition-all duration-200',
+            !managementOpen && 'cursor-pointer hover:-translate-y-1 hover:bg-sky-50 hover:shadow-xl hover:shadow-slate-950/25',
+            managementOpen && 'pointer-events-none cursor-default',
+            item.nextAction && cn('border-orange-500 bg-orange-200', !managementOpen && 'hover:bg-orange-100'),
+            item.runtimeState === 'paused' && cn('border-slate-400 bg-slate-200', !managementOpen && 'hover:bg-slate-100'),
             !item.nextAction && item.runtimeState !== 'paused' && 'border-sky-300',
-            managementOpen && selectedId && selectedId !== item.id && 'scale-[0.98] opacity-35 blur-[1px] hover:opacity-60 hover:blur-none',
-            selectedId === item.id && 'z-10 -translate-y-2 border-cyan-300 shadow-2xl shadow-cyan-300/50 ring-4 ring-cyan-300/35 hover:-translate-y-2 hover:shadow-cyan-300/60',
+            managementOpen && selectedId && selectedId !== item.id && 'scale-[0.98] opacity-35 blur-[1px]',
+            selectedId === item.id && cn(
+              'z-10 -translate-y-2 border-cyan-300 shadow-2xl shadow-cyan-300/50 ring-4 ring-cyan-300/35',
+              !managementOpen && 'hover:-translate-y-2 hover:shadow-cyan-300/60',
+            ),
           )}
           key={item.id}
-          onClick={() => onSelect(item.id)}
+          onClick={() => {
+            if (!managementOpen) {
+              onSelect(item.id);
+            }
+          }}
           size="sm"
         >
           <CardHeader className="px-3 pt-4">

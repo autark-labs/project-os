@@ -22,11 +22,12 @@ import type { ApplicationActionHandlers, ApplicationSurfaceItem } from './extens
 type AdvancedApplicationsViewProps = {
   actions: ApplicationActionHandlers;
   items: ApplicationSurfaceItem[];
+  managementOpen: boolean;
   onSelect: (id: string) => void;
   selectedId?: string;
 };
 
-export function AdvancedApplicationsView({ actions, items, onSelect, selectedId }: AdvancedApplicationsViewProps) {
+export function AdvancedApplicationsView({ actions, items, managementOpen, onSelect, selectedId }: AdvancedApplicationsViewProps) {
   return (
     <Card className="min-h-[44rem] overflow-visible rounded-2xl border border-sky-400/30 bg-slate-900 text-slate-50 shadow-xl shadow-slate-950/30 ring-0">
       <CardHeader>
@@ -51,14 +52,25 @@ export function AdvancedApplicationsView({ actions, items, onSelect, selectedId 
             <TableBody>
               {items.map((item) => (
                 <TableRow
+                  aria-hidden={managementOpen}
                   className={cn(
-                    'cursor-pointer border-transparent bg-sky-100 text-slate-950 shadow-md shadow-slate-950/20 transition-all duration-200 hover:-translate-y-0.5 hover:bg-sky-50 hover:shadow-lg',
-                    item.nextAction && 'bg-orange-200 hover:bg-orange-100',
-                    item.runtimeState === 'paused' && 'bg-slate-200 hover:bg-slate-100',
-                    selectedId === item.id && 'bg-cyan-100 shadow-xl shadow-cyan-300/35 ring-2 ring-cyan-300/40 hover:bg-cyan-50',
+                    'border-transparent bg-sky-100 text-slate-950 shadow-md shadow-slate-950/20 transition-all duration-200',
+                    !managementOpen && 'cursor-pointer hover:-translate-y-0.5 hover:bg-sky-50 hover:shadow-lg',
+                    managementOpen && 'pointer-events-none cursor-default',
+                    item.nextAction && cn('bg-orange-200', !managementOpen && 'hover:bg-orange-100'),
+                    item.runtimeState === 'paused' && cn('bg-slate-200', !managementOpen && 'hover:bg-slate-100'),
+                    managementOpen && selectedId && selectedId !== item.id && 'opacity-35 blur-[1px]',
+                    selectedId === item.id && cn(
+                      'bg-cyan-100 shadow-xl shadow-cyan-300/35 ring-2 ring-cyan-300/40',
+                      !managementOpen && 'hover:bg-cyan-50',
+                    ),
                   )}
                   key={item.id}
-                  onClick={() => onSelect(item.id)}
+                  onClick={() => {
+                    if (!managementOpen) {
+                      onSelect(item.id);
+                    }
+                  }}
                 >
                   <TableCell className="rounded-l-xl">
                     <div className="flex items-center gap-3">
