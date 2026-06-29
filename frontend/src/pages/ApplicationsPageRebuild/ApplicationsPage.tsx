@@ -5,22 +5,38 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
+import { useApplicationStateRepository } from '@/repositories/applicationStateRepository';
 import { ApplicationDetailsRail } from './ApplicationDetailsRail';
 import { BasicApplicationsView } from './BasicApplicationsView';
 import { AdvancedApplicationsView } from './AdvancedApplicationsView';
-import { initialApplicationItems } from './extensions/ApplicationsPage.mockData';
-import type { ApplicationSurfaceItem } from './extensions/ApplicationsPage.types';
+import { buildApplicationSurfaceItems } from './extensions/ApplicationsPage.liveModel';
 
 type ApplicationFilter = 'all' | 'managed' | 'pinned' | 'found' | 'needs_review';
 
 export const ApplicationsPage = () => {
   const { viewMode } = useProjectSettings();
-  const [items, setItems] = useState<ApplicationSurfaceItem[]>(initialApplicationItems);
+  const appState = useApplicationStateRepository();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<ApplicationFilter>('all');
   const [managementOpen, setManagementOpen] = useState(false);
-  const [selectedId, setSelectedId] = useState(initialApplicationItems[0]?.id ?? '');
+  const [selectedId, setSelectedId] = useState('');
+  const [localEventsById, setLocalEventsById] = useState<Record<string, string>>({});
   const railRef = useRef<HTMLDivElement | null>(null);
+
+  const items = useMemo(() => {
+    const liveItems = buildApplicationSurfaceItems({
+      accessByAppId: appState.accessByAppId,
+      apps: appState.apps,
+      healthByAppId: appState.healthByAppId,
+      observedServices: appState.observedServices,
+      telemetryByAppId: appState.telemetryByAppId,
+    });
+
+    return liveItems.map((item) => ({
+      ...item,
+      lastEvent: localEventsById[item.id] || item.lastEvent,
+    }));
+  }, [appState.accessByAppId, appState.apps, appState.healthByAppId, appState.observedServices, appState.telemetryByAppId, localEventsById]);
 
   const visibleItems = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -50,6 +66,19 @@ export const ApplicationsPage = () => {
   const pinnedCount = items.filter((item) => item.kind === 'pinned').length;
   const attentionCount = items.filter((item) => item.runtimeState === 'needs_attention' || item.nextAction).length;
   const nextReviewItem = visibleItems.find((item) => item.nextAction) ?? items.find((item) => item.nextAction) ?? null;
+
+  useEffect(() => {
+    if (!items.length) {
+      if (selectedId) {
+        setSelectedId('');
+      }
+      return;
+    }
+
+    if (!items.some((item) => item.id === selectedId)) {
+      setSelectedId(items[0].id);
+    }
+  }, [items, selectedId]);
 
   useEffect(() => {
     if (!managementOpen) {
@@ -108,116 +137,20 @@ export const ApplicationsPage = () => {
     setFilter(nextFilter as ApplicationFilter);
   };
 
-  const handleStart = (id: string) => {
-    setItems((currentItems) => currentItems.map((item) => {
-      if (item.id !== id || item.kind !== 'managed') {
-        return item;
-      }
-
-      return {
-        ...item,
-        status: item.backup === 'Needs backup' ? 'Needs review' : 'Ready',
-        runtimeState: item.backup === 'Needs backup' ? 'needs_attention' : 'running',
-        nextAction: item.backup === 'Needs backup' ? item.nextAction : undefined,
-        lastEvent: 'Started just now',
-      };
-    }));
+  const recordLocalEvent = (id: string, message: string) => {
+    setLocalEventsById((current) => ({ ...current, [id]: message }));
   };
 
-  const handleStop = (id: string) => {
-    setItems((currentItems) => currentItems.map((item) => {
-      if (item.id !== id || item.kind !== 'managed') {
-        return item;
-      }
-
-      return {
-        ...item,
-        status: 'Paused',
-        runtimeState: 'paused',
-        nextAction: {
-          id: 'start_app',
-          label: 'Start app',
-          description: 'Start the app so it can be opened again.',
-        },
-        lastEvent: 'Stopped just now',
-      };
-    }));
-  };
-
-  const handleRestart = (id: string) => {
-    setItems((currentItems) => currentItems.map((item) => {
-      if (item.id !== id || item.kind !== 'managed') {
-        return item;
-      }
-
-      return {
-        ...item,
-        status: item.backup === 'Needs backup' ? 'Needs review' : 'Ready',
-        runtimeState: item.backup === 'Needs backup' ? 'needs_attention' : 'running',
-        lastEvent: 'Restarted just now',
-      };
-    }));
-  };
-
-  const handleCreateBackup = (id: string) => {
-    setItems((currentItems) => currentItems.map((item) => {
-      if (item.id !== id || item.kind !== 'managed') {
-        return item;
-      }
-
-      return {
-        ...item,
-        status: item.runtimeState === 'paused' ? 'Paused' : 'Ready',
-        runtimeState: item.runtimeState === 'paused' ? 'paused' : 'running',
-        backup: 'Protected',
-        nextAction: item.nextAction?.id === 'create_backup' ? undefined : item.nextAction,
-        lastEvent: 'Backup created just now',
-      };
-    }));
-  };
-
-  const handleRunNextAction = (id: string) => {
-    setItems((currentItems) => currentItems.map((item) => {
-      if (item.id !== id || !item.nextAction) {
-        return item;
-      }
-
-      if (item.nextAction.id === 'start_app') {
-        return {
-          ...item,
-          status: 'Ready',
-          runtimeState: 'running',
-          nextAction: undefined,
-          lastEvent: 'Started just now',
-        };
-      }
-
-      if (item.nextAction.id === 'create_backup') {
-        return {
-          ...item,
-          status: 'Ready',
-          runtimeState: 'running',
-          backup: 'Protected',
-          nextAction: undefined,
-          lastEvent: 'Backup created just now',
-        };
-      }
-
-      return {
-        ...item,
-        lastEvent: 'Review opened just now',
-      };
-    }));
-  };
+  const handleStart = (id: string) => recordLocalEvent(id, 'Start requested just now');
+  const handleStop = (id: string) => recordLocalEvent(id, 'Pause requested just now');
+  const handleRestart = (id: string) => recordLocalEvent(id, 'Restart requested just now');
+  const handleCreateBackup = (id: string) => recordLocalEvent(id, 'Backup review opened just now');
+  const handleRunNextAction = (id: string) => recordLocalEvent(id, 'Review opened just now');
 
   const handleUninstall = (id: string) => {
-    setItems((currentItems) => {
-      const nextItems = currentItems.filter((item) => item.id !== id);
-      if (selectedId === id) {
-        setSelectedId(nextItems[0]?.id ?? '');
-      }
-      return nextItems;
-    });
+    setSelectedId(id);
+    setManagementOpen(true);
+    recordLocalEvent(id, 'Uninstall review opened just now');
   };
 
   const actions = {
@@ -310,6 +243,11 @@ export const ApplicationsPage = () => {
               </Button>
             </div>
           </div>
+          {(appState.isLoading || Boolean(appState.error)) && (
+            <div className="mt-3 rounded-xl border border-sky-400/20 bg-slate-800 px-3 py-2 text-sm text-sky-100/80">
+              {appState.isLoading ? 'Loading apps and found services.' : 'Could not load the current apps list.'}
+            </div>
+          )}
         </section>
 
         <section className="grid min-h-[44rem] items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">

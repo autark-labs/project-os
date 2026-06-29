@@ -1,16 +1,17 @@
-export type ApplicationRuntimeState = 'running' | 'paused' | 'needs_attention' | 'found' | 'shortcut';
+export type ApplicationRuntimeState = 'running' | 'starting' | 'paused' | 'needs_attention' | 'found' | 'shortcut';
 
 export type ApplicationNextAction = {
-  id: 'create_backup' | 'review_found_service' | 'start_app';
+  id: 'create_backup' | 'review_found_service' | 'review_issue' | 'start_app';
   label: string;
   description: string;
 };
 
 export type ApplicationSurfaceItem = {
   id: string;
+  sourceId?: string;
   name: string;
   kind: 'managed' | 'pinned' | 'observed';
-  status: 'Ready' | 'Paused' | 'Needs review' | 'Found' | 'Pinned';
+  status: 'Ready' | 'Starting' | 'Paused' | 'Needs review' | 'Found' | 'Pinned';
   runtimeState: ApplicationRuntimeState;
   access: 'Open' | 'Private' | 'Local only' | 'No link';
   backup: 'Protected' | 'Needs backup' | 'Not managed';
