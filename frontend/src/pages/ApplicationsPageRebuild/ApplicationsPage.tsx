@@ -1,26 +1,39 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Search } from 'lucide-react';
+import { InstalledAppsAPIClient } from '@/api/InstalledAppsAPIClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
-import { useApplicationStateRepository } from '@/repositories/applicationStateRepository';
+import { showActionErrorNotification, showActionNotification } from '@/lib/actionNotifications';
+import {
+  applicationStateQueryKey,
+  invalidateApplicationState,
+  setRuntimeAppInApplicationStateCache,
+  setRuntimeAppStatusInApplicationStateCache,
+  useApplicationStateRepository,
+} from '@/repositories/applicationStateRepository';
+import type { ApplicationState } from '@/types/applicationState';
 import { ApplicationDetailsRail } from './ApplicationDetailsRail';
 import { BasicApplicationsView } from './BasicApplicationsView';
 import { AdvancedApplicationsView } from './AdvancedApplicationsView';
 import { buildApplicationSurfaceItems } from './extensions/ApplicationsPage.liveModel';
+import type { ApplicationRuntimeAction } from './extensions/ApplicationsPage.types';
 
 type ApplicationFilter = 'all' | 'managed' | 'pinned' | 'found' | 'needs_review';
 
 export const ApplicationsPage = () => {
   const { viewMode } = useProjectSettings();
+  const queryClient = useQueryClient();
   const appState = useApplicationStateRepository();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<ApplicationFilter>('all');
   const [managementOpen, setManagementOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('');
   const [localEventsById, setLocalEventsById] = useState<Record<string, string>>({});
+  const [actionLoadingByAppId, setActionLoadingByAppId] = useState<Record<string, ApplicationRuntimeAction | null>>({});
   const railRef = useRef<HTMLDivElement | null>(null);
 
   const items = useMemo(() => {
@@ -141,11 +154,48 @@ export const ApplicationsPage = () => {
     setLocalEventsById((current) => ({ ...current, [id]: message }));
   };
 
-  const handleStart = (id: string) => recordLocalEvent(id, 'Start requested just now');
-  const handleStop = (id: string) => recordLocalEvent(id, 'Pause requested just now');
-  const handleRestart = (id: string) => recordLocalEvent(id, 'Restart requested just now');
+  const setAppActionLoading = (appId: string, action: ApplicationRuntimeAction | null) => {
+    setActionLoadingByAppId((current) => ({ ...current, [appId]: action }));
+  };
+
+  const restoreApplicationState = (previousState: ApplicationState | undefined) => {
+    queryClient.setQueryData<ApplicationState | undefined>(applicationStateQueryKey, previousState);
+  };
+
+  const runManagedAction = async (appId: string, action: ApplicationRuntimeAction) => {
+    const previousState = queryClient.getQueryData<ApplicationState | undefined>(applicationStateQueryKey);
+
+    setAppActionLoading(appId, action);
+    setRuntimeAppStatusInApplicationStateCache(queryClient, appId, optimisticStatusForAction(action));
+
+    try {
+      const data = await InstalledAppsAPIClient.runAction(appId, action);
+      if (data.app) {
+        setRuntimeAppInApplicationStateCache(queryClient, data.app);
+      }
+      showActionNotification(data, appActionTitle(action));
+      void invalidateApplicationState(queryClient);
+    } catch (err) {
+      restoreApplicationState(previousState);
+      showActionErrorNotification(err, 'App action failed');
+    } finally {
+      setAppActionLoading(appId, null);
+    }
+  };
+
+  const handleStart = (id: string) => void runManagedAction(id, 'start');
+  const handleStop = (id: string) => void runManagedAction(id, 'stop');
+  const handleRestart = (id: string) => void runManagedAction(id, 'restart');
   const handleCreateBackup = (id: string) => recordLocalEvent(id, 'Backup review opened just now');
-  const handleRunNextAction = (id: string) => recordLocalEvent(id, 'Review opened just now');
+  const handleRunNextAction = (id: string) => {
+    const item = items.find((candidate) => candidate.id === id);
+    if (item?.kind === 'managed' && item.nextAction?.id === 'start_app') {
+      void runManagedAction(item.sourceId || item.id, 'start');
+      return;
+    }
+
+    recordLocalEvent(id, 'Review opened just now');
+  };
 
   const handleUninstall = (id: string) => {
     setSelectedId(id);
@@ -263,6 +313,7 @@ export const ApplicationsPage = () => {
             <div className="max-h-[44rem] min-h-[44rem] overflow-y-auto pr-1">
               <AdvancedApplicationsView
                 actions={actions}
+                actionLoadingByItemId={actionLoadingByAppId}
                 items={visibleItems}
                 managementOpen={managementOpen}
                 onSelect={setSelectedId}
@@ -273,6 +324,7 @@ export const ApplicationsPage = () => {
 
           <ApplicationDetailsRail
             actions={actions}
+            actionLoadingByItemId={actionLoadingByAppId}
             item={selectedItem}
             managementOpen={managementOpen}
             onManagementOpenChange={setManagementOpen}
@@ -283,6 +335,17 @@ export const ApplicationsPage = () => {
     </main>
   );
 };
+
+function optimisticStatusForAction(action: ApplicationRuntimeAction) {
+  return action === 'stop' ? 'Paused' : 'Starting';
+}
+
+function appActionTitle(action: ApplicationRuntimeAction) {
+  if (action === 'start') return 'App started';
+  if (action === 'stop') return 'App paused';
+  if (action === 'restart') return 'App restarted';
+  return 'App action finished';
+}
 
 function PageMetric({ label, value }: { label: string; value: number }) {
   const attention = label === 'Needs review' && value > 0;

@@ -1,5 +1,5 @@
 import { forwardRef } from 'react';
-import { CheckCircle2, ExternalLink, Pause, Play, RotateCw, ShieldCheck, Wrench, X } from 'lucide-react';
+import { CheckCircle2, ExternalLink, Loader2, Pause, Play, RotateCw, ShieldCheck, Wrench, X } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -11,17 +11,18 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ApplicationIcon, labelForKind } from './extensions/ApplicationVisuals';
 import { ApplicationManagementPanel } from './ApplicationManagementPanel';
-import type { ApplicationActionHandlers, ApplicationSurfaceItem } from './extensions/ApplicationsPage.types';
+import type { ApplicationActionHandlers, ApplicationRuntimeAction, ApplicationSurfaceItem } from './extensions/ApplicationsPage.types';
 
 type ApplicationDetailsRailProps = {
   actions: ApplicationActionHandlers;
+  actionLoadingByItemId: Record<string, ApplicationRuntimeAction | null | undefined>;
   item: ApplicationSurfaceItem | null;
   managementOpen: boolean;
   onManagementOpenChange: (open: boolean) => void;
 };
 
 export const ApplicationDetailsRail = forwardRef<HTMLDivElement, ApplicationDetailsRailProps>(function ApplicationDetailsRail(
-  { actions, item, managementOpen, onManagementOpenChange },
+  { actions, actionLoadingByItemId, item, managementOpen, onManagementOpenChange },
   ref,
 ) {
   return (
@@ -86,7 +87,7 @@ export const ApplicationDetailsRail = forwardRef<HTMLDivElement, ApplicationDeta
 
             <div className="min-w-0">
               <div className="flex flex-col gap-4">
-                <RailControls actions={actions} item={item} />
+                <RailControls actions={actions} item={item} loadingAction={actionLoadingByItemId[item.id] ?? null} />
 
                 <div className="grid gap-2 text-sm">
                   <InfoRow label="Type" value={labelForKind(item.kind)} />
@@ -106,7 +107,9 @@ export const ApplicationDetailsRail = forwardRef<HTMLDivElement, ApplicationDeta
   );
 });
 
-function RailControls({ actions, item }: { actions: ApplicationActionHandlers; item: ApplicationSurfaceItem }) {
+function RailControls({ actions, item, loadingAction }: { actions: ApplicationActionHandlers; item: ApplicationSurfaceItem; loadingAction: ApplicationRuntimeAction | null }) {
+  const runtimeActionDisabled = Boolean(loadingAction);
+
   return (
     <section className="grid gap-3 rounded-xl border border-sky-400/20 bg-slate-800 p-3">
       {item.href && (
@@ -125,8 +128,8 @@ function RailControls({ actions, item }: { actions: ApplicationActionHandlers; i
               <p className="font-medium">{item.nextAction.label}</p>
               <p className="mt-1 text-xs leading-5">{item.nextAction.description}</p>
             </div>
-            <Button className="bg-orange-500 text-white hover:bg-orange-400" onClick={() => actions.onRunNextAction(item.id)} size="sm" type="button">
-              Run
+            <Button className="bg-orange-500 text-white hover:bg-orange-400" disabled={runtimeActionDisabled && item.nextAction.id === 'start_app'} onClick={() => actions.onRunNextAction(item.id)} size="sm" type="button">
+              {runtimeActionDisabled && item.nextAction.id === 'start_app' ? 'Running' : 'Run'}
             </Button>
           </div>
         </div>
@@ -139,13 +142,15 @@ function RailControls({ actions, item }: { actions: ApplicationActionHandlers; i
 
       {item.kind === 'managed' && (
         <div className="grid gap-2 sm:grid-cols-3">
-          <Button className="border-sky-400/40 bg-slate-900 text-sky-50 hover:bg-slate-700 hover:text-white" onClick={() => item.runtimeState === 'paused' ? actions.onStart(item.id) : actions.onStop(item.id)} type="button" variant="outline">
-            {item.runtimeState === 'paused' ? <Play data-icon="inline-start" /> : <Pause data-icon="inline-start" />}
-            {item.runtimeState === 'paused' ? 'Start' : 'Pause'}
+          <Button className="border-sky-400/40 bg-slate-900 text-sky-50 hover:bg-slate-700 hover:text-white" disabled={runtimeActionDisabled} onClick={() => item.runtimeState === 'paused' ? actions.onStart(item.id) : actions.onStop(item.id)} type="button" variant="outline">
+            {loadingAction === 'start' || loadingAction === 'stop'
+              ? <Loader2 className="animate-spin" data-icon="inline-start" />
+              : item.runtimeState === 'paused' ? <Play data-icon="inline-start" /> : <Pause data-icon="inline-start" />}
+            {loadingAction === 'start' ? 'Starting' : loadingAction === 'stop' ? 'Pausing' : item.runtimeState === 'paused' ? 'Start' : 'Pause'}
           </Button>
-          <Button className="border-sky-400/40 bg-slate-900 text-sky-50 hover:bg-slate-700 hover:text-white" onClick={() => actions.onRestart(item.id)} type="button" variant="outline">
-            <RotateCw data-icon="inline-start" />
-            Restart
+          <Button className="border-sky-400/40 bg-slate-900 text-sky-50 hover:bg-slate-700 hover:text-white" disabled={runtimeActionDisabled} onClick={() => actions.onRestart(item.id)} type="button" variant="outline">
+            {loadingAction === 'restart' ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <RotateCw data-icon="inline-start" />}
+            {loadingAction === 'restart' ? 'Restarting' : 'Restart'}
           </Button>
           <Button className="border-sky-400/40 bg-slate-900 text-sky-50 hover:bg-slate-700 hover:text-white" onClick={() => actions.onCreateBackup(item.id)} type="button" variant="outline">
             <ShieldCheck data-icon="inline-start" />

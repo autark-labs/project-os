@@ -1,4 +1,5 @@
 export type ApplicationRuntimeState = 'running' | 'starting' | 'paused' | 'needs_attention' | 'found' | 'shortcut';
+export type ApplicationRuntimeAction = 'start' | 'stop' | 'restart';
 
 export type ApplicationNextAction = {
   id: 'create_backup' | 'review_found_service' | 'review_issue' | 'start_app';
