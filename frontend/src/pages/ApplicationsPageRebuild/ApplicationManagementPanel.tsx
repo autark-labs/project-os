@@ -33,7 +33,7 @@ import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import { labelForManagementState, labelForReadiness } from './extensions/ApplicationVisuals';
+import { labelForManagementState, labelForReadiness } from './components/AppStateBadges';
 import { ApplicationLinksTab } from './managementTabs/ApplicationLinksTab';
 import { ApplicationSettingsTab } from './managementTabs/ApplicationSettingsTab';
 import type { ApplicationActionHandlers, ApplicationSettingsAction, ApplicationSurfaceItem } from './extensions/ApplicationsPage.types';

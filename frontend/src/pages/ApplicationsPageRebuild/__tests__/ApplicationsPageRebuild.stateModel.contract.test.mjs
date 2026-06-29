@@ -13,6 +13,7 @@ test('applications rebuild uses split behavior states instead of a single app st
   const types = source('src/pages/ApplicationsPageRebuild/extensions/ApplicationsPage.types.ts');
   const liveModel = source('src/pages/ApplicationsPageRebuild/extensions/ApplicationsPage.liveModel.ts');
   const visuals = source('src/pages/ApplicationsPageRebuild/extensions/ApplicationVisuals.tsx');
+  const badges = source('src/pages/ApplicationsPageRebuild/components/AppStateBadges.tsx');
   const basic = source('src/pages/ApplicationsPageRebuild/BasicApplicationsView.tsx');
   const advanced = source('src/pages/ApplicationsPageRebuild/AdvancedApplicationsView.tsx');
   const rail = source('src/pages/ApplicationsPageRebuild/ApplicationDetailsRail.tsx');
@@ -36,27 +37,36 @@ test('applications rebuild uses split behavior states instead of a single app st
   assert.match(liveModel, /service\.userStatus === 'blocked'/);
   assert.match(liveModel, /service\.userStatus === 'managed_elsewhere'/);
 
-  assert.match(visuals, /ApplicationReadinessBadge/);
-  assert.match(visuals, /ApplicationManagementBadge/);
-  assert.match(visuals, /ApplicationAttentionIndicator/);
-  assert.match(visuals, /labelForReadiness/);
-  assert.match(visuals, /labelForManagementState/);
+  assert.doesNotMatch(visuals, /ApplicationReadinessBadge/);
+  assert.doesNotMatch(visuals, /ApplicationManagementBadge/);
+  assert.doesNotMatch(visuals, /ApplicationAttentionIndicator/);
+  assert.match(badges, /export function ReadinessBadge/);
+  assert.match(badges, /export function ManagementBadge/);
+  assert.match(badges, /export function AttentionIndicator/);
+  assert.match(badges, /export function OperationBadge/);
+  assert.match(badges, /labelForReadiness/);
+  assert.match(badges, /labelForManagementState/);
+  assert.match(badges, /item\.operationState\.kind !== 'idle'/);
 
   assert.match(basic, /item\.attentionState !== 'none'/);
   assert.match(basic, /item\.readinessState === 'paused'/);
-  assert.match(basic, /ApplicationReadinessBadge item=\{item\} overlay/);
-  assert.match(basic, /ApplicationManagementBadge item=\{item\}/);
+  assert.match(basic, /from '\.\/components\/AppStateBadges'/);
+  assert.match(basic, /ReadinessBadge item=\{item\} overlay/);
+  assert.match(basic, /ManagementBadge item=\{item\}/);
   assert.doesNotMatch(basic, /item\.runtimeState === 'paused'/);
 
-  assert.match(advanced, /ApplicationManagementBadge item=\{item\}/);
-  assert.match(advanced, /ApplicationReadinessBadge item=\{item\}/);
-  assert.match(advanced, /ApplicationAttentionIndicator item=\{item\}/);
+  assert.match(advanced, /from '\.\/components\/AppStateBadges'/);
+  assert.match(advanced, /ManagementBadge item=\{item\}/);
+  assert.match(advanced, /ReadinessBadge item=\{item\}/);
+  assert.match(advanced, /AttentionIndicator item=\{item\}/);
   assert.match(advanced, /item\.managementState === 'managed'/);
   assert.doesNotMatch(advanced, /item\.kind === 'managed'/);
 
+  assert.match(rail, /from '\.\/components\/AppStateBadges'/);
   assert.match(rail, /labelForManagementState\(item\.managementState\)/);
   assert.match(rail, /labelForReadiness\(item\.readinessState\)/);
   assert.match(rail, /labelForAttention\(item\.attentionState\)/);
+  assert.match(rail, /OperationBadge item=\{item\}/);
   assert.match(rail, /item\.managementState === 'managed'/);
   assert.match(rail, /item\.attentionState !== 'none'/);
   assert.doesNotMatch(rail, /item\.runtimeState === 'needs_attention'/);

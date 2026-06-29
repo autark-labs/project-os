@@ -22,7 +22,8 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty';
 import { cn } from '@/lib/utils';
-import { ApplicationAttentionIndicator, ApplicationIcon, ApplicationManagementBadge, ApplicationReadinessBadge } from './extensions/ApplicationVisuals';
+import { AttentionIndicator, ManagementBadge, ReadinessBadge } from './components/AppStateBadges';
+import { ApplicationIcon } from './extensions/ApplicationVisuals';
 import type { ApplicationSurfaceItem } from './extensions/ApplicationsPage.types';
 
 type BasicApplicationsViewProps = {
@@ -67,14 +68,14 @@ export function BasicApplicationsView({ items, managementOpen, onSelect, onUnins
           size="sm"
         >
           <CardHeader className="px-3 pt-4">
-            <ApplicationReadinessBadge item={item} overlay />
+            <ReadinessBadge item={item} overlay />
             <div className="flex min-w-0 flex-col items-center gap-2">
               <ApplicationIcon item={item} size="lg" />
               <div className="flex min-w-0 flex-col items-center gap-1 text-center">
                 <CardTitle className="max-w-full truncate text-lg text-slate-950">{item.name}</CardTitle>
                 <div className="flex max-w-full flex-wrap justify-center gap-1">
-                  <ApplicationManagementBadge item={item} />
-                  <ApplicationAttentionIndicator item={item} />
+                  <ManagementBadge item={item} />
+                  <AttentionIndicator item={item} />
                 </div>
               </div>
             </div>
