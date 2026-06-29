@@ -27,12 +27,13 @@ import type { ApplicationSurfaceItem } from './extensions/ApplicationsPage.types
 
 type BasicApplicationsViewProps = {
   items: ApplicationSurfaceItem[];
+  managementOpen: boolean;
   onUninstall: (id: string) => void;
   onSelect: (id: string) => void;
   selectedId?: string;
 };
 
-export function BasicApplicationsView({ items, onSelect, onUninstall, selectedId }: BasicApplicationsViewProps) {
+export function BasicApplicationsView({ items, managementOpen, onSelect, onUninstall, selectedId }: BasicApplicationsViewProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   if (!items.length) {
@@ -40,7 +41,7 @@ export function BasicApplicationsView({ items, onSelect, onUninstall, selectedId
   }
 
   return (
-    <section className="grid min-h-[44rem] auto-rows-[15rem] grid-cols-[repeat(auto-fill,12rem)] items-start justify-start gap-3">
+    <section className="grid min-h-[44rem] grid-cols-[repeat(auto-fill,12rem)] items-start justify-start gap-3">
       {items.map((item) => (
         <Card
           className={cn(
@@ -48,6 +49,7 @@ export function BasicApplicationsView({ items, onSelect, onUninstall, selectedId
             item.nextAction && 'border-orange-500 bg-orange-200 hover:bg-orange-100',
             item.runtimeState === 'paused' && 'border-slate-400 bg-slate-200 hover:bg-slate-100',
             !item.nextAction && item.runtimeState !== 'paused' && 'border-sky-300',
+            managementOpen && selectedId && selectedId !== item.id && 'scale-[0.98] opacity-35 blur-[1px] hover:opacity-60 hover:blur-none',
             selectedId === item.id && 'z-10 -translate-y-2 border-cyan-300 shadow-2xl shadow-cyan-300/50 ring-4 ring-cyan-300/35 hover:-translate-y-2 hover:shadow-cyan-300/60',
           )}
           key={item.id}
