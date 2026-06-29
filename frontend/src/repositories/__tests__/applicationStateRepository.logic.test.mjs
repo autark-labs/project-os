@@ -125,10 +125,18 @@ test('optimistic pinning updates observed-service cache without dropping recover
 
   assert.equal(pinnedRecoverable.observedServices[0].pinned, true);
   assert.equal(pinnedRecoverable.observedServices[0].userStatus, 'recoverable');
+  assert.equal(pinnedRecoverable.observedServices[0].managementState, 'linked');
+  assert.equal(pinnedRecoverable.observedServices[0].availableActions.some((action) => action.id === 'unpin'), true);
+  assert.equal(pinnedRecoverable.observedServices[0].availableActions.some((action) => action.id === 'pin'), false);
   assert.deepEqual(pinnedRecoverable.pinnedExternalServices.map((service) => service.id), ['docker:vaultwarden']);
   assert.equal(pinnedFound.observedServices[1].userStatus, 'pinned_external');
+  assert.equal(pinnedFound.observedServices[1].managementState, 'linked');
+  assert.equal(pinnedFound.observedServices[1].availableActions.some((action) => action.id === 'unpin'), true);
   assert.equal(unpinnedFound.observedServices[1].pinned, false);
   assert.equal(unpinnedFound.observedServices[1].userStatus, 'found_on_server');
+  assert.equal(unpinnedFound.observedServices[1].managementState, 'found');
+  assert.equal(unpinnedFound.observedServices[1].availableActions.some((action) => action.id === 'pin'), true);
+  assert.equal(unpinnedFound.observedServices[1].availableActions.some((action) => action.id === 'unpin'), false);
 });
 
 test('optimistic adoption moves a recoverable service into managed app views', () => {

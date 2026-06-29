@@ -28,6 +28,14 @@ export type ApplicationNextAction = {
   description: string;
 };
 
+export type ApplicationAvailableAction = {
+  id: string;
+  label: string;
+  href?: string | null;
+  disabled?: boolean;
+  reason?: string | null;
+};
+
 export type ApplicationSurfaceItem = {
   id: string;
   sourceId?: string;
@@ -43,6 +51,7 @@ export type ApplicationSurfaceItem = {
   runtimeState: ApplicationRuntimeState;
   access: 'Open' | 'Private' | 'Local only' | 'No link';
   backup: 'Protected' | 'Needs backup' | 'Not managed';
+  availableActions: ApplicationAvailableAction[];
   nextAction?: ApplicationNextAction;
   description: string;
   href?: string;
@@ -57,6 +66,7 @@ export type ApplicationActionHandlers = {
   onCreateBackup: (id: string) => void;
   onDirtyChange: (id: string, dirty: boolean) => void;
   onLoadUninstallPlan: (id: string) => Promise<DestructiveActionPlan>;
+  onPinObservedService: (serviceId: string) => Promise<void>;
   onRestart: (id: string) => void;
   onRunNextAction: (id: string) => void;
   onRunUninstall: (id: string) => Promise<void>;
@@ -64,6 +74,7 @@ export type ApplicationActionHandlers = {
   onSettingsPlanRequest: (id: string, values: ApplicationSettingsFormValues) => Promise<ApplicationSettingsImpact | null>;
   onStart: (id: string) => void;
   onStop: (id: string) => void;
+  onUnpinObservedService: (serviceId: string) => Promise<void>;
 };
 
 export type ApplicationSettingsFormValues = {

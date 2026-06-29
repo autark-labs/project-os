@@ -206,12 +206,16 @@ function appInstanceToRuntimeView(app) {
 }
 
 function serviceWithPinnedState(service, pinned) {
-  const next = { ...service, pinned };
+  const next = {
+    ...service,
+    pinned,
+    managementState: pinned ? 'linked' : 'found',
+    availableActions: observedServiceActionsForPinnedState(service.availableActions, pinned),
+  };
   if (pinned && service.userStatus === 'found_on_server') {
     return {
       ...next,
       userStatus: 'pinned_external',
-      managementState: 'linked',
       attentionState: 'none',
       userStatusLabel: 'Pinned',
       userStatusDescription: 'Pinned to My Apps. Project OS can open it but does not manage its runtime.',
@@ -221,13 +225,32 @@ function serviceWithPinnedState(service, pinned) {
     return {
       ...next,
       userStatus: 'found_on_server',
-      managementState: 'found',
       attentionState: 'needs_review',
       userStatusLabel: 'Found',
       userStatusDescription: 'Found on this server.',
     };
   }
   return next;
+}
+
+function observedServiceActionsForPinnedState(actions = [], pinned) {
+  const retainedActions = actions.filter((action) => action.id !== 'pin' && action.id !== 'unpin');
+  const nextAction = pinned
+    ? observedServiceMutationAction('unpin', 'Unpin')
+    : observedServiceMutationAction('pin', 'Pin to My Apps');
+  return [...retainedActions, nextAction];
+}
+
+function observedServiceMutationAction(id, label) {
+  return {
+    id,
+    label,
+    kind: 'mutation',
+    href: null,
+    method: 'POST',
+    disabled: false,
+    reason: '',
+  };
 }
 
 function observedServiceAsManaged(service) {

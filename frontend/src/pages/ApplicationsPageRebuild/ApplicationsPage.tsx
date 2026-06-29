@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Search } from 'lucide-react';
 import { InstalledAppsAPIClient } from '@/api/InstalledAppsAPIClient';
+import { ObservedServicesAPIClient } from '@/api/ObservedServicesAPIClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
@@ -11,6 +12,7 @@ import { showActionErrorNotification, showActionNotification } from '@/lib/actio
 import {
   applicationStateQueryKey,
   invalidateApplicationState,
+  setObservedServicePinnedInApplicationStateCache,
   setRuntimeAppInApplicationStateCache,
   useApplicationStateRepository,
 } from '@/repositories/applicationStateRepository';
@@ -326,6 +328,36 @@ export const ApplicationsPage = () => {
     }
   }
 
+  async function pinObservedService(serviceId: string) {
+    const previousState = queryClient.getQueryData<ApplicationState | undefined>(applicationStateQueryKey);
+    setObservedServicePinnedInApplicationStateCache(queryClient, serviceId, true);
+
+    try {
+      const result = await ObservedServicesAPIClient.pin(serviceId);
+      showActionNotification(result, result.title || 'Service pinned');
+      void invalidateApplicationState(queryClient);
+    } catch (err) {
+      queryClient.setQueryData(applicationStateQueryKey, previousState);
+      showActionErrorNotification(err, 'Service could not be pinned');
+      throw err;
+    }
+  }
+
+  async function unpinObservedService(serviceId: string) {
+    const previousState = queryClient.getQueryData<ApplicationState | undefined>(applicationStateQueryKey);
+    setObservedServicePinnedInApplicationStateCache(queryClient, serviceId, false);
+
+    try {
+      const result = await ObservedServicesAPIClient.unpin(serviceId);
+      showActionNotification(result, result.title || 'Service unpinned');
+      void invalidateApplicationState(queryClient);
+    } catch (err) {
+      queryClient.setQueryData(applicationStateQueryKey, previousState);
+      showActionErrorNotification(err, 'Service could not be unpinned');
+      throw err;
+    }
+  }
+
   const handleStart = (id: string) => void runManagedAction(id, 'start');
   const handleStop = (id: string) => void runManagedAction(id, 'stop');
   const handleRestart = (id: string) => void runManagedAction(id, 'restart');
@@ -357,6 +389,7 @@ export const ApplicationsPage = () => {
     onCreateBackup: handleCreateBackup,
     onDirtyChange: handleDirtyChange,
     onLoadUninstallPlan: loadUninstallPlan,
+    onPinObservedService: pinObservedService,
     onRestart: handleRestart,
     onRunNextAction: handleRunNextAction,
     onRunUninstall: runUninstall,
@@ -364,6 +397,7 @@ export const ApplicationsPage = () => {
     onSettingsPlanRequest: requestSettingsPlan,
     onStart: handleStart,
     onStop: handleStop,
+    onUnpinObservedService: unpinObservedService,
   };
 
   return (

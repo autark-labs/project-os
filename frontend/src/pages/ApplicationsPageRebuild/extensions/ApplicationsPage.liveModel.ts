@@ -56,6 +56,13 @@ function managedAppSurfaceItem(
   return {
     access: accessLabel(app, access),
     attentionState,
+    availableActions: (app.availableActions ?? []).map((action) => ({
+      id: action.id,
+      label: action.label,
+      href: action.href ?? action.route ?? null,
+      disabled: false,
+      reason: null,
+    })),
     backup,
     description: app.description || app.category || 'Managed app',
     href: primaryOpenUrl(app),
@@ -89,6 +96,13 @@ function observedServiceSurfaceItem(service: ObservedServiceView): ApplicationSu
   return {
     access: observedAccessLabel(service),
     attentionState,
+    availableActions: (service.availableActions ?? []).map((action) => ({
+      id: action.id,
+      label: action.label,
+      href: action.href,
+      disabled: action.disabled,
+      reason: action.reason,
+    })),
     backup: 'Not managed',
     description: service.userStatusDescription || service.category || 'Found service',
     href: service.url || undefined,
