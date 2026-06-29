@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Search } from 'lucide-react';
 import { InstalledAppsAPIClient } from '@/api/InstalledAppsAPIClient';
@@ -16,13 +16,18 @@ import {
   useApplicationStateRepository,
 } from '@/repositories/applicationStateRepository';
 import { invalidateNetworkQueries } from '@/repositories/networkRepository';
-import type { AppRuntimeView, InstallSettings } from '@/types/app';
+import type { AppRuntimeView, AppSettingsChangePlan, InstallSettings } from '@/types/app';
 import type { ApplicationState } from '@/types/applicationState';
 import { ApplicationDetailsRail } from './ApplicationDetailsRail';
 import { BasicApplicationsView } from './BasicApplicationsView';
 import { AdvancedApplicationsView } from './AdvancedApplicationsView';
 import { buildApplicationSurfaceItems } from './extensions/ApplicationsPage.liveModel';
-import type { ApplicationRuntimeAction, ApplicationSettingsAction } from './extensions/ApplicationsPage.types';
+import type {
+  ApplicationRuntimeAction,
+  ApplicationSettingsAction,
+  ApplicationSettingsFormValues,
+  ApplicationSettingsImpact,
+} from './extensions/ApplicationsPage.types';
 
 type ApplicationFilter = 'all' | 'managed' | 'pinned' | 'found' | 'needs_review';
 
@@ -37,6 +42,7 @@ export const ApplicationsPage = () => {
   const [localEventsById, setLocalEventsById] = useState<Record<string, string>>({});
   const [actionLoadingByAppId, setActionLoadingByAppId] = useState<Record<string, ApplicationRuntimeAction | null>>({});
   const [settingsLoadingByAppId, setSettingsLoadingByAppId] = useState<Record<string, ApplicationSettingsAction | null>>({});
+  const [settingsDirtyByAppId, setSettingsDirtyByAppId] = useState<Record<string, boolean>>({});
   const railRef = useRef<HTMLDivElement | null>(null);
 
   const items = useMemo(() => {
@@ -83,6 +89,8 @@ export const ApplicationsPage = () => {
   const attentionCount = items.filter((item) => item.runtimeState === 'needs_attention' || item.nextAction).length;
   const nextReviewItem = visibleItems.find((item) => item.nextAction) ?? items.find((item) => item.nextAction) ?? null;
   const managedAppById = useMemo(() => new Map(appState.apps.map((app) => [app.appId, app])), [appState.apps]);
+  const selectedHasUnsavedSettings = Boolean(selectedItem && settingsDirtyByAppId[selectedItem.id]);
+  const canCloseManagement = useCallback(() => !selectedHasUnsavedSettings || window.confirm('Discard unsaved app settings?'), [selectedHasUnsavedSettings]);
 
   useEffect(() => {
     if (!items.length) {
@@ -136,7 +144,9 @@ export const ApplicationsPage = () => {
         return;
       }
 
-      setManagementOpen(false);
+      if (canCloseManagement()) {
+        setManagementOpen(false);
+      }
     };
 
     document.addEventListener('pointerdown', handlePointerDown);
@@ -144,7 +154,7 @@ export const ApplicationsPage = () => {
       scrollTimers.forEach((timer) => window.clearTimeout(timer));
       document.removeEventListener('pointerdown', handlePointerDown);
     };
-  }, [managementOpen]);
+  }, [canCloseManagement, managementOpen]);
 
   const handleFilterChange = (nextFilter: string) => {
     if (!nextFilter || nextFilter === filter) {
@@ -191,62 +201,64 @@ export const ApplicationsPage = () => {
     }
   };
 
-  async function updateAutoRepair(appId: string, enabled: boolean) {
+  async function requestSettingsPlan(appId: string, values: ApplicationSettingsFormValues): Promise<ApplicationSettingsImpact | null> {
+    const app = managedAppById.get(appId);
+    if (!app) {
+      return null;
+    }
+
+    const nextSettings = settingsFromFormValues(app, values);
+    const plan = await InstalledAppsAPIClient.settingsChangePlan(appId, nextSettings);
+    return settingsImpactFromPlan(plan);
+  }
+
+  async function saveApplicationSettings(appId: string, values: ApplicationSettingsFormValues) {
     const app = managedAppById.get(appId);
     if (!app) {
       return;
     }
 
     const previousState = queryClient.getQueryData<ApplicationState | undefined>(applicationStateQueryKey);
-    const nextSettings = {
-      ...settingsWithDefaults(app),
-      autoRepairEnabled: enabled,
-    };
+    const nextSettings = settingsFromFormValues(app, values);
+    const privateAccessChanged = values.tailscaleEnabled !== app.settings?.tailscaleEnabled;
 
-    setSettingsLoading(appId, 'auto_repair');
-    setRuntimeAppInApplicationStateCache(queryClient, { ...app, settings: nextSettings });
+    setSettingsLoading(appId, 'saving');
+    setRuntimeAppInApplicationStateCache(queryClient, {
+      ...appWithOptimisticPrivateAccess(app, values.tailscaleEnabled),
+      settings: nextSettings,
+    });
 
     try {
+      const plan = await InstalledAppsAPIClient.settingsChangePlan(appId, nextSettings);
+      if (plan.saveAllowed === false) {
+        throw new Error(plan.blockedReasons[0] || 'Project OS cannot safely apply these settings yet.');
+      }
       const updatedApp = await InstalledAppsAPIClient.updateSettings(appId, nextSettings);
       setRuntimeAppInApplicationStateCache(queryClient, updatedApp);
+
+      if (privateAccessChanged) {
+        const result = values.tailscaleEnabled
+          ? await InstalledAppsAPIClient.repairPrivateAccess(appId)
+          : await InstalledAppsAPIClient.disablePrivateAccess(appId);
+        if (result.app) {
+          setRuntimeAppInApplicationStateCache(queryClient, result.app);
+        }
+        showActionNotification(result, values.tailscaleEnabled ? 'Private access ready' : 'Private access turned off');
+      }
+
       showActionNotification({
         ok: true,
         severity: 'success',
-        title: enabled ? 'Automatic repair enabled' : 'Automatic repair disabled',
-        message: enabled ? 'Project OS can attempt safe container repairs for this app.' : 'Project OS will watch this app without applying automatic repairs.',
+        title: plan.restartRequired || plan.redeployRequired ? 'Settings saved and restart requested' : 'Settings saved',
+        message: plan.summary,
       });
-      void invalidateApplicationState(queryClient);
-    } catch (err) {
-      restoreApplicationState(previousState);
-      showActionErrorNotification(err, 'Container posture update failed');
-    } finally {
-      setSettingsLoading(appId, null);
-    }
-  }
-
-  async function updatePrivateAccess(appId: string, enabled: boolean) {
-    const app = managedAppById.get(appId);
-    if (!app) {
-      return;
-    }
-
-    const previousState = queryClient.getQueryData<ApplicationState | undefined>(applicationStateQueryKey);
-    setSettingsLoading(appId, 'private_access');
-    setRuntimeAppInApplicationStateCache(queryClient, appWithOptimisticPrivateAccess(app, enabled));
-
-    try {
-      const result = enabled
-        ? await InstalledAppsAPIClient.repairPrivateAccess(appId)
-        : await InstalledAppsAPIClient.disablePrivateAccess(appId);
-      if (result.app) {
-        setRuntimeAppInApplicationStateCache(queryClient, result.app);
-      }
-      showActionNotification(result, enabled ? 'Private access ready' : 'Private access turned off');
+      setSettingsDirtyByAppId((current) => ({ ...current, [appId]: false }));
       void invalidateApplicationState(queryClient);
       void invalidateNetworkQueries(queryClient);
     } catch (err) {
       restoreApplicationState(previousState);
-      showActionErrorNotification(err, 'Private access update failed');
+      showActionErrorNotification(err, 'Settings update failed');
+      throw err;
     } finally {
       setSettingsLoading(appId, null);
     }
@@ -255,8 +267,7 @@ export const ApplicationsPage = () => {
   const handleStart = (id: string) => void runManagedAction(id, 'start');
   const handleStop = (id: string) => void runManagedAction(id, 'stop');
   const handleRestart = (id: string) => void runManagedAction(id, 'restart');
-  const handleAutoRepairChange = (id: string, enabled: boolean) => void updateAutoRepair(id, enabled);
-  const handlePrivateAccessChange = (id: string, enabled: boolean) => void updatePrivateAccess(id, enabled);
+  const handleDirtyChange = (id: string, dirty: boolean) => setSettingsDirtyByAppId((current) => ({ ...current, [id]: dirty }));
   const handleCreateBackup = (id: string) => recordLocalEvent(id, 'Backup review opened just now');
   const handleRunNextAction = (id: string) => {
     const item = items.find((candidate) => candidate.id === id);
@@ -275,11 +286,12 @@ export const ApplicationsPage = () => {
   };
 
   const actions = {
-    onAutoRepairChange: handleAutoRepairChange,
     onCreateBackup: handleCreateBackup,
-    onPrivateAccessChange: handlePrivateAccessChange,
+    onDirtyChange: handleDirtyChange,
     onRestart: handleRestart,
     onRunNextAction: handleRunNextAction,
+    onSaveSettings: saveApplicationSettings,
+    onSettingsPlanRequest: requestSettingsPlan,
     onStart: handleStart,
     onStop: handleStop,
   };
@@ -400,6 +412,7 @@ export const ApplicationsPage = () => {
             actionLoadingByItemId={actionLoadingByAppId}
             item={selectedItem}
             managementOpen={managementOpen}
+            canCloseManagement={canCloseManagement}
             onManagementOpenChange={setManagementOpen}
             settingsLoadingByItemId={settingsLoadingByAppId}
             ref={railRef}
@@ -430,6 +443,29 @@ function settingsWithDefaults(app: AppRuntimeView): InstallSettings {
     privateAccessUrl: app.settings?.privateAccessUrl ?? app.accessRoute?.privateUrl ?? app.observedAccess?.privateUrl ?? null,
     storageSubfolders: app.settings?.storageSubfolders ?? {},
     tailscaleEnabled: Boolean(app.settings?.tailscaleEnabled),
+  };
+}
+
+function settingsFromFormValues(app: AppRuntimeView, values: ApplicationSettingsFormValues): InstallSettings {
+  const currentSettings = settingsWithDefaults(app);
+
+  return {
+    ...currentSettings,
+    autoRepairEnabled: values.autoRepairEnabled,
+    desiredAccessMode: values.tailscaleEnabled ? 'local-and-private' : 'local',
+    privateAccessRequirement: values.tailscaleEnabled ? currentSettings.privateAccessRequirement : 'disabled',
+    privateAccessUrl: values.tailscaleEnabled ? currentSettings.privateAccessUrl : null,
+    tailscaleEnabled: values.tailscaleEnabled,
+  };
+}
+
+function settingsImpactFromPlan(plan: AppSettingsChangePlan): ApplicationSettingsImpact {
+  return {
+    changes: plan.changes,
+    restartRequired: Boolean(plan.restartRequired || plan.redeployRequired),
+    saveAllowed: plan.saveAllowed,
+    summary: plan.summary || plan.headline,
+    warnings: [...plan.warnings, ...plan.blockedReasons],
   };
 }
 

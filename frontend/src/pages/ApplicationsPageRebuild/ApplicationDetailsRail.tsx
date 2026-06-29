@@ -16,6 +16,7 @@ import type { ApplicationActionHandlers, ApplicationRuntimeAction, ApplicationSe
 type ApplicationDetailsRailProps = {
   actions: ApplicationActionHandlers;
   actionLoadingByItemId: Record<string, ApplicationRuntimeAction | null | undefined>;
+  canCloseManagement: () => boolean;
   item: ApplicationSurfaceItem | null;
   managementOpen: boolean;
   onManagementOpenChange: (open: boolean) => void;
@@ -23,7 +24,7 @@ type ApplicationDetailsRailProps = {
 };
 
 export const ApplicationDetailsRail = forwardRef<HTMLDivElement, ApplicationDetailsRailProps>(function ApplicationDetailsRail(
-  { actions, actionLoadingByItemId, item, managementOpen, onManagementOpenChange, settingsLoadingByItemId },
+  { actions, actionLoadingByItemId, canCloseManagement, item, managementOpen, onManagementOpenChange, settingsLoadingByItemId },
   ref,
 ) {
   return (
@@ -51,7 +52,12 @@ export const ApplicationDetailsRail = forwardRef<HTMLDivElement, ApplicationDeta
                 'border-sky-400/40 bg-slate-800 text-sky-50 hover:bg-slate-700 hover:text-white',
                 managementOpen && 'border-cyan-300 bg-cyan-300 text-slate-950 hover:bg-cyan-200 hover:text-slate-950',
               )}
-              onClick={() => onManagementOpenChange(!managementOpen)}
+              onClick={() => {
+                if (managementOpen && !canCloseManagement()) {
+                  return;
+                }
+                onManagementOpenChange(!managementOpen);
+              }}
               type="button"
               variant="outline"
             >

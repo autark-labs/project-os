@@ -39,7 +39,7 @@ import { ApplicationSettingsTab } from './managementTabs/ApplicationSettingsTab'
 import type { ApplicationActionHandlers, ApplicationSettingsAction, ApplicationSurfaceItem } from './extensions/ApplicationsPage.types';
 
 type ApplicationManagementPanelProps = {
-  actions: Pick<ApplicationActionHandlers, 'onAutoRepairChange' | 'onPrivateAccessChange'>;
+  actions: Pick<ApplicationActionHandlers, 'onDirtyChange' | 'onSaveSettings' | 'onSettingsPlanRequest'>;
   item: ApplicationSurfaceItem;
   settingsLoadingAction?: ApplicationSettingsAction | null;
   variant?: 'inline' | 'rail';
@@ -51,140 +51,140 @@ export function ApplicationManagementPanel({ actions, item, settingsLoadingActio
   const mock = appManagementMock(item);
 
   return (
-      <section
-        className={cn(
-          'bg-slate-900 text-slate-50',
-          rail
-            ? 'min-h-full'
-            : 'animate-in fade-in-0 slide-in-from-top-2 rounded-2xl border border-cyan-300/40 shadow-2xl shadow-cyan-950/40',
-        )}
-      >
-        <Tabs className="gap-0" defaultValue="overview">
-          <TabsList className="w-full justify-start overflow-x-auto rounded-none border-b border-sky-400/20 bg-slate-900 px-3 py-2" variant="line">
-            <TabsTrigger className="px-3 py-2 text-sky-100/60 data-active:text-white" value="overview">Overview</TabsTrigger>
-            <TabsTrigger className="px-3 py-2 text-sky-100/60 data-active:text-white" value="guide">Guide</TabsTrigger>
-            <TabsTrigger className="px-3 py-2 text-sky-100/60 data-active:text-white" value="settings">Settings</TabsTrigger>
-            <TabsTrigger className="px-3 py-2 text-sky-100/60 data-active:text-white" value="telemetry">Telemetry</TabsTrigger>
-            <TabsTrigger className="px-3 py-2 text-sky-100/60 data-active:text-white" value="links">Links</TabsTrigger>
-            <TabsTrigger className="px-3 py-2 text-sky-100/60 data-active:text-white" value="advanced">Advanced</TabsTrigger>
-          </TabsList>
+    <section
+      className={cn(
+        'bg-slate-900 text-slate-50',
+        rail
+          ? 'min-h-full'
+          : 'animate-in fade-in-0 slide-in-from-top-2 rounded-2xl border border-cyan-300/40 shadow-2xl shadow-cyan-950/40',
+      )}
+    >
+      <Tabs className="gap-0" defaultValue="overview">
+        <TabsList className="w-full justify-start overflow-x-auto rounded-none border-b border-sky-400/20 bg-slate-900 px-3 py-2" variant="line">
+          <TabsTrigger className="px-3 py-2 text-sky-100/60 data-active:text-white" value="overview">Overview</TabsTrigger>
+          <TabsTrigger className="px-3 py-2 text-sky-100/60 data-active:text-white" value="guide">Guide</TabsTrigger>
+          <TabsTrigger className="px-3 py-2 text-sky-100/60 data-active:text-white" value="settings">Settings</TabsTrigger>
+          <TabsTrigger className="px-3 py-2 text-sky-100/60 data-active:text-white" value="telemetry">Telemetry</TabsTrigger>
+          <TabsTrigger className="px-3 py-2 text-sky-100/60 data-active:text-white" value="links">Links</TabsTrigger>
+          <TabsTrigger className="px-3 py-2 text-sky-100/60 data-active:text-white" value="advanced">Advanced</TabsTrigger>
+        </TabsList>
 
-          <div className="p-4">
-            <TabsContent className="grid gap-4" value="overview">
-              <section className="grid gap-2 sm:grid-cols-2">
-                <Detail label="Repair" value={mock.repair} />
-                <Detail label="Container" value={mock.container} />
-                <Detail label="Storage" value={mock.storage} />
-                <Detail label="Policy" value={managed ? 'Plan before apply' : 'Read only'} />
-              </section>
+        <div className="p-4">
+          <TabsContent className="grid gap-4" value="overview">
+            <section className="grid gap-2 sm:grid-cols-2">
+              <Detail label="Repair" value={mock.repair} />
+              <Detail label="Container" value={mock.container} />
+              <Detail label="Storage" value={mock.storage} />
+              <Detail label="Policy" value={managed ? 'Plan before apply' : 'Read only'} />
+            </section>
 
-              {item.kind === 'observed' && (
-                <section className="grid gap-3 rounded-xl border border-amber-400/25 bg-amber-500/10 p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm font-semibold text-amber-100">Found service</span>
-                    <Badge className="border-amber-300/30 bg-slate-900 text-amber-100" variant="outline">Not managed</Badge>
-                  </div>
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    <Button className="border-amber-300/30 bg-slate-900 text-amber-100 hover:bg-slate-800" type="button" variant="outline">
-                      <Search data-icon="inline-start" />
-                      Match
-                    </Button>
-                    <Button className="border-amber-300/30 bg-slate-900 text-amber-100 hover:bg-slate-800" type="button" variant="outline">
-                      <ShieldCheck data-icon="inline-start" />
-                      Adopt
-                    </Button>
-                    <Button asChild className="border-amber-300/30 bg-slate-900 text-amber-100 hover:bg-slate-800" variant="outline">
-                      <Link to="/discover">
-                        <Download data-icon="inline-start" />
-                        Install copy
-                      </Link>
-                    </Button>
-                  </div>
-                </section>
-              )}
-
-              <DangerZone itemName={item.name} managed={managed} />
-            </TabsContent>
-
-            <TabsContent className="grid gap-4" value="guide">
-              <section className="grid gap-3 rounded-xl border border-sky-400/20 bg-slate-800 p-3">
+            {item.kind === 'observed' && (
+              <section className="grid gap-3 rounded-xl border border-amber-400/25 bg-amber-500/10 p-3">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm font-semibold text-white">Use</span>
-                  <Badge className="bg-slate-900 text-sky-50">{managed ? 'Prepared' : 'Shortcut'}</Badge>
+                  <span className="text-sm font-semibold text-amber-100">Found service</span>
+                  <Badge className="border-amber-300/30 bg-slate-900 text-amber-100" variant="outline">Not managed</Badge>
                 </div>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <CopyValue label="Primary URL" value={item.href || mock.localUrl} />
-                  <CopyValue label="Admin user" value={mock.adminUser} />
-                  <CopyValue label="Setup token" sensitive value={mock.setupToken} />
-                  <CopyValue label="Data folder" value={mock.storage} />
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <Button className="border-amber-300/30 bg-slate-900 text-amber-100 hover:bg-slate-800" type="button" variant="outline">
+                    <Search data-icon="inline-start" />
+                    Match
+                  </Button>
+                  <Button className="border-amber-300/30 bg-slate-900 text-amber-100 hover:bg-slate-800" type="button" variant="outline">
+                    <ShieldCheck data-icon="inline-start" />
+                    Adopt
+                  </Button>
+                  <Button asChild className="border-amber-300/30 bg-slate-900 text-amber-100 hover:bg-slate-800" variant="outline">
+                    <Link to="/discover">
+                      <Download data-icon="inline-start" />
+                      Install copy
+                    </Link>
+                  </Button>
                 </div>
               </section>
+            )}
 
-              <section className="grid gap-2 rounded-xl border border-sky-400/20 bg-slate-800 p-3">
-                <span className="text-sm font-semibold text-white">Setup</span>
-                <StepRow index={1} text="Open the app from the control panel." />
-                <StepRow index={2} text="Use the setup values only if the app asks for them." />
-                <StepRow index={3} text="Return here for access, backup, or recovery changes." />
-              </section>
-            </TabsContent>
+            <DangerZone itemName={item.name} managed={managed} />
+          </TabsContent>
 
-            <TabsContent className="grid gap-4" value="settings">
-              <ApplicationSettingsTab actions={actions} item={item} loadingAction={settingsLoadingAction} />
-            </TabsContent>
+          <TabsContent className="grid gap-4" value="guide">
+            <section className="grid gap-3 rounded-xl border border-sky-400/20 bg-slate-800 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-semibold text-white">Use</span>
+                <Badge className="bg-slate-900 text-sky-50">{managed ? 'Prepared' : 'Shortcut'}</Badge>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <CopyValue label="Primary URL" value={item.href || mock.localUrl} />
+                <CopyValue label="Admin user" value={mock.adminUser} />
+                <CopyValue label="Setup token" sensitive value={mock.setupToken} />
+                <CopyValue label="Data folder" value={mock.storage} />
+              </div>
+            </section>
 
-            <TabsContent className="grid gap-4" value="telemetry">
-              <section className="grid gap-3 sm:grid-cols-2">
-                <MetricBar icon={Cpu} label="CPU" value={mock.cpu} />
-                <MetricBar icon={Archive} label="Memory" value={mock.memory} />
-                <MetricBar icon={Network} label="Network" text={mock.network} />
-                <MetricBar icon={Activity} label="Disk I/O" text={mock.disk} />
-              </section>
-              <section className="grid gap-2 rounded-xl border border-sky-400/20 bg-slate-800 p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm font-semibold text-white">Health check</span>
-                  <Badge className="bg-slate-900 text-sky-50">{item.status}</Badge>
-                </div>
-                <Detail label="Checked" value={mock.checkedAt} />
-                <Detail label="Container" value={mock.container} />
-              </section>
-            </TabsContent>
+            <section className="grid gap-2 rounded-xl border border-sky-400/20 bg-slate-800 p-3">
+              <span className="text-sm font-semibold text-white">Setup</span>
+              <StepRow index={1} text="Open the app from the control panel." />
+              <StepRow index={2} text="Use the setup values only if the app asks for them." />
+              <StepRow index={3} text="Return here for access, backup, or recovery changes." />
+            </section>
+          </TabsContent>
 
-            <TabsContent className="grid gap-4" value="links">
-              <ApplicationLinksTab item={item} />
-            </TabsContent>
+          <TabsContent className="grid gap-4" value="settings">
+            <ApplicationSettingsTab actions={actions} item={item} loadingAction={settingsLoadingAction} />
+          </TabsContent>
 
-            <TabsContent className="grid gap-4" value="advanced">
-              <Accordion className="rounded-xl border border-sky-400/20 bg-slate-800 px-3" collapsible defaultValue="runtime" type="single">
-                <AccordionItem value="runtime">
-                  <AccordionTrigger className="text-sky-50">Runtime details</AccordionTrigger>
-                  <AccordionContent className="grid gap-2">
-                    <Detail label="Compose project" value={mock.composeProject} />
-                    <Detail label="Runtime path" value={mock.runtimePath} />
-                    <Detail label="Version" value={mock.version} />
-                  </AccordionContent>
-                </AccordionItem>
-                <AccordionItem value="template">
-                  <AccordionTrigger className="text-sky-50">Template values</AccordionTrigger>
-                  <AccordionContent className="grid gap-2 sm:grid-cols-2">
-                    <Detail label="Image" value={mock.image} />
-                    <Detail label="Category" value={managed ? 'Managed app' : labelForKind(item.kind)} />
-                    <Detail label="Port" value={mock.port} />
-                    <Detail label="Policy" value={managed ? 'Plan before apply' : 'Read only'} />
-                  </AccordionContent>
-                </AccordionItem>
-                <AccordionItem value="events">
-                  <AccordionTrigger className="text-sky-50">Recent events</AccordionTrigger>
-                  <AccordionContent className="grid gap-2">
-                    <ActivityRow label={item.lastEvent || 'State checked'} value="Just now" />
-                    <ActivityRow label={`${item.access} access reviewed`} value="Today" />
-                    <ActivityRow label={`${item.backup} backup status`} value="Today" />
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-            </TabsContent>
-          </div>
-        </Tabs>
-      </section>
+          <TabsContent className="grid gap-4" value="telemetry">
+            <section className="grid gap-3 sm:grid-cols-2">
+              <MetricBar icon={Cpu} label="CPU" value={mock.cpu} />
+              <MetricBar icon={Archive} label="Memory" value={mock.memory} />
+              <MetricBar icon={Network} label="Network" text={mock.network} />
+              <MetricBar icon={Activity} label="Disk I/O" text={mock.disk} />
+            </section>
+            <section className="grid gap-2 rounded-xl border border-sky-400/20 bg-slate-800 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-semibold text-white">Health check</span>
+                <Badge className="bg-slate-900 text-sky-50">{item.status}</Badge>
+              </div>
+              <Detail label="Checked" value={mock.checkedAt} />
+              <Detail label="Container" value={mock.container} />
+            </section>
+          </TabsContent>
+
+          <TabsContent className="grid gap-4" value="links">
+            <ApplicationLinksTab item={item} />
+          </TabsContent>
+
+          <TabsContent className="grid gap-4" value="advanced">
+            <Accordion className="rounded-xl border border-sky-400/20 bg-slate-800 px-3" collapsible defaultValue="runtime" type="single">
+              <AccordionItem value="runtime">
+                <AccordionTrigger className="text-sky-50">Runtime details</AccordionTrigger>
+                <AccordionContent className="grid gap-2">
+                  <Detail label="Compose project" value={mock.composeProject} />
+                  <Detail label="Runtime path" value={mock.runtimePath} />
+                  <Detail label="Version" value={mock.version} />
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="template">
+                <AccordionTrigger className="text-sky-50">Template values</AccordionTrigger>
+                <AccordionContent className="grid gap-2 sm:grid-cols-2">
+                  <Detail label="Image" value={mock.image} />
+                  <Detail label="Category" value={managed ? 'Managed app' : labelForKind(item.kind)} />
+                  <Detail label="Port" value={mock.port} />
+                  <Detail label="Policy" value={managed ? 'Plan before apply' : 'Read only'} />
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="events">
+                <AccordionTrigger className="text-sky-50">Recent events</AccordionTrigger>
+                <AccordionContent className="grid gap-2">
+                  <ActivityRow label={item.lastEvent || 'State checked'} value="Just now" />
+                  <ActivityRow label={`${item.access} access reviewed`} value="Today" />
+                  <ActivityRow label={`${item.backup} backup status`} value="Today" />
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </TabsContent>
+        </div>
+      </Tabs>
+    </section>
   );
 }
 

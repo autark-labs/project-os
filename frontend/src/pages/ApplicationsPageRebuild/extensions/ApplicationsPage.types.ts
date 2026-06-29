@@ -1,6 +1,6 @@
 export type ApplicationRuntimeState = 'running' | 'starting' | 'paused' | 'needs_attention' | 'found' | 'shortcut';
 export type ApplicationRuntimeAction = 'start' | 'stop' | 'restart';
-export type ApplicationSettingsAction = 'auto_repair' | 'private_access';
+export type ApplicationSettingsAction = 'planning' | 'saving';
 
 export type ApplicationNextAction = {
   id: 'create_backup' | 'review_found_service' | 'review_issue' | 'start_app';
@@ -27,13 +27,27 @@ export type ApplicationSurfaceItem = {
 };
 
 export type ApplicationActionHandlers = {
-  onAutoRepairChange: (id: string, enabled: boolean) => void;
   onCreateBackup: (id: string) => void;
-  onPrivateAccessChange: (id: string, enabled: boolean) => void;
+  onDirtyChange: (id: string, dirty: boolean) => void;
   onRestart: (id: string) => void;
   onRunNextAction: (id: string) => void;
+  onSaveSettings: (id: string, values: ApplicationSettingsFormValues) => Promise<void>;
+  onSettingsPlanRequest: (id: string, values: ApplicationSettingsFormValues) => Promise<ApplicationSettingsImpact | null>;
   onStart: (id: string) => void;
   onStop: (id: string) => void;
+};
+
+export type ApplicationSettingsFormValues = {
+  autoRepairEnabled: boolean;
+  tailscaleEnabled: boolean;
+};
+
+export type ApplicationSettingsImpact = {
+  changes: string[];
+  restartRequired: boolean;
+  saveAllowed: boolean;
+  summary: string;
+  warnings: string[];
 };
 
 export type ApplicationSettingsView = {
