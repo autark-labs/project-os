@@ -1,4 +1,5 @@
 import type { DestructiveActionPlan } from './ApplicationsPage.destructiveActions';
+import type { AppEvent, AppHealthSnapshot, AppSetupGuide, AppTelemetry, AppUsageGuide } from '@/types/app';
 
 export type ApplicationRuntimeState = 'running' | 'starting' | 'paused' | 'needs_attention' | 'found' | 'shortcut';
 export type ApplicationRuntimeAction = 'start' | 'stop' | 'restart';
@@ -49,6 +50,7 @@ export type ApplicationSurfaceItem = {
   lastEvent?: string;
   links: ApplicationLinksView;
   settings: ApplicationSettingsView;
+  runtime: ApplicationRuntimeDetailsView;
 };
 
 export type ApplicationActionHandlers = {
@@ -107,4 +109,19 @@ export type ApplicationLinksView = {
   localUrl?: string;
   primaryUrl?: string;
   privateUrl?: string;
+};
+
+export type ApplicationRuntimeDetailsView = {
+  appConfiguration: { label: string; value: string }[];
+  checkedAt?: string;
+  composeProject?: string;
+  health?: AppHealthSnapshot | null;
+  image?: string | null;
+  lastBackup?: string;
+  recentEvents: AppEvent[];
+  runtimePath?: string;
+  setupGuide?: AppSetupGuide | null;
+  telemetry?: AppTelemetry | null;
+  usageGuide?: AppUsageGuide | null;
+  version?: string;
 };

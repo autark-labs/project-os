@@ -69,6 +69,7 @@ function managedAppSurfaceItem(
     nextAction: managedNextAction(app, readinessState, attentionState, backup),
     operationState: backendOperationState(app.operationState),
     readinessState,
+    runtime: appRuntimeDetails(app, health, telemetry),
     runtimeState: managedRuntimeState(status, app),
     settings: appSettings(app),
     sortKey: app.sortKey || `managed:${app.appName.toLowerCase()}:${app.appId}`,
@@ -100,6 +101,7 @@ function observedServiceSurfaceItem(service: ObservedServiceView): ApplicationSu
     nextAction: needsReview ? observedNextAction(service) : undefined,
     operationState: idleOperationState(),
     readinessState,
+    runtime: observedRuntimeDetails(service),
     runtimeState: pinned ? 'shortcut' : 'found',
     settings: observedSettings(service),
     sortKey: `${managementState}:${(service.displayName || service.id).toLowerCase()}:${service.id}`,
@@ -405,6 +407,27 @@ function appSettings(app: AppRuntimeView): ApplicationSurfaceItem['settings'] {
   };
 }
 
+function appRuntimeDetails(
+  app: AppRuntimeView,
+  health?: AppHealthSnapshot | null,
+  telemetry?: AppTelemetry | null,
+): ApplicationSurfaceItem['runtime'] {
+  return {
+    appConfiguration: app.appConfiguration ?? [],
+    checkedAt: telemetry?.checkedAt || health?.checkedAt || app.recentEvents?.[0]?.createdAt || undefined,
+    composeProject: app.composeProject || undefined,
+    health: health ?? app.healthSnapshot ?? null,
+    image: app.image,
+    lastBackup: app.lastBackup || undefined,
+    recentEvents: app.recentEvents ?? [],
+    runtimePath: app.runtimePath || undefined,
+    setupGuide: app.setupGuide ?? null,
+    telemetry: telemetry ?? app.telemetry ?? null,
+    usageGuide: app.usageGuide ?? null,
+    version: app.version || undefined,
+  };
+}
+
 function observedSettings(service: ObservedServiceView): ApplicationSurfaceItem['settings'] {
   return {
     autoRepairEnabled: false,
@@ -421,6 +444,23 @@ function observedSettings(service: ObservedServiceView): ApplicationSurfaceItem[
     privateAccessUrl: undefined,
     privateLinkStatus: service.accessScope || 'not_managed',
     tailscaleEnabled: service.accessScope.toLowerCase().includes('tailscale') || service.accessScope.toLowerCase().includes('private'),
+  };
+}
+
+function observedRuntimeDetails(service: ObservedServiceView): ApplicationSurfaceItem['runtime'] {
+  return {
+    appConfiguration: [],
+    checkedAt: undefined,
+    composeProject: service.metadata?.composeProject || service.id,
+    health: null,
+    image: null,
+    lastBackup: undefined,
+    recentEvents: [],
+    runtimePath: service.metadata?.runtimePath,
+    setupGuide: null,
+    telemetry: null,
+    usageGuide: null,
+    version: undefined,
   };
 }
 

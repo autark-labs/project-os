@@ -1,10 +1,5 @@
 import {
-  Activity,
-  Archive,
-  Copy,
-  Cpu,
   Download,
-  Network,
   Search,
   ShieldCheck,
 } from 'lucide-react';
@@ -17,14 +12,15 @@ import {
 } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { DestructiveActionDialog } from './components/DestructiveActionDialog';
 import { ExpandedOperationStatus } from './components/AppOperationStatus';
-import { labelForManagementState, labelForReadiness } from './components/AppStateBadges';
+import { labelForManagementState } from './components/AppStateBadges';
+import { ApplicationGuideTab } from './managementTabs/ApplicationGuideTab';
 import { ApplicationLinksTab } from './managementTabs/ApplicationLinksTab';
 import { ApplicationSettingsTab } from './managementTabs/ApplicationSettingsTab';
+import { ApplicationTelemetryTab } from './managementTabs/ApplicationTelemetryTab';
 import type { ApplicationActionHandlers, ApplicationSettingsAction, ApplicationSurfaceItem } from './extensions/ApplicationsPage.types';
 
 type ApplicationManagementPanelProps = {
@@ -98,25 +94,7 @@ export function ApplicationManagementPanel({ actions, item, settingsLoadingActio
           </TabsContent>
 
           <TabsContent className="grid gap-4" value="guide">
-            <section className="grid gap-3 rounded-xl border border-sky-400/20 bg-slate-800 p-3">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-semibold text-white">Use</span>
-                <Badge className="bg-slate-900 text-sky-50">{managed ? 'Prepared' : 'Shortcut'}</Badge>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <CopyValue label="Primary URL" value={item.href || mock.localUrl} />
-                <CopyValue label="Admin user" value={mock.adminUser} />
-                <CopyValue label="Setup token" sensitive value={mock.setupToken} />
-                <CopyValue label="Data folder" value={mock.storage} />
-              </div>
-            </section>
-
-            <section className="grid gap-2 rounded-xl border border-sky-400/20 bg-slate-800 p-3">
-              <span className="text-sm font-semibold text-white">Setup</span>
-              <StepRow index={1} text="Open the app from the control panel." />
-              <StepRow index={2} text="Use the setup values only if the app asks for them." />
-              <StepRow index={3} text="Return here for access, backup, or recovery changes." />
-            </section>
+            <ApplicationGuideTab item={item} />
           </TabsContent>
 
           <TabsContent className="grid gap-4" value="settings">
@@ -124,20 +102,7 @@ export function ApplicationManagementPanel({ actions, item, settingsLoadingActio
           </TabsContent>
 
           <TabsContent className="grid gap-4" value="telemetry">
-            <section className="grid gap-3 sm:grid-cols-2">
-              <MetricBar icon={Cpu} label="CPU" value={mock.cpu} />
-              <MetricBar icon={Archive} label="Memory" value={mock.memory} />
-              <MetricBar icon={Network} label="Network" text={mock.network} />
-              <MetricBar icon={Activity} label="Disk I/O" text={mock.disk} />
-            </section>
-            <section className="grid gap-2 rounded-xl border border-sky-400/20 bg-slate-800 p-3">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-semibold text-white">Health check</span>
-                <Badge className="bg-slate-900 text-sky-50">{labelForReadiness(item.readinessState)}</Badge>
-              </div>
-              <Detail label="Checked" value={mock.checkedAt} />
-              <Detail label="Container" value={mock.container} />
-            </section>
+            <ApplicationTelemetryTab item={item} />
           </TabsContent>
 
           <TabsContent className="grid gap-4" value="links">
@@ -184,51 +149,6 @@ function Detail({ label, value }: { label: string; value: string }) {
     <div className="min-w-0 rounded-lg bg-slate-900 px-3 py-2">
       <p className="text-xs font-medium text-sky-100/60">{label}</p>
       <p className="mt-1 truncate text-sm font-semibold text-white">{value}</p>
-    </div>
-  );
-}
-
-function CopyValue({ label, sensitive = false, value }: { label: string; sensitive?: boolean; value: string }) {
-  return (
-    <div className="grid gap-2 rounded-lg bg-slate-900 p-3">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-medium text-sky-100/60">{label}</span>
-        <Button
-          aria-label={`Copy ${label}`}
-          className="border-sky-400/30 bg-slate-800 text-sky-50 hover:bg-slate-700"
-          onClick={() => void navigator.clipboard?.writeText(value)}
-          size="icon-sm"
-          type="button"
-          variant="outline"
-        >
-          <Copy />
-        </Button>
-      </div>
-      <p className="truncate font-mono text-xs text-white">{sensitive ? '••••••••••••' : value}</p>
-    </div>
-  );
-}
-
-function StepRow({ index, text }: { index: number; text: string }) {
-  return (
-    <div className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm text-sky-50">
-      <span className="grid size-6 place-items-center rounded-full bg-slate-800 text-xs font-semibold text-sky-100">{index}</span>
-      <span className="leading-6">{text}</span>
-    </div>
-  );
-}
-
-function MetricBar({ icon: Icon, label, text, value }: { icon: typeof Cpu; label: string; text?: string; value?: number }) {
-  return (
-    <div className="rounded-xl border border-sky-400/20 bg-slate-800 p-3">
-      <div className="flex items-center justify-between gap-3">
-        <span className="flex items-center gap-2 text-sm font-semibold text-white">
-          <Icon data-icon="inline-start" />
-          {label}
-        </span>
-        <span className="text-xs text-sky-100/60">{text || `${value}%`}</span>
-      </div>
-      {typeof value === 'number' && <Progress className="mt-3 bg-slate-900" value={value} />}
     </div>
   );
 }
@@ -288,22 +208,15 @@ function appManagementMock(item: ApplicationSurfaceItem) {
   const seed = item.id.length;
   return {
     backendTarget: `http://127.0.0.1:${8000 + seed}`,
-    checkedAt: '2 min ago',
     composeProject: `project-os-${item.id}`,
     container: item.readinessState === 'ready' ? 'healthy' : item.readinessState === 'paused' || item.readinessState === 'stopped' ? 'stopped' : 'attention',
-    cpu: Math.min(92, 8 + seed * 3),
-    disk: `${seed + 2} MB/s`,
     image: `${item.id}:stable`,
     localUrl: item.href?.startsWith('http://localhost') ? item.href : `http://localhost:${8000 + seed}`,
-    memory: Math.min(88, 22 + seed * 2),
-    network: `${seed * 4} KB/s`,
     port: String(8000 + seed),
     privateUrl: `https://${item.id}.tailnet.example`,
     repair: item.attentionState !== 'none' ? 'Needs review' : 'Ready',
     runtimePath: `/var/lib/project-os/apps/${item.id}`,
     storage: `${item.id}-data`,
-    adminUser: item.managementState === 'managed' ? 'admin' : 'Not managed',
-    setupToken: `${item.id.slice(0, 4)}-${seed}-setup`,
     version: '2026.6',
   };
 }

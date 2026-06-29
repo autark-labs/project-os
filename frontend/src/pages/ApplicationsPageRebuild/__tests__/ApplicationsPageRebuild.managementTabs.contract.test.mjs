@@ -13,16 +13,24 @@ test('applications rebuild splits settings and links management tabs into focuse
   const tabsDir = resolve(root, 'src/pages/ApplicationsPageRebuild/managementTabs');
   assert.equal(existsSync(resolve(tabsDir, 'ApplicationSettingsTab.tsx')), true);
   assert.equal(existsSync(resolve(tabsDir, 'ApplicationLinksTab.tsx')), true);
+  assert.equal(existsSync(resolve(tabsDir, 'ApplicationGuideTab.tsx')), true);
+  assert.equal(existsSync(resolve(tabsDir, 'ApplicationTelemetryTab.tsx')), true);
 
   const panel = source('src/pages/ApplicationsPageRebuild/ApplicationManagementPanel.tsx');
   const settings = source('src/pages/ApplicationsPageRebuild/managementTabs/ApplicationSettingsTab.tsx');
   const links = source('src/pages/ApplicationsPageRebuild/managementTabs/ApplicationLinksTab.tsx');
+  const guide = source('src/pages/ApplicationsPageRebuild/managementTabs/ApplicationGuideTab.tsx');
+  const telemetry = source('src/pages/ApplicationsPageRebuild/managementTabs/ApplicationTelemetryTab.tsx');
   const page = source('src/pages/ApplicationsPageRebuild/ApplicationsPage.tsx');
   const liveModel = source('src/pages/ApplicationsPageRebuild/extensions/ApplicationsPage.liveModel.ts');
 
   assert.match(panel, /ApplicationSettingsTab/);
   assert.match(panel, /ApplicationLinksTab/);
+  assert.match(panel, /ApplicationGuideTab/);
+  assert.match(panel, /ApplicationTelemetryTab/);
   assert.doesNotMatch(panel, /function SettingToggle|function LinkRow/);
+  assert.doesNotMatch(panel, /function MetricBar/);
+  assert.doesNotMatch(panel, /function CopyValue/);
   assert.match(settings, /title="Container"/);
   assert.match(settings, /title="Access"/);
   assert.match(settings, /title="Backups"/);
@@ -31,11 +39,21 @@ test('applications rebuild splits settings and links management tabs into focuse
   assert.match(links, /primaryUrl/);
   assert.match(links, /privateUrl/);
   assert.match(links, /backendTargetUrl/);
+  assert.match(guide, /usageGuide/);
+  assert.match(guide, /setupGuide/);
+  assert.match(guide, /copyableFields/);
+  assert.match(telemetry, /item\.runtime\.telemetry/);
+  assert.match(telemetry, /InstalledAppsAPIClient\.appTelemetry\(item\.id\)/);
+  assert.match(telemetry, /refetchInterval/);
+  assert.match(telemetry, /item\.runtime\.health/);
+  assert.match(telemetry, /memoryPercent/);
+  assert.match(telemetry, /networkIo/);
   assert.match(page, /InstalledAppsAPIClient\.updateSettings\(appId, nextSettings\)/);
   assert.match(page, /InstalledAppsAPIClient\.repairPrivateAccess\(appId\)/);
   assert.match(page, /InstalledAppsAPIClient\.disablePrivateAccess\(appId\)/);
   assert.match(liveModel, /links: appLinks\(app\)/);
   assert.match(liveModel, /settings: appSettings\(app\)/);
+  assert.match(liveModel, /runtime: appRuntimeDetails\(app, health, telemetry\)/);
 });
 
 test('applications rebuild settings tab uses a guarded batch form for app settings', () => {
