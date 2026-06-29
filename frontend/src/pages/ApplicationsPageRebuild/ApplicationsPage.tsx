@@ -301,27 +301,33 @@ export const ApplicationsPage = () => {
       return undefined;
     }
 
-    window.requestAnimationFrame(() => {
-      window.setTimeout(() => {
-        const rail = railRef.current;
-        if (!rail) {
-          return;
-        }
+    const ensureRailVisible = () => {
+      const rail = railRef.current;
+      if (!rail) {
+        return;
+      }
 
-        const margin = 20;
-        const rect = rail.getBoundingClientRect();
-        const availableHeight = window.innerHeight - margin * 2;
+      const margin = 20;
+      const rect = rail.getBoundingClientRect();
+      const availableHeight = window.innerHeight - margin * 2;
+      let scrollDelta = 0;
 
-        if (rect.height > availableHeight && rect.top !== margin) {
-          window.scrollBy({ behavior: 'smooth', top: rect.top - margin });
-          return;
-        }
-
+      if (rect.height <= availableHeight) {
         if (rect.bottom > window.innerHeight - margin) {
-          window.scrollBy({ behavior: 'smooth', top: rect.bottom - window.innerHeight + margin });
+          scrollDelta = rect.bottom - window.innerHeight + margin;
+        } else if (rect.top < margin) {
+          scrollDelta = rect.top - margin;
         }
-      }, 320);
-    });
+      } else if (rect.top > margin || rect.top < margin) {
+        scrollDelta = rect.top - margin;
+      }
+
+      if (Math.abs(scrollDelta) > 1) {
+        window.scrollTo({ behavior: 'smooth', top: window.scrollY + scrollDelta });
+      }
+    };
+
+    const scrollTimers = [0, 160, 340].map((delay) => window.setTimeout(ensureRailVisible, delay));
 
     const handlePointerDown = (event: PointerEvent) => {
       const target = event.target;
@@ -333,7 +339,10 @@ export const ApplicationsPage = () => {
     };
 
     document.addEventListener('pointerdown', handlePointerDown);
-    return () => document.removeEventListener('pointerdown', handlePointerDown);
+    return () => {
+      scrollTimers.forEach((timer) => window.clearTimeout(timer));
+      document.removeEventListener('pointerdown', handlePointerDown);
+    };
   }, [managementOpen]);
 
   const handleFilterChange = (nextFilter: string) => {
