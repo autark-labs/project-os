@@ -55,7 +55,7 @@ export function AdvancedApplicationsView({ actions, actionLoadingByItemId, items
               {items.map((item) => {
                 const loadingAction = actionLoadingByItemId[item.id] ?? null;
                 const primaryRuntimeActionLoading = loadingAction === 'start' || loadingAction === 'stop';
-                const runtimeActionDisabled = Boolean(loadingAction);
+                const runtimeActionDisabled = Boolean(loadingAction) || item.operationState.kind !== 'idle';
 
                 return (
                   <TableRow
@@ -145,7 +145,7 @@ export function AdvancedApplicationsView({ actions, actionLoadingByItemId, items
                           <Button className="border-sky-300 bg-white text-slate-950 hover:bg-sky-100" onClick={(event) => {
                             event.stopPropagation();
                             actions.onCreateBackup(item.id);
-                          }} size="sm" type="button" variant="outline">
+                          }} disabled={runtimeActionDisabled} size="sm" type="button" variant="outline">
                             <ShieldCheck data-icon="inline-start" />
                             Backup
                           </Button>

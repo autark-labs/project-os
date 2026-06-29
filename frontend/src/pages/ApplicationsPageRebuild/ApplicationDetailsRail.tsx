@@ -123,7 +123,7 @@ export const ApplicationDetailsRail = forwardRef<HTMLDivElement, ApplicationDeta
 });
 
 function RailControls({ actions, item, loadingAction }: { actions: ApplicationActionHandlers; item: ApplicationSurfaceItem; loadingAction: ApplicationRuntimeAction | null }) {
-  const runtimeActionDisabled = Boolean(loadingAction);
+  const runtimeActionDisabled = Boolean(loadingAction) || item.operationState.kind !== 'idle';
 
   return (
     <section className="grid gap-3 rounded-xl border border-sky-400/20 bg-slate-800 p-3">
@@ -143,7 +143,7 @@ function RailControls({ actions, item, loadingAction }: { actions: ApplicationAc
               <p className="font-medium">{item.nextAction.label}</p>
               <p className="mt-1 text-xs leading-5">{item.nextAction.description}</p>
             </div>
-            <Button className="bg-orange-500 text-white hover:bg-orange-400" disabled={runtimeActionDisabled && item.nextAction.id === 'start_app'} onClick={() => actions.onRunNextAction(item.id)} size="sm" type="button">
+            <Button className="bg-orange-500 text-white hover:bg-orange-400" disabled={runtimeActionDisabled} onClick={() => actions.onRunNextAction(item.id)} size="sm" type="button">
               {runtimeActionDisabled && item.nextAction.id === 'start_app' ? 'Running' : 'Run'}
             </Button>
           </div>
@@ -167,12 +167,12 @@ function RailControls({ actions, item, loadingAction }: { actions: ApplicationAc
             {loadingAction === 'restart' ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <RotateCw data-icon="inline-start" />}
             {loadingAction === 'restart' ? 'Restarting' : 'Restart'}
           </Button>
-          <Button className="border-sky-400/40 bg-slate-900 text-sky-50 hover:bg-slate-700 hover:text-white" onClick={() => actions.onCreateBackup(item.id)} type="button" variant="outline">
+          <Button className="border-sky-400/40 bg-slate-900 text-sky-50 hover:bg-slate-700 hover:text-white" disabled={runtimeActionDisabled} onClick={() => actions.onCreateBackup(item.id)} type="button" variant="outline">
             <ShieldCheck data-icon="inline-start" />
             Backup
           </Button>
           {(item.attentionState !== 'none' || item.nextAction) && (
-            <Button className="border-orange-300/40 bg-slate-900 text-orange-100 hover:bg-slate-700 hover:text-orange-50" onClick={() => actions.onRunNextAction(item.id)} type="button" variant="outline">
+            <Button className="border-orange-300/40 bg-slate-900 text-orange-100 hover:bg-slate-700 hover:text-orange-50" disabled={runtimeActionDisabled} onClick={() => actions.onRunNextAction(item.id)} type="button" variant="outline">
               <Wrench data-icon="inline-start" />
               Repair
             </Button>

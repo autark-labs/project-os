@@ -15,6 +15,7 @@ import {
   setRuntimeAppStatusInApplicationStateCache,
   useApplicationStateRepository,
 } from '@/repositories/applicationStateRepository';
+import { useProjectOsJobsQuery } from '@/repositories/jobRepository';
 import { invalidateNetworkQueries } from '@/repositories/networkRepository';
 import type { AppRuntimeView, AppSettingsChangePlan, InstallSettings } from '@/types/app';
 import type { ApplicationState } from '@/types/applicationState';
@@ -22,6 +23,7 @@ import { ApplicationDetailsRail } from './ApplicationDetailsRail';
 import { BasicApplicationsView } from './BasicApplicationsView';
 import { AdvancedApplicationsView } from './AdvancedApplicationsView';
 import { buildApplicationSurfaceItems } from './extensions/ApplicationsPage.liveModel';
+import { operationStateForItem } from './extensions/ApplicationsPage.operations';
 import type {
   ApplicationRuntimeAction,
   ApplicationSettingsAction,
@@ -35,6 +37,7 @@ export const ApplicationsPage = () => {
   const { viewMode } = useProjectSettings();
   const queryClient = useQueryClient();
   const appState = useApplicationStateRepository();
+  const jobsQuery = useProjectOsJobsQuery();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<ApplicationFilter>('all');
   const [managementOpen, setManagementOpen] = useState(false);
@@ -54,11 +57,32 @@ export const ApplicationsPage = () => {
       telemetryByAppId: appState.telemetryByAppId,
     });
 
-    return liveItems.map((item) => ({
-      ...item,
-      lastEvent: localEventsById[item.id] || item.lastEvent,
-    }));
-  }, [appState.accessByAppId, appState.apps, appState.healthByAppId, appState.observedServices, appState.telemetryByAppId, localEventsById]);
+    return liveItems.map((item) => {
+      const itemId = item.sourceId || item.id;
+      const operationState = operationStateForItem(
+        item,
+        actionLoadingByAppId[itemId] ?? null,
+        settingsLoadingByAppId[itemId] ?? null,
+        jobsQuery.data ?? [],
+      );
+
+      return {
+        ...item,
+        lastEvent: localEventsById[item.id] || item.lastEvent,
+        operationState,
+      };
+    });
+  }, [
+    actionLoadingByAppId,
+    appState.accessByAppId,
+    appState.apps,
+    appState.healthByAppId,
+    appState.observedServices,
+    appState.telemetryByAppId,
+    jobsQuery.data,
+    localEventsById,
+    settingsLoadingByAppId,
+  ]);
 
   const visibleItems = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
