@@ -22,7 +22,7 @@ export function ApplicationTelemetryTab({ item }: { item: ApplicationSurfaceItem
   return (
     <div className="grid gap-4">
       <section className="grid gap-3 sm:grid-cols-2">
-        <MetricBar icon={Cpu} label="CPU" loading={telemetryQuery.isFetching} text={telemetry?.cpuPercent || 'Unavailable'} value={cpu} />
+        <MetricBar icon={Cpu} label="CPU" secondary={cpu?.toString()} loading={telemetryQuery.isFetching} text={telemetry?.cpuPercent || 'Unavailable'} value={cpu} />
         <MetricBar icon={Archive} label="Memory" secondary={telemetry?.memoryUsage} text={telemetry?.memoryPercent || 'Unavailable'} value={memory} />
         <MetricBar icon={Network} label="Network" text={telemetry?.networkIo || 'Unavailable'} />
         <MetricBar icon={Activity} label="Disk I/O" text={telemetry?.blockIo || 'Unavailable'} />
@@ -34,9 +34,6 @@ export function ApplicationTelemetryTab({ item }: { item: ApplicationSurfaceItem
           <Badge className="bg-slate-900 text-sky-50">{labelForReadiness(item.readinessState)}</Badge>
         </div>
         <Detail label="Status" value={health?.status || item.status} />
-        <Detail label="Container" value={health?.dockerStatus || item.settings.containerStatus} />
-        <Detail label="Local access" value={health?.localAccessStatus || item.access} />
-        <Detail label="Private access" value={health?.privateAccessStatus || item.settings.privateLinkStatus} />
         {(health?.message || health?.detail) && (
           <p className="rounded-lg bg-slate-900 px-3 py-2 text-sm leading-6 text-sky-50">
             {health.detail || health.message}
