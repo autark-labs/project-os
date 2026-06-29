@@ -207,9 +207,14 @@ export const ApplicationsPage = () => {
       return null;
     }
 
-    const nextSettings = settingsFromFormValues(app, values);
-    const plan = await InstalledAppsAPIClient.settingsChangePlan(appId, nextSettings);
-    return settingsImpactFromPlan(plan);
+    setSettingsLoading(appId, 'planning');
+    try {
+      const nextSettings = settingsFromFormValues(app, values);
+      const plan = await InstalledAppsAPIClient.settingsChangePlan(appId, nextSettings);
+      return settingsImpactFromPlan(plan);
+    } finally {
+      setSettingsLoading(appId, null);
+    }
   }
 
   async function saveApplicationSettings(appId: string, values: ApplicationSettingsFormValues) {
@@ -448,11 +453,21 @@ function settingsWithDefaults(app: AppRuntimeView): InstallSettings {
 
 function settingsFromFormValues(app: AppRuntimeView, values: ApplicationSettingsFormValues): InstallSettings {
   const currentSettings = settingsWithDefaults(app);
+  const protocol = values.expectedProtocol || currentSettings.expectedProtocol || 'http';
+  const accessUrl = accessUrlWithPort(currentSettings.accessUrl ?? app.accessUrl, protocol, values.localPort ?? currentSettings.expectedLocalPort);
 
   return {
     ...currentSettings,
     autoRepairEnabled: values.autoRepairEnabled,
+    accessUrl,
+    backup: {
+      enabled: values.backupEnabled,
+      frequency: values.backupFrequency,
+      retention: values.backupRetention,
+    },
     desiredAccessMode: values.tailscaleEnabled ? 'local-and-private' : 'local',
+    expectedLocalPort: values.localPort,
+    expectedProtocol: protocol,
     privateAccessRequirement: values.tailscaleEnabled ? currentSettings.privateAccessRequirement : 'disabled',
     privateAccessUrl: values.tailscaleEnabled ? currentSettings.privateAccessUrl : null,
     tailscaleEnabled: values.tailscaleEnabled,
@@ -461,12 +476,30 @@ function settingsFromFormValues(app: AppRuntimeView, values: ApplicationSettings
 
 function settingsImpactFromPlan(plan: AppSettingsChangePlan): ApplicationSettingsImpact {
   return {
+    blockedReasons: plan.blockedReasons,
     changes: plan.changes,
+    headline: plan.headline,
+    redeployRequired: plan.redeployRequired,
     restartRequired: Boolean(plan.restartRequired || plan.redeployRequired),
     saveAllowed: plan.saveAllowed,
     summary: plan.summary || plan.headline,
     warnings: [...plan.warnings, ...plan.blockedReasons],
   };
+}
+
+function accessUrlWithPort(currentUrl: string | null | undefined, protocol: string, port: number | null | undefined) {
+  if (!port) {
+    return currentUrl ?? null;
+  }
+
+  try {
+    const parsed = new URL(currentUrl || `${protocol}://localhost:${port}`);
+    parsed.protocol = `${protocol}:`;
+    parsed.port = String(port);
+    return parsed.toString().replace(/\/$/, '');
+  } catch {
+    return `${protocol}://localhost:${port}`;
+  }
 }
 
 function appWithOptimisticPrivateAccess(app: AppRuntimeView, enabled: boolean): AppRuntimeView {

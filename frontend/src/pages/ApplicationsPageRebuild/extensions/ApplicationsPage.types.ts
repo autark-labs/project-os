@@ -39,11 +39,19 @@ export type ApplicationActionHandlers = {
 
 export type ApplicationSettingsFormValues = {
   autoRepairEnabled: boolean;
+  backupEnabled: boolean;
+  backupFrequency: 'daily' | 'weekly' | 'monthly';
+  backupRetention: number;
+  expectedProtocol: 'http' | 'https';
+  localPort: number | null;
   tailscaleEnabled: boolean;
 };
 
 export type ApplicationSettingsImpact = {
+  blockedReasons: string[];
   changes: string[];
+  headline: string;
+  redeployRequired: boolean;
   restartRequired: boolean;
   saveAllowed: boolean;
   summary: string;
@@ -56,6 +64,11 @@ export type ApplicationSettingsView = {
   containerDetail: string;
   containerStatus: string;
   desiredAccessMode: string;
+  expectedLocalPort: number | null;
+  expectedProtocol: 'http' | 'https' | string;
+  backupEnabled: boolean;
+  backupFrequency: 'daily' | 'weekly' | 'monthly' | string;
+  backupRetention: number;
   privateAccessRequired: boolean;
   privateAccessUrl?: string;
   privateLinkStatus: string;

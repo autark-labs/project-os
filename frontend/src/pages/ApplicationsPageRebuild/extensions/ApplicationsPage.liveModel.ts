@@ -231,10 +231,15 @@ function observedLinks(service: ObservedServiceView): ApplicationSurfaceItem['li
 function appSettings(app: AppRuntimeView): ApplicationSurfaceItem['settings'] {
   return {
     autoRepairEnabled: app.settings?.autoRepairEnabled ?? true,
+    backupEnabled: app.settings?.backup?.enabled ?? true,
+    backupFrequency: app.settings?.backup?.frequency ?? 'daily',
+    backupRetention: app.settings?.backup?.retention ?? 7,
     canEdit: true,
     containerDetail: app.healthSnapshot?.detail || app.healthSnapshot?.message || app.technicalStatus || app.healthCheck || 'No container detail reported.',
     containerStatus: app.technicalStatus || app.healthSnapshot?.dockerStatus || app.friendlyStatus,
     desiredAccessMode: app.settings?.desiredAccessMode || app.desiredAccess?.mode || 'local',
+    expectedLocalPort: app.settings?.expectedLocalPort ?? app.desiredAccess?.expectedLocalPort ?? app.observedAccess?.localPort ?? portFromUrl(primaryOpenUrl(app)),
+    expectedProtocol: app.settings?.expectedProtocol ?? app.desiredAccess?.expectedProtocol ?? app.observedAccess?.protocol ?? protocolFromUrl(primaryOpenUrl(app)),
     privateAccessRequired: Boolean(app.desiredAccess?.privateAccessRequired || app.settings?.privateAccessRequirement === 'required'),
     privateAccessUrl: appLinks(app).privateUrl,
     privateLinkStatus: app.accessRoute?.privateLinkStatus || app.observedAccess?.privateLinkStatus || 'not_enabled',
@@ -245,13 +250,53 @@ function appSettings(app: AppRuntimeView): ApplicationSurfaceItem['settings'] {
 function observedSettings(service: ObservedServiceView): ApplicationSurfaceItem['settings'] {
   return {
     autoRepairEnabled: false,
+    backupEnabled: false,
+    backupFrequency: 'daily',
+    backupRetention: 7,
     canEdit: false,
     containerDetail: service.userStatusDescription || 'Project OS observes this service but does not manage its container.',
     containerStatus: service.runtimeState || service.userStatusLabel || 'Observed',
     desiredAccessMode: service.accessScope || 'external',
+    expectedLocalPort: portFromUrl(service.url || undefined),
+    expectedProtocol: protocolFromUrl(service.url || undefined),
     privateAccessRequired: false,
     privateAccessUrl: undefined,
     privateLinkStatus: service.accessScope || 'not_managed',
     tailscaleEnabled: service.accessScope.toLowerCase().includes('tailscale') || service.accessScope.toLowerCase().includes('private'),
   };
+}
+
+function portFromUrl(url?: string): number | null {
+  if (!url) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(url);
+    if (parsed.port) {
+      return Number(parsed.port);
+    }
+    if (parsed.protocol === 'https:') {
+      return 443;
+    }
+    if (parsed.protocol === 'http:') {
+      return 80;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function protocolFromUrl(url?: string): 'http' | 'https' {
+  if (!url) {
+    return 'http';
+  }
+
+  try {
+    return new URL(url).protocol === 'https:' ? 'https' : 'http';
+  } catch {
+    return 'http';
+  }
 }

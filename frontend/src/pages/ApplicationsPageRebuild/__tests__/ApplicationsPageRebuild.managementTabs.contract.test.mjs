@@ -23,8 +23,9 @@ test('applications rebuild splits settings and links management tabs into focuse
   assert.match(panel, /ApplicationSettingsTab/);
   assert.match(panel, /ApplicationLinksTab/);
   assert.doesNotMatch(panel, /function SettingToggle|function LinkRow/);
-  assert.match(settings, /Container posture/);
-  assert.match(settings, /Tailscale posture/);
+  assert.match(settings, /title="Container"/);
+  assert.match(settings, /title="Access"/);
+  assert.match(settings, /title="Backups"/);
   assert.doesNotMatch(settings, /onAutoRepairChange\(item\.id, checked\)/);
   assert.doesNotMatch(settings, /onPrivateAccessChange\(item\.id, checked\)/);
   assert.match(links, /primaryUrl/);
@@ -37,7 +38,7 @@ test('applications rebuild splits settings and links management tabs into focuse
   assert.match(liveModel, /settings: appSettings\(app\)/);
 });
 
-test('applications rebuild settings tab uses a guarded batch form for container and tailscale posture', () => {
+test('applications rebuild settings tab uses a guarded batch form for app settings', () => {
   const pkg = source('package.json');
   const page = source('src/pages/ApplicationsPageRebuild/ApplicationsPage.tsx');
   const rail = source('src/pages/ApplicationsPageRebuild/ApplicationDetailsRail.tsx');
@@ -49,10 +50,10 @@ test('applications rebuild settings tab uses a guarded batch form for container 
   assert.match(settings, /formState:\s*\{\s*isDirty/);
   assert.match(settings, /Save changes/);
   assert.match(settings, /Reset/);
-  assert.match(settings, /Restart required|No restart expected/);
+  assert.match(settings, /Restart required|Safe to save/);
   assert.match(settings, /beforeunload/);
   assert.match(settings, /onDirtyChange\(item\.id, isDirty\)/);
-  assert.match(settings, /onSaveSettings\(item\.id, values\)/);
+  assert.match(settings, /onSaveSettings\(item\.id, pendingValues\)/);
   assert.doesNotMatch(settings, /onAutoRepairChange\(item\.id, checked\)/);
   assert.doesNotMatch(settings, /onPrivateAccessChange\(item\.id, checked\)/);
   assert.match(page, /saveApplicationSettings\(appId: string, values: ApplicationSettingsFormValues\)/);
@@ -63,12 +64,17 @@ test('applications rebuild settings tab uses a guarded batch form for container 
   assert.match(rail, /canCloseManagement/);
 });
 
-test('applications rebuild settings controls expose row-sized interaction targets', () => {
+test('applications rebuild settings tab uses real controls and confirm-before-save planning', () => {
   const settings = source('src/pages/ApplicationsPageRebuild/managementTabs/ApplicationSettingsTab.tsx');
 
-  assert.match(settings, /onClick=\{\(\) => toggleField\(\)\}/);
-  assert.match(settings, /onKeyDown=\{\(event\) =>/);
-  assert.match(settings, /aria-checked=\{field\.value\}/);
-  assert.match(settings, /aria-disabled=\{disabled\}/);
-  assert.match(settings, /htmlFor=\{inputId\}/);
+  assert.match(settings, /AlertDialog/);
+  assert.match(settings, /Tooltip/);
+  assert.match(settings, /Input/);
+  assert.match(settings, /Select/);
+  assert.match(settings, /prepareSave/);
+  assert.match(settings, /confirmSave/);
+  assert.match(settings, /Local app port/);
+  assert.match(settings, /Backup retention/);
+  assert.doesNotMatch(settings, /role="switch"/);
+  assert.doesNotMatch(settings, /onClick=\{\(\) => toggleField\(\)\}/);
 });

@@ -1,8 +1,17 @@
-import { useEffect, useId, useMemo, useState } from 'react';
-import type { KeyboardEvent } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
-import { AlertTriangle, CheckCircle2, Container, KeyRound, Loader2, RotateCcw, Save } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Container, HelpCircle, KeyRound, Loader2, RotateCcw, Save, ShieldCheck } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,8 +22,17 @@ import {
   FieldLabel,
   FieldSet,
 } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type {
   ApplicationActionHandlers,
   ApplicationSettingsAction,
@@ -29,11 +47,27 @@ type ApplicationSettingsTabProps = {
   loadingAction: ApplicationSettingsAction | null;
 };
 
+const backupFrequencies = ['daily', 'weekly', 'monthly'] as const;
+const protocols = ['http', 'https'] as const;
+
 export function ApplicationSettingsTab({ actions, item, loadingAction }: ApplicationSettingsTabProps) {
   const editable = item.kind === 'managed' && item.settings.canEdit;
-  const initialValues = useMemo(() => settingsFormValues(item), [item.id, item.settings.autoRepairEnabled, item.settings.tailscaleEnabled]);
-  const [impact, setImpact] = useState<ApplicationSettingsImpact | null>(null);
-  const [planning, setPlanning] = useState(false);
+  const initialValues = useMemo(
+    () => settingsFormValues(item),
+    [
+      item.id,
+      item.settings.autoRepairEnabled,
+      item.settings.backupEnabled,
+      item.settings.backupFrequency,
+      item.settings.backupRetention,
+      item.settings.expectedLocalPort,
+      item.settings.expectedProtocol,
+      item.settings.tailscaleEnabled,
+    ],
+  );
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingImpact, setPendingImpact] = useState<ApplicationSettingsImpact | null>(null);
+  const [pendingValues, setPendingValues] = useState<ApplicationSettingsFormValues | null>(null);
   const [planError, setPlanError] = useState<string | null>(null);
   const {
     control,
@@ -44,11 +78,14 @@ export function ApplicationSettingsTab({ actions, item, loadingAction }: Applica
     defaultValues: initialValues,
   });
   const values = useWatch({ control }) as ApplicationSettingsFormValues;
+  const planning = loadingAction === 'planning';
   const saving = loadingAction === 'saving' || isSubmitting;
+  const busy = planning || saving;
 
   useEffect(() => {
     reset(initialValues);
-    setImpact(null);
+    setPendingImpact(null);
+    setPendingValues(null);
     setPlanError(null);
   }, [initialValues, reset]);
 
@@ -71,132 +108,198 @@ export function ApplicationSettingsTab({ actions, item, loadingAction }: Applica
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isDirty]);
 
-  useEffect(() => {
-    if (!editable || !isDirty) {
-      setImpact(null);
-      setPlanError(null);
-      return undefined;
+  const prepareSave = handleSubmit(async (nextValues) => {
+    if (!editable) {
+      return;
     }
 
-    let cancelled = false;
-    const timer = window.setTimeout(async () => {
-      setPlanning(true);
-      setPlanError(null);
-      try {
-        const plan = await actions.onSettingsPlanRequest(item.id, {
-          autoRepairEnabled: Boolean(values.autoRepairEnabled),
-          tailscaleEnabled: Boolean(values.tailscaleEnabled),
-        });
-        if (!cancelled) {
-          setImpact(plan);
-        }
-      } catch {
-        if (!cancelled) {
-          setImpact(null);
-          setPlanError('Project OS could not check the impact of these settings yet.');
-        }
-      } finally {
-        if (!cancelled) {
-          setPlanning(false);
-        }
+    setPlanError(null);
+    try {
+      const plan = await actions.onSettingsPlanRequest(item.id, nextValues);
+      if (!plan) {
+        setPlanError('Project OS could not build a settings plan for this app.');
+        return;
       }
-    }, 300);
 
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [actions, editable, isDirty, item.id, values.autoRepairEnabled, values.tailscaleEnabled]);
-
-  const submit = handleSubmit(async (values) => {
-    await actions.onSaveSettings(item.id, values);
-    reset(values);
-    setImpact(null);
+      setPendingValues(nextValues);
+      setPendingImpact(plan);
+      setConfirmOpen(true);
+    } catch {
+      setPlanError('Project OS could not build a settings plan for this app.');
+    }
   });
 
+  const confirmSave = async () => {
+    if (!pendingValues) {
+      return;
+    }
+
+    try {
+      await actions.onSaveSettings(item.id, pendingValues);
+      reset(pendingValues);
+      setPendingImpact(null);
+      setPendingValues(null);
+      setConfirmOpen(false);
+    } catch {
+      setPlanError('Project OS could not save these settings. Review the notification and try again.');
+      setConfirmOpen(false);
+    }
+  };
+
   return (
-    <form className="grid gap-4" onSubmit={(event) => void submit(event)}>
-      <FieldSet className="rounded-xl border border-sky-400/20 bg-slate-800 p-3">
-        <SettingsSectionHeader icon={Container} status={values.autoRepairEnabled ? 'Automatic fixes on' : 'Watching only'} title="Container posture" />
-
-        <div className="grid gap-2 sm:grid-cols-2">
-          <PostureFact label="Runtime" value={item.settings.containerStatus || item.status} />
-          <PostureFact label="Detail" value={item.settings.containerDetail} />
-        </div>
-
-        <ControlledSwitch
-          control={control}
-          disabled={!editable || saving}
-          label="Safe automatic repair"
-          name="autoRepairEnabled"
-          offCopy="Project OS will only report container problems for this app."
-          onCopy="Project OS may restart the container or retry safe repairs when the app drifts."
-        />
-      </FieldSet>
-
-      <FieldSet className="rounded-xl border border-sky-400/20 bg-slate-800 p-3">
-        <SettingsSectionHeader icon={KeyRound} status={values.tailscaleEnabled ? 'Private access selected' : 'Local access'} title="Tailscale posture" />
-
-        <div className="grid gap-2 sm:grid-cols-2">
-          <PostureFact label="Desired access" value={accessModeLabel(item.settings.desiredAccessMode)} />
-          <PostureFact label="Private link" value={privateLinkLabel(item)} />
-        </div>
-
-        <ControlledSwitch
-          control={control}
-          disabled={!editable || saving}
-          label="Private access with Tailscale"
-          name="tailscaleEnabled"
-          offCopy="This app stays local to this server unless another route already exposes it."
-          onCopy="Project OS will request a private Tailscale link for trusted devices."
-        />
-
+    <TooltipProvider>
+      <form className="grid gap-4" onSubmit={(event) => void prepareSave(event)}>
         {!editable && (
           <Alert className="border-sky-400/20 bg-slate-900 text-sky-50">
             <AlertTriangle />
             <AlertTitle>Read-only service</AlertTitle>
             <AlertDescription className="text-sky-100/70">
-              Found and pinned services are read-only here. Review or recover the service before Project OS changes its container or access posture.
+              Project OS can show settings for found and pinned services, but it cannot change them until the service is managed here.
             </AlertDescription>
           </Alert>
         )}
-      </FieldSet>
 
-      <SettingsImpactAlert impact={impact} planning={planning} planError={planError} />
+        {planError && (
+          <Alert className="border-orange-400/40 bg-orange-200 text-orange-950">
+            <AlertTriangle />
+            <AlertTitle>Could not check changes</AlertTitle>
+            <AlertDescription className="text-orange-900">{planError}</AlertDescription>
+          </Alert>
+        )}
 
-      <div className="flex flex-col gap-2 rounded-xl border border-sky-400/20 bg-slate-800 p-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-white">{isDirty ? 'Unsaved changes' : 'Settings are current'}</p>
-          <p className="mt-1 text-xs leading-5 text-sky-100/60">
-            Save applies both container and Tailscale posture together. Reset returns this form to the last saved state.
-          </p>
+        <FieldSet className="rounded-xl border border-sky-400/20 bg-slate-800 p-3">
+          <SettingsSectionHeader icon={Container} status={values.autoRepairEnabled ? 'Automatic repair on' : 'Manual repair'} title="Container" />
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <SwitchField
+              control={control}
+              disabled={!editable || busy}
+              explanation="When enabled, Project OS may retry safe container repairs, such as restart-style recovery, when this app drifts."
+              label="Safe automatic repair"
+              name="autoRepairEnabled"
+            />
+            <NumberField
+              control={control}
+              disabled={!editable || busy}
+              explanation="Changing this port updates the app address. If the port mapping changes, Project OS may rewrite Compose and restart the app."
+              label="Local app port"
+              min={1}
+              name="localPort"
+            />
+            <SelectField
+              control={control}
+              disabled={!editable || busy}
+              explanation="This tells Project OS whether the local app endpoint should be checked as HTTP or HTTPS."
+              label="Local protocol"
+              name="expectedProtocol"
+              options={protocols}
+            />
+          </div>
+        </FieldSet>
+
+        <FieldSet className="rounded-xl border border-sky-400/20 bg-slate-800 p-3">
+          <SettingsSectionHeader icon={KeyRound} status={values.tailscaleEnabled ? 'Private access on' : 'Local access'} title="Access" />
+
+          <SwitchField
+            control={control}
+            disabled={!editable || busy}
+            explanation="This asks Project OS to maintain a private Tailscale posture for the app. Saving may create, repair, or remove private access."
+            label="Private access with Tailscale"
+            name="tailscaleEnabled"
+          />
+        </FieldSet>
+
+        <FieldSet className="rounded-xl border border-sky-400/20 bg-slate-800 p-3">
+          <SettingsSectionHeader icon={ShieldCheck} status={values.backupEnabled ? 'Backups on' : 'Backups off'} title="Backups" />
+
+          <div className="grid gap-3 md:grid-cols-3">
+            <SwitchField
+              control={control}
+              disabled={!editable || busy}
+              explanation="When enabled, this app is included in Project OS backup policy."
+              label="Include in backups"
+              name="backupEnabled"
+            />
+            <SelectField
+              control={control}
+              disabled={!editable || busy || !values.backupEnabled}
+              explanation="How often Project OS should create routine restore points for this app."
+              label="Backup frequency"
+              name="backupFrequency"
+              options={backupFrequencies}
+            />
+            <NumberField
+              control={control}
+              disabled={!editable || busy || !values.backupEnabled}
+              explanation="How many restore points Project OS should keep before old ones can be cleaned up."
+              label="Backup retention"
+              min={1}
+              name="backupRetention"
+            />
+          </div>
+        </FieldSet>
+
+        <div className="flex flex-col gap-2 rounded-xl border border-sky-400/20 bg-slate-800 p-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-white">{isDirty ? 'Unsaved changes' : 'Settings are current'}</p>
+            <p className="mt-1 text-xs leading-5 text-sky-100/60">Save checks impact first. Project OS will warn before restarting containers or changing access.</p>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <Button
+              className="border-sky-400/40 bg-slate-900 text-sky-50 hover:bg-slate-700"
+              disabled={!isDirty || busy}
+              onClick={() => {
+                reset(initialValues);
+                setPendingImpact(null);
+                setPendingValues(null);
+                setPlanError(null);
+              }}
+              type="button"
+              variant="outline"
+            >
+              <RotateCcw data-icon="inline-start" />
+              Reset
+            </Button>
+            <Button
+              className="bg-cyan-300 text-slate-950 shadow-lg shadow-cyan-500/20 hover:bg-cyan-200"
+              disabled={!editable || !isDirty || busy}
+              type="submit"
+            >
+              {busy ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <Save data-icon="inline-start" />}
+              {planning ? 'Checking changes' : saving ? 'Saving changes' : 'Save changes'}
+            </Button>
+          </div>
         </div>
-        <div className="flex shrink-0 gap-2">
-          <Button
-            className="border-sky-400/40 bg-slate-900 text-sky-50 hover:bg-slate-700"
-            disabled={!isDirty || saving}
-            onClick={() => {
-              reset(initialValues);
-              setImpact(null);
-              setPlanError(null);
-            }}
-            type="button"
-            variant="outline"
-          >
-            <RotateCcw data-icon="inline-start" />
-            Reset
-          </Button>
-          <Button
-            className="bg-cyan-300 text-slate-950 shadow-lg shadow-cyan-500/20 hover:bg-cyan-200"
-            disabled={!editable || !isDirty || saving || planning || impact?.saveAllowed === false}
-            type="submit"
-          >
-            {saving ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <Save data-icon="inline-start" />}
-            {saving ? 'Saving changes' : 'Save changes'}
-          </Button>
-        </div>
-      </div>
-    </form>
+      </form>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{pendingImpact?.headline || 'Save app settings?'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingImpact?.summary || 'Project OS will apply the selected settings.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {pendingImpact && (
+            <div className="grid gap-3 text-sm">
+              <SettingsImpactAlert impact={pendingImpact} />
+            </div>
+          )}
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction disabled={saving || pendingImpact?.saveAllowed === false} onClick={(event) => {
+              event.preventDefault();
+              void confirmSave();
+            }}>
+              {saving ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <CheckCircle2 data-icon="inline-start" />}
+              Save settings
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </TooltipProvider>
   );
 }
 
@@ -212,132 +315,161 @@ function SettingsSectionHeader({ icon: Icon, status, title }: { icon: LucideIcon
   );
 }
 
-function PostureFact({ label, value }: { label: string; value: string }) {
+function SettingLabel({ explanation, label }: { explanation: string; label: string }) {
   return (
-    <div className="min-w-0 rounded-lg bg-slate-900 px-3 py-2">
-      <p className="text-xs font-medium text-sky-100/60">{label}</p>
-      <p className="mt-1 truncate text-sm font-semibold text-white">{value || 'Not reported'}</p>
+    <div className="flex items-center gap-2">
+      <span>{label}</span>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button aria-label={`${label} explanation`} className="size-6 border-sky-400/30 bg-slate-800 text-sky-100 hover:bg-slate-700" size="icon-sm" type="button" variant="outline">
+            <HelpCircle />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{explanation}</TooltipContent>
+      </Tooltip>
     </div>
   );
 }
 
-function ControlledSwitch({
+function SwitchField({
   control,
   disabled,
+  explanation,
   label,
   name,
-  offCopy,
-  onCopy,
 }: {
   control: ReturnType<typeof useForm<ApplicationSettingsFormValues>>['control'];
   disabled: boolean;
+  explanation: string;
   label: string;
-  name: keyof ApplicationSettingsFormValues;
-  offCopy: string;
-  onCopy: string;
+  name: 'autoRepairEnabled' | 'backupEnabled' | 'tailscaleEnabled';
 }) {
-  const inputId = useId();
-
   return (
     <Controller
       control={control}
       name={name}
-      render={({ field }) => {
-        const toggleField = () => {
-          if (!disabled) {
-            field.onChange(!field.value);
-          }
-        };
-
-        const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            toggleField();
-          }
-        };
-
-        return (
-          <Field
-            aria-checked={field.value}
-            aria-disabled={disabled}
-            className={cn(
-              'rounded-lg border border-sky-400/20 bg-slate-900 px-3 py-2 transition-colors',
-              disabled ? 'opacity-80' : 'cursor-pointer hover:border-cyan-300/50 hover:bg-slate-800',
-            )}
-            data-disabled={disabled}
-            onClick={() => toggleField()}
-            onKeyDown={(event) => handleKeyDown(event)}
-            orientation="horizontal"
-            role="switch"
-            tabIndex={disabled ? -1 : 0}
-          >
-            <FieldContent>
-              <FieldLabel className="cursor-inherit text-white" htmlFor={inputId}>{label}</FieldLabel>
-              <FieldDescription className="text-sky-100/60">
-                {field.value ? onCopy : offCopy}
-              </FieldDescription>
-            </FieldContent>
-            <Switch
-              checked={field.value}
-              disabled={disabled}
-              id={inputId}
-              onCheckedChange={field.onChange}
-              onClick={(event) => event.stopPropagation()}
-              size="sm"
-              tabIndex={-1}
-            />
-          </Field>
-        );
-      }}
+      render={({ field }) => (
+        <Field className="rounded-lg border border-sky-400/20 bg-slate-900 px-3 py-2" data-disabled={disabled} orientation="horizontal">
+          <FieldContent>
+            <FieldLabel className="text-white">
+              <SettingLabel explanation={explanation} label={label} />
+            </FieldLabel>
+            <FieldDescription className="text-sky-100/60">{field.value ? 'Enabled' : 'Disabled'}</FieldDescription>
+          </FieldContent>
+          <Switch checked={Boolean(field.value)} disabled={disabled} onCheckedChange={field.onChange} size="sm" />
+        </Field>
+      )}
     />
   );
 }
 
-function SettingsImpactAlert({ impact, planning, planError }: { impact: ApplicationSettingsImpact | null; planning: boolean; planError: string | null }) {
-  if (planning) {
-    return (
-      <Alert className="border-sky-400/20 bg-slate-800 text-sky-50">
-        <Loader2 className="animate-spin" />
-        <AlertTitle>Checking impact</AlertTitle>
-        <AlertDescription className="text-sky-100/70">Project OS is checking whether these changes need a restart.</AlertDescription>
-      </Alert>
-    );
-  }
+function NumberField({
+  control,
+  disabled,
+  explanation,
+  label,
+  min,
+  name,
+}: {
+  control: ReturnType<typeof useForm<ApplicationSettingsFormValues>>['control'];
+  disabled: boolean;
+  explanation: string;
+  label: string;
+  min: number;
+  name: 'backupRetention' | 'localPort';
+}) {
+  return (
+    <Controller
+      control={control}
+      name={name}
+      render={({ field }) => (
+        <Field className="rounded-lg border border-sky-400/20 bg-slate-900 px-3 py-2" data-disabled={disabled}>
+          <FieldLabel className="text-white" htmlFor={name}>
+            <SettingLabel explanation={explanation} label={label} />
+          </FieldLabel>
+          <Input
+            className="border-sky-400/30 bg-slate-800 text-white"
+            disabled={disabled}
+            id={name}
+            min={min}
+            onChange={(event) => field.onChange(event.target.value === '' ? null : Number(event.target.value))}
+            type="number"
+            value={field.value ?? ''}
+          />
+        </Field>
+      )}
+    />
+  );
+}
 
-  if (planError) {
-    return (
-      <Alert className="border-orange-400/40 bg-orange-200 text-orange-950">
-        <AlertTriangle />
-        <AlertTitle>Impact unavailable</AlertTitle>
-        <AlertDescription className="text-orange-900">{planError}</AlertDescription>
-      </Alert>
-    );
-  }
+function SelectField({
+  control,
+  disabled,
+  explanation,
+  label,
+  name,
+  options,
+}: {
+  control: ReturnType<typeof useForm<ApplicationSettingsFormValues>>['control'];
+  disabled: boolean;
+  explanation: string;
+  label: string;
+  name: 'backupFrequency' | 'expectedProtocol';
+  options: readonly string[];
+}) {
+  return (
+    <Controller
+      control={control}
+      name={name}
+      render={({ field }) => (
+        <Field className="rounded-lg border border-sky-400/20 bg-slate-900 px-3 py-2" data-disabled={disabled}>
+          <FieldLabel className="text-white">
+            <SettingLabel explanation={explanation} label={label} />
+          </FieldLabel>
+          <Select disabled={disabled} onValueChange={field.onChange} value={String(field.value)}>
+            <SelectTrigger className="w-full border-sky-400/30 bg-slate-800 text-white">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {options.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {titleCase(option)}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
+      )}
+    />
+  );
+}
 
-  if (!impact) {
-    return (
-      <Alert className="border-emerald-300/40 bg-emerald-200 text-emerald-950">
-        <CheckCircle2 />
-        <AlertTitle>No unsaved posture changes</AlertTitle>
-        <AlertDescription className="text-emerald-900">No restart expected until settings change.</AlertDescription>
-      </Alert>
-    );
-  }
+function SettingsImpactAlert({ impact }: { impact: ApplicationSettingsImpact }) {
+  const tone = impact.saveAllowed === false || impact.restartRequired || impact.redeployRequired
+    ? 'border-orange-400 bg-orange-200 text-orange-950'
+    : 'border-emerald-300 bg-emerald-200 text-emerald-950';
+  const textTone = impact.saveAllowed === false || impact.restartRequired || impact.redeployRequired ? 'text-orange-900' : 'text-emerald-900';
 
   return (
-    <Alert className={impact.restartRequired ? 'border-orange-400 bg-orange-200 text-orange-950' : 'border-emerald-300 bg-emerald-200 text-emerald-950'}>
-      {impact.restartRequired ? <AlertTriangle /> : <CheckCircle2 />}
-      <AlertTitle>{impact.restartRequired ? 'Restart required' : 'No restart expected'}</AlertTitle>
-      <AlertDescription className={impact.restartRequired ? 'text-orange-900' : 'text-emerald-900'}>
-        <p>{impact.summary}</p>
+    <Alert className={tone}>
+      {impact.saveAllowed === false || impact.restartRequired || impact.redeployRequired ? <AlertTriangle /> : <CheckCircle2 />}
+      <AlertTitle>{impact.headline || (impact.restartRequired || impact.redeployRequired ? 'Restart required' : 'Safe to save')}</AlertTitle>
+      <AlertDescription className={textTone}>
         {impact.changes.length > 0 && (
-          <ul className="mt-2 list-inside list-disc">
+          <ul className="list-inside list-disc">
             {impact.changes.map((change) => <li key={change}>{change}</li>)}
           </ul>
         )}
         {impact.warnings.length > 0 && (
           <ul className="mt-2 list-inside list-disc">
             {impact.warnings.map((warning) => <li key={warning}>{warning}</li>)}
+          </ul>
+        )}
+        {impact.blockedReasons.length > 0 && (
+          <ul className="mt-2 list-inside list-disc">
+            {impact.blockedReasons.map((reason) => <li key={reason}>{reason}</li>)}
           </ul>
         )}
       </AlertDescription>
@@ -348,27 +480,22 @@ function SettingsImpactAlert({ impact, planning, planError }: { impact: Applicat
 function settingsFormValues(item: ApplicationSurfaceItem): ApplicationSettingsFormValues {
   return {
     autoRepairEnabled: item.settings.autoRepairEnabled,
+    backupEnabled: item.settings.backupEnabled,
+    backupFrequency: normalizeBackupFrequency(item.settings.backupFrequency),
+    backupRetention: item.settings.backupRetention,
+    expectedProtocol: item.settings.expectedProtocol === 'https' ? 'https' : 'http',
+    localPort: item.settings.expectedLocalPort,
     tailscaleEnabled: item.settings.tailscaleEnabled,
   };
 }
 
-function accessModeLabel(mode: string) {
-  if (mode === 'local-and-private') return 'Local and private';
-  if (mode === 'private') return 'Private only';
-  if (mode === 'public') return 'Public';
-  if (mode === 'network') return 'Network';
-  return 'Local';
+function normalizeBackupFrequency(frequency: string): ApplicationSettingsFormValues['backupFrequency'] {
+  if (frequency === 'weekly' || frequency === 'monthly') {
+    return frequency;
+  }
+  return 'daily';
 }
 
-function privateLinkLabel(item: ApplicationSurfaceItem) {
-  if (item.settings.privateAccessUrl) {
-    return item.settings.privateAccessUrl;
-  }
-  if (item.settings.privateLinkStatus === 'configured') {
-    return 'Configured';
-  }
-  if (item.settings.privateAccessRequired) {
-    return 'Required';
-  }
-  return item.settings.privateLinkStatus || 'Not configured';
+function titleCase(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
