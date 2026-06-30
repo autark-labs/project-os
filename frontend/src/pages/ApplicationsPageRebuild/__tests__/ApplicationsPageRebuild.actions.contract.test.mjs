@@ -111,3 +111,27 @@ test('applications rebuild keeps catalog matching in the advanced pullout tab', 
   assert.match(catalogSection, /Clear match/);
   assert.match(catalogSection, /change_match/);
 });
+
+test('applications rebuild exposes a red recovery tab for failed app operations', () => {
+  const panel = source('src/pages/ApplicationsPageRebuild/ApplicationManagementPanel.tsx');
+  const rail = source('src/pages/ApplicationsPageRebuild/ApplicationDetailsRail.tsx');
+  const recovery = source('src/pages/ApplicationsPageRebuild/managementTabs/ApplicationRecoveryTab.tsx');
+  const settings = source('src/pages/ApplicationsPageRebuild/managementTabs/ApplicationSettingsTab.tsx');
+
+  assert.match(panel, /const recoveryNeeded = item\.operationState\.kind === 'failed'/);
+  assert.match(panel, /ApplicationRecoveryTab/);
+  assert.match(panel, /value="recovery"/);
+  assert.match(panel, /bg-red-600/);
+  assert.doesNotMatch(panel, /<ExpandedOperationStatus item=\{item\} className="mb-4" \/>/);
+
+  assert.match(recovery, /Start again/);
+  assert.match(recovery, /Edit settings/);
+  assert.match(recovery, /Stop app/);
+  assert.match(recovery, /Review recent activity/);
+  assert.match(recovery, /item\.operationState\.message/);
+  assert.match(recovery, /item\.runtime\.recentEvents/);
+
+  assert.match(rail, /Open recovery/);
+  assert.match(rail, /onManagementOpenChange\(true\)/);
+  assert.match(settings, /operationBlocksManagement\(item\.operationState\)/);
+});

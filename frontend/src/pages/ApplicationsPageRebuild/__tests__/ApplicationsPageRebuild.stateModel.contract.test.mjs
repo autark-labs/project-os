@@ -86,6 +86,7 @@ test('applications rebuild uses split behavior states instead of a single app st
   assert.match(rail, /item\.attentionState !== 'none'/);
   assert.doesNotMatch(rail, /item\.runtimeState === 'needs_attention'/);
 
-  assert.match(managementPanel, /from '\.\/components\/AppOperationStatus'/);
-  assert.match(managementPanel, /ExpandedOperationStatus item=\{item\}/);
+  assert.match(managementPanel, /ApplicationRecoveryTab/);
+  assert.doesNotMatch(managementPanel, /from '\.\/components\/AppOperationStatus'/);
+  assert.doesNotMatch(managementPanel, /ExpandedOperationStatus item=\{item\}/);
 });

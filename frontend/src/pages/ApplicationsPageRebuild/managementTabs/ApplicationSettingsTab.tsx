@@ -40,6 +40,7 @@ import type {
   ApplicationSettingsImpact,
   ApplicationSurfaceItem,
 } from '../extensions/ApplicationsPage.types';
+import { operationBlocksManagement } from '../extensions/ApplicationsPage.operations.js';
 
 type ApplicationSettingsTabProps = {
   actions: Pick<ApplicationActionHandlers, 'onDirtyChange' | 'onSaveSettings' | 'onSettingsPlanRequest'>;
@@ -80,7 +81,7 @@ export function ApplicationSettingsTab({ actions, item, loadingAction }: Applica
   const values = useWatch({ control }) as ApplicationSettingsFormValues;
   const planning = loadingAction === 'planning';
   const saving = loadingAction === 'saving' || isSubmitting;
-  const operationBusy = item.operationState.kind !== 'idle';
+  const operationBusy = operationBlocksManagement(item.operationState);
   const busy = planning || saving || operationBusy;
 
   useEffect(() => {

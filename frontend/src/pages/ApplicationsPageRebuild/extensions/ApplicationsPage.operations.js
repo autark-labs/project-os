@@ -43,6 +43,11 @@ export function runtimeControlsDisabled(operationState, loadingAction) {
   return kind !== 'idle' && kind !== 'failed';
 }
 
+export function operationBlocksManagement(operationState) {
+  const kind = operationState?.kind ?? 'idle';
+  return kind !== 'idle' && kind !== 'failed';
+}
+
 function operationStateFromLocalAction(action) {
   if (action === 'start') {
     return {

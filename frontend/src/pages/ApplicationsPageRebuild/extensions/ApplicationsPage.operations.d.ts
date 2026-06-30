@@ -17,3 +17,7 @@ export function runtimeControlsDisabled(
   operationState: AppOperationState,
   loadingAction: ApplicationRuntimeAction | null,
 ): boolean;
+
+export function operationBlocksManagement(
+  operationState: AppOperationState,
+): boolean;

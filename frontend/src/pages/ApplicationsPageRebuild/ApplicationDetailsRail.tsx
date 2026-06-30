@@ -1,5 +1,5 @@
-import { forwardRef } from 'react';
-import { CheckCircle2, ExternalLink, Loader2, Pause, Play, RotateCw, ShieldCheck, Wrench, X } from 'lucide-react';
+import { forwardRef, useEffect, useState } from 'react';
+import { AlertTriangle, CheckCircle2, ExternalLink, Loader2, Pause, Play, RotateCw, ShieldCheck, Wrench, X } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -30,6 +30,12 @@ export const ApplicationDetailsRail = forwardRef<HTMLDivElement, ApplicationDeta
   { actions, actionLoadingByItemId, canCloseManagement, item, managementOpen, onManagementOpenChange, settingsLoadingByItemId },
   ref,
 ) {
+  const [managementTab, setManagementTab] = useState('overview');
+
+  useEffect(() => {
+    setManagementTab(item?.operationState.kind === 'failed' ? 'recovery' : 'overview');
+  }, [item?.id, item?.operationState.kind]);
+
   return (
     <Card
       className={cn(
@@ -95,7 +101,9 @@ export const ApplicationDetailsRail = forwardRef<HTMLDivElement, ApplicationDeta
               <ApplicationManagementPanel
                 actions={actions}
                 item={item}
+                onTabValueChange={setManagementTab}
                 settingsLoadingAction={settingsLoadingByItemId[item.id] ?? null}
+                tabValue={managementTab}
                 variant="rail"
               />
             </div>
@@ -103,6 +111,19 @@ export const ApplicationDetailsRail = forwardRef<HTMLDivElement, ApplicationDeta
             <div className="min-w-0">
               <div className="flex flex-col gap-4">
                 <ExpandedOperationStatus item={item} />
+                {item.operationState.kind === 'failed' && (
+                  <Button
+                    className="justify-start bg-red-600 text-white shadow-lg shadow-red-950/30 hover:bg-red-500"
+                    onClick={() => {
+                      setManagementTab('recovery');
+                      onManagementOpenChange(true);
+                    }}
+                    type="button"
+                  >
+                    <AlertTriangle data-icon="inline-start" />
+                    Open recovery
+                  </Button>
+                )}
                 <RailControls actions={actions} item={item} loadingAction={actionLoadingByItemId[item.id] ?? null} />
 
                 <div className="grid gap-2 text-sm">

@@ -7,10 +7,11 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { DestructiveActionDialog } from './components/DestructiveActionDialog';
-import { ExpandedOperationStatus } from './components/AppOperationStatus';
 import { labelForAttention, labelForManagementState, labelForReadiness } from './components/AppStateBadges';
+import { operationBlocksManagement } from './extensions/ApplicationsPage.operations.js';
 import { ApplicationGuideTab } from './managementTabs/ApplicationGuideTab';
 import { ApplicationLinksTab } from './managementTabs/ApplicationLinksTab';
+import { ApplicationRecoveryTab } from './managementTabs/ApplicationRecoveryTab';
 import { ApplicationSettingsTab } from './managementTabs/ApplicationSettingsTab';
 import { ApplicationTelemetryTab } from './managementTabs/ApplicationTelemetryTab';
 import { ObservedServiceCatalogMatchSection } from './managementTabs/ObservedServiceCatalogMatchSection';
@@ -26,20 +27,33 @@ type ApplicationManagementPanelProps = {
     | 'onLoadUninstallPlan'
     | 'onMatchObservedService'
     | 'onPinObservedService'
+    | 'onRestart'
     | 'onRunUninstall'
     | 'onSaveSettings'
     | 'onSettingsPlanRequest'
+    | 'onStart'
+    | 'onStop'
     | 'onUnpinObservedService'
   >;
   item: ApplicationSurfaceItem;
   settingsLoadingAction?: ApplicationSettingsAction | null;
+  tabValue?: string;
+  onTabValueChange?: (value: string) => void;
   variant?: 'inline' | 'rail';
 };
 
-export function ApplicationManagementPanel({ actions, item, settingsLoadingAction = null, variant = 'inline' }: ApplicationManagementPanelProps) {
+export function ApplicationManagementPanel({
+  actions,
+  item,
+  onTabValueChange,
+  settingsLoadingAction = null,
+  tabValue,
+  variant = 'inline',
+}: ApplicationManagementPanelProps) {
   const managed = item.managementState === 'managed';
   const rail = variant === 'rail';
   const recentEvents = item.runtime.recentEvents.slice(0, 5);
+  const recoveryNeeded = item.operationState.kind === 'failed';
 
   return (
     <section
@@ -50,8 +64,13 @@ export function ApplicationManagementPanel({ actions, item, settingsLoadingActio
           : 'animate-in fade-in-0 slide-in-from-top-2 rounded-2xl border border-cyan-300/40 shadow-2xl shadow-cyan-950/40',
       )}
     >
-      <Tabs className="gap-0" defaultValue="overview">
+      <Tabs className="gap-0" defaultValue="overview" onValueChange={onTabValueChange} value={tabValue}>
         <TabsList className="w-full justify-start overflow-x-auto rounded-none border-b border-sky-400/20 bg-slate-900 px-3 py-2" variant="line">
+          {recoveryNeeded && (
+            <TabsTrigger className="bg-red-600 px-3 py-2 text-white data-active:bg-red-500 data-active:text-white" value="recovery">
+              Recovery
+            </TabsTrigger>
+          )}
           <TabsTrigger className="px-3 py-2 text-sky-100/60 data-active:text-white" value="overview">Overview</TabsTrigger>
           <TabsTrigger className="px-3 py-2 text-sky-100/60 data-active:text-white" value="guide">Guide</TabsTrigger>
           <TabsTrigger className="px-3 py-2 text-sky-100/60 data-active:text-white" value="settings">Settings</TabsTrigger>
@@ -61,7 +80,15 @@ export function ApplicationManagementPanel({ actions, item, settingsLoadingActio
         </TabsList>
 
         <div className="p-4">
-          <ExpandedOperationStatus item={item} className="mb-4" />
+          {recoveryNeeded && (
+            <TabsContent className="grid gap-4" value="recovery">
+              <ApplicationRecoveryTab
+                actions={actions}
+                item={item}
+                onEditSettings={() => onTabValueChange?.('settings')}
+              />
+            </TabsContent>
+          )}
 
           <TabsContent className="grid gap-4" value="overview">
             <section className="grid gap-2 sm:grid-cols-2">
@@ -148,10 +175,10 @@ function DangerZone({
   item: ApplicationSurfaceItem;
   managed: boolean;
 }) {
-  const uninstallReady = managed && item.operationState.kind === 'idle';
+  const uninstallBlockedByOperation = operationBlocksManagement(item.operationState);
   const uninstallDisabledReason = !managed
     ? 'Only managed apps can be uninstalled from Project OS.'
-    : !uninstallReady
+    : uninstallBlockedByOperation
       ? 'Wait for the current app action to finish before uninstalling.'
       : null;
 
