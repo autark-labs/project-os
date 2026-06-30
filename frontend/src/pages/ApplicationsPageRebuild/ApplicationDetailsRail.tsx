@@ -14,7 +14,7 @@ import { labelForAttention, labelForManagementState, labelForReadiness } from '.
 import { ApplicationIcon } from './extensions/ApplicationVisuals';
 import { ApplicationManagementPanel } from './ApplicationManagementPanel';
 import { runtimeControlsDisabled } from './extensions/ApplicationsPage.operations.js';
-import type { ApplicationActionHandlers, ApplicationRuntimeAction, ApplicationSettingsAction, ApplicationSurfaceItem } from './extensions/ApplicationsPage.types';
+import type { ApplicationActionHandlers, ApplicationNextAction, ApplicationRuntimeAction, ApplicationSettingsAction, ApplicationSurfaceItem } from './extensions/ApplicationsPage.types';
 
 type ApplicationDetailsRailProps = {
   actions: ApplicationActionHandlers;
@@ -168,7 +168,7 @@ function RailControls({ actions, item, loadingAction }: { actions: ApplicationAc
               <p className="mt-1 text-xs leading-5">{item.nextAction.description}</p>
             </div>
             <Button className="bg-orange-500 text-white hover:bg-orange-400" disabled={runtimeActionDisabled} onClick={() => actions.onRunNextAction(item.id)} size="sm" type="button">
-              {runtimeActionDisabled && item.nextAction.id === 'start_app' ? 'Running' : 'Run'}
+              {runtimeActionDisabled && item.nextAction.id === 'start_app' ? 'Running' : nextActionButtonLabel(item.nextAction.id)}
             </Button>
           </div>
         </div>
@@ -221,4 +221,10 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <span className="font-medium text-white">{value}</span>
     </div>
   );
+}
+
+function nextActionButtonLabel(id: ApplicationNextAction['id']) {
+  if (id === 'start_app') return 'Start';
+  if (id === 'create_backup') return 'Create backup';
+  return 'Review';
 }

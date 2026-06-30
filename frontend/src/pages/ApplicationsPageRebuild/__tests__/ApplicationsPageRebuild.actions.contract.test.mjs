@@ -181,6 +181,47 @@ test('applications rebuild starts app backup jobs from real backup actions', () 
   assert.match(advanced, /actions\.onCreateBackup\(item\.id\)/);
 });
 
+test('applications rebuild only exposes concrete next actions from the rail', () => {
+  const page = source('src/pages/ApplicationsPageRebuild/ApplicationsPage.tsx');
+  const rail = source('src/pages/ApplicationsPageRebuild/ApplicationDetailsRail.tsx');
+
+  assert.match(page, /item\.nextAction\?\.id === 'start_app'/);
+  assert.match(page, /item\.nextAction\?\.id === 'create_backup'/);
+  assert.match(page, /void runBackup\(item\.sourceId \|\| item\.id\)/);
+  assert.match(page, /setManagementOpen\(true\)/);
+
+  assert.match(rail, /nextActionButtonLabel\(item\.nextAction\.id\)/);
+  assert.match(rail, /Create backup/);
+  assert.match(rail, /Review/);
+  assert.doesNotMatch(rail, />\s*Run\s*</);
+});
+
+test('applications rebuild review-next opens the review panel and has an all-clear state', () => {
+  const page = source('src/pages/ApplicationsPageRebuild/ApplicationsPage.tsx');
+
+  assert.match(page, /reviewNextButtonLabel/);
+  assert.match(page, /nextReviewItem \? 'Review next' : 'All clear'/);
+  assert.match(page, /title=\{nextReviewItem \? 'Open the next app or service that needs review\.' : 'No apps or services need review\.'\}/);
+  assert.match(page, /setManagementOpen\(true\)/);
+  assert.match(page, /setSelectedId\(nextReviewItem\.id\)/);
+  assert.match(page, /setFilter\('needs_review'\)/);
+});
+
+test('applications rebuild removes placeholder overflow controls until real actions are chosen', () => {
+  const basic = source('src/pages/ApplicationsPageRebuild/BasicApplicationsView.tsx');
+  const advanced = source('src/pages/ApplicationsPageRebuild/AdvancedApplicationsView.tsx');
+  const page = source('src/pages/ApplicationsPageRebuild/ApplicationsPage.tsx');
+
+  assert.doesNotMatch(basic, /DropdownMenu/);
+  assert.doesNotMatch(basic, /Trash2/);
+  assert.doesNotMatch(basic, />\s*Uninstall\s*</);
+  assert.doesNotMatch(basic, /onUninstall/);
+  assert.doesNotMatch(advanced, /MoreHorizontal/);
+  assert.doesNotMatch(advanced, /More controls for/);
+  assert.doesNotMatch(page, /handleUninstall/);
+  assert.doesNotMatch(page, /onUninstall=\{handleUninstall\}/);
+});
+
 test('applications rebuild changes private network access as a standalone settings action', () => {
   const page = source('src/pages/ApplicationsPageRebuild/ApplicationsPage.tsx');
   const panel = source('src/pages/ApplicationsPageRebuild/ApplicationManagementPanel.tsx');

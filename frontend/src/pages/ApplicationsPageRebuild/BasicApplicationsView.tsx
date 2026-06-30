@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { ExternalLink, MoreHorizontal, Search, Trash2 } from 'lucide-react';
+import { ExternalLink, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -7,13 +6,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import {
   Empty,
   EmptyDescription,
@@ -30,14 +22,11 @@ import type { ApplicationSurfaceItem } from './extensions/ApplicationsPage.types
 type BasicApplicationsViewProps = {
   items: ApplicationSurfaceItem[];
   managementOpen: boolean;
-  onUninstall: (id: string) => void;
   onSelect: (id: string) => void;
   selectedId?: string;
 };
 
-export function BasicApplicationsView({ items, managementOpen, onSelect, onUninstall, selectedId }: BasicApplicationsViewProps) {
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-
+export function BasicApplicationsView({ items, managementOpen, onSelect, selectedId }: BasicApplicationsViewProps) {
   if (!items.length) {
     return <ApplicationsEmptyState />;
   }
@@ -119,42 +108,6 @@ export function BasicApplicationsView({ items, managementOpen, onSelect, onUnins
                 No link
               </Button>
             )}
-            <DropdownMenu
-              onOpenChange={(open) => {
-                setOpenMenuId(open ? item.id : null);
-              }}
-              open={openMenuId === item.id}
-            >
-              <DropdownMenuTrigger asChild>
-                <Button
-                  aria-label={`${item.name} options`}
-                  className="border-sky-300 bg-white text-slate-950 hover:bg-sky-100"
-                  size="icon-lg"
-                  type="button"
-                  variant="outline"
-                >
-                  <MoreHorizontal />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="z-[100] w-40 border-sky-400/30 bg-slate-900 text-slate-50"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <DropdownMenuGroup>
-                  <DropdownMenuItem
-                    onSelect={() => {
-                      setOpenMenuId(null);
-                      onUninstall(item.id);
-                    }}
-                    variant="destructive"
-                  >
-                    <Trash2 data-icon="inline-start" />
-                    Uninstall
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </CardFooter>
         </Card>
       ))}

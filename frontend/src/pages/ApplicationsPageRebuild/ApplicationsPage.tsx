@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Search } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Search } from 'lucide-react';
 import { BackupAPIClient } from '@/api/BackupAPIClient';
 import { InstalledAppsAPIClient } from '@/api/InstalledAppsAPIClient';
 import { ObservedServicesAPIClient } from '@/api/ObservedServicesAPIClient';
@@ -118,6 +118,7 @@ export const ApplicationsPage = () => {
   const pinnedCount = items.filter((item) => item.managementState === 'linked').length;
   const attentionCount = items.filter((item) => item.attentionState !== 'none').length;
   const nextReviewItem = visibleItems.find((item) => item.nextAction) ?? items.find((item) => item.nextAction) ?? null;
+  const reviewNextButtonLabel = nextReviewItem ? 'Review next' : 'All clear';
   const managedAppById = useMemo(() => new Map(appState.apps.map((app) => [app.appId, app])), [appState.apps]);
   const selectedHasUnsavedSettings = Boolean(selectedItem && settingsDirtyByAppId[selectedItem.id]);
   const canCloseManagement = useCallback(() => !selectedHasUnsavedSettings || window.confirm('Discard unsaved app settings?'), [selectedHasUnsavedSettings]);
@@ -465,15 +466,14 @@ export const ApplicationsPage = () => {
       void runManagedAction(item.sourceId || item.id, 'start');
       return;
     }
+    if (item?.managementState === 'managed' && item.nextAction?.id === 'create_backup') {
+      void runBackup(item.sourceId || item.id);
+      return;
+    }
 
     setSelectedId(id);
     setManagementOpen(true);
     void invalidateApplicationState(queryClient);
-  };
-
-  const handleUninstall = (id: string) => {
-    setSelectedId(id);
-    setManagementOpen(true);
   };
 
   const actions = {
@@ -569,12 +569,14 @@ export const ApplicationsPage = () => {
                     setQuery('');
                     setFilter('needs_review');
                     setSelectedId(nextReviewItem.id);
+                    setManagementOpen(true);
                   }
                 }}
+                title={nextReviewItem ? 'Open the next app or service that needs review.' : 'No apps or services need review.'}
                 type="button"
               >
-                <AlertTriangle data-icon="inline-start" />
-                Review next
+                {nextReviewItem ? <AlertTriangle data-icon="inline-start" /> : <CheckCircle2 data-icon="inline-start" />}
+                {reviewNextButtonLabel}
               </Button>
             </div>
           </div>
@@ -591,7 +593,6 @@ export const ApplicationsPage = () => {
               items={visibleItems}
               managementOpen={managementOpen}
               onSelect={setSelectedId}
-              onUninstall={handleUninstall}
               selectedId={selectedItemIsVisible ? selectedItem?.id : undefined}
             />
           ) : (

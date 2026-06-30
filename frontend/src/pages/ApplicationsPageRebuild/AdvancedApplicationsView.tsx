@@ -1,4 +1,4 @@
-import { ExternalLink, Loader2, MoreHorizontal, Pause, Play, RotateCw, ShieldCheck } from 'lucide-react';
+import { ExternalLink, Loader2, Pause, Play, RotateCw, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -155,9 +155,6 @@ export function AdvancedApplicationsView({ actions, actionLoadingByItemId, items
                             {loadingAction === 'backup' ? 'Backing up' : 'Backup'}
                           </Button>
                         )}
-                        <Button aria-label={`More controls for ${item.name}`} className="border-sky-300 bg-white text-slate-950 hover:bg-sky-100" onClick={() => onSelect(item.id)} size="icon-sm" type="button" variant="outline">
-                          <MoreHorizontal />
-                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
