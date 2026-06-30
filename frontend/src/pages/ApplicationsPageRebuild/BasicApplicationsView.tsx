@@ -75,8 +75,8 @@ export function BasicApplicationsView({ items, managementOpen, onSelect, onUnins
               <div className="flex min-w-0 flex-col items-center gap-1 text-center">
                 <CardTitle className="max-w-full truncate text-lg text-slate-950">{item.name}</CardTitle>
                 <div className="flex max-w-full flex-wrap justify-center gap-1">
-                  <ManagementBadge item={item} />
-                  <AttentionIndicator item={item} />
+                  {/* <ManagementBadge item={item} /> */}
+                <AttentionIndicator item={item} className="absolute" />
                 </div>
               </div>
             </div>

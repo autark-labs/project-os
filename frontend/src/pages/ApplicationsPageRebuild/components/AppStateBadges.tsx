@@ -39,7 +39,7 @@ export function ManagementBadge({ item }: { item: ApplicationSurfaceItem }) {
   );
 }
 
-export function AttentionIndicator({ item }: { item: ApplicationSurfaceItem }) {
+export function AttentionIndicator({ item, className }: { item: ApplicationSurfaceItem; className?: string }) {
   if (item.attentionState === 'none') {
     return null;
   }
@@ -47,6 +47,7 @@ export function AttentionIndicator({ item }: { item: ApplicationSurfaceItem }) {
   return (
     <Badge
       className={cn(
+        className,
         item.attentionState === 'needs_review' && 'bg-orange-500 text-white',
         item.attentionState === 'conflict' && 'bg-red-600 text-white',
         item.attentionState === 'blocked' && 'bg-red-700 text-white',
