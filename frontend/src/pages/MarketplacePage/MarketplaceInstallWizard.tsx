@@ -59,10 +59,10 @@ export function InstallWizard({ app, hideTrigger = false, installLocked, install
           {triggerLabel}
         </Button>
       )}
-      <DialogContent className="max-h-[88vh] overflow-y-auto border-slate-700 bg-slate-950 text-slate-100 sm:max-w-2xl">
+      <DialogContent className="max-h-[88vh] overflow-y-auto border-po-border bg-popover text-popover-foreground sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="text-xl text-white">Install {app.name}</DialogTitle>
-          <DialogDescription className="text-slate-400">Choose the basics. Project OS will use safe defaults unless you change them.</DialogDescription>
+          <DialogTitle className="text-xl text-popover-foreground">Install {app.name}</DialogTitle>
+          <DialogDescription className="text-muted-foreground">Choose the basics. Project OS will use safe defaults unless you change them.</DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-5 overflow-y-auto pr-1">
@@ -74,8 +74,8 @@ export function InstallWizard({ app, hideTrigger = false, installLocked, install
           <InstallImpactSummary app={app} installPlan={installPlan} installPreview={installPreview} />
 
           {installPlan && (
-            <Collapsible className="rounded-lg border border-slate-700/40 bg-slate-900/70 p-4">
-              <CollapsibleTrigger className="w-full cursor-pointer text-left font-bold text-white">Technical details</CollapsibleTrigger>
+            <Collapsible className="rounded-lg border border-po-border bg-po-surface-soft p-4">
+              <CollapsibleTrigger className="w-full cursor-pointer text-left font-bold text-po-text">Technical details</CollapsibleTrigger>
               <CollapsibleContent>
               <div className="mt-4">
                 <TechnicalPlanCard plan={installPlan} />
@@ -85,10 +85,10 @@ export function InstallWizard({ app, hideTrigger = false, installLocked, install
           )}
 
           {installPreview && installPreview.warnings.length > 0 && (
-            <Collapsible className="rounded-lg border border-amber-300/25 bg-amber-500/10 p-4">
-              <CollapsibleTrigger className="w-full cursor-pointer text-left font-bold text-white">Warnings and recovery notes</CollapsibleTrigger>
+            <Collapsible className="rounded-lg border border-po-warning-border bg-po-warning-soft p-4">
+              <CollapsibleTrigger className="w-full cursor-pointer text-left font-bold text-po-text">Warnings and recovery notes</CollapsibleTrigger>
               <CollapsibleContent>
-                <ul className="mt-3 grid gap-2 text-sm leading-6 text-amber-100/80">
+                <ul className="mt-3 grid gap-2 text-sm leading-6 text-po-warning">
                   {installPreview.warnings.map((warning) => <li key={`${warning.fieldId}-${warning.message}`}>{warning.message}</li>)}
                 </ul>
               </CollapsibleContent>
@@ -97,7 +97,7 @@ export function InstallWizard({ app, hideTrigger = false, installLocked, install
 
         </div>
 
-        <DialogFooter className="border-slate-800 bg-slate-900/80">
+        <DialogFooter className="border-po-border bg-po-surface-soft">
           <Button className={poButtonClass('quiet')} onClick={() => onRequestPlan(installOptions)} type="button" variant="outline">
             {planLoading ? 'Checking...' : 'Preview'}
           </Button>
@@ -121,25 +121,25 @@ function InstallationChoicesForm({ answers, issues, onAnswersChange, schema }: {
   }
 
   return (
-    <section className="overflow-hidden rounded-xl border border-slate-500/40 bg-slate-800 text-slate-100">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-500/20 bg-slate-700 p-4">
+    <section className="overflow-hidden rounded-xl border border-po-border bg-po-surface text-po-text">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-po-border bg-po-surface-soft p-4">
         <div>
-          <h4 className="font-bold text-white">Installation choices</h4>
-          <p className="mt-1 text-sm leading-6 text-slate-300">These choices need your attention before Project OS starts this app.</p>
+          <h4 className="font-bold text-po-text">Installation choices</h4>
+          <p className="mt-1 text-sm leading-6 text-po-text-secondary">These choices need your attention before Project OS starts this app.</p>
         </div>
-        <span className="rounded-full border border-slate-400/40 bg-slate-900/40 px-2.5 py-1 text-xs font-bold text-slate-100">Required</span>
+        <span className="rounded-full border border-po-border bg-po-surface-inset px-2.5 py-1 text-xs font-bold text-po-text-secondary">Required</span>
       </div>
       <div className="grid gap-4 p-4">
         {visibleInputs.length ? visibleInputs.map((input) => (
           <InstallationChoiceField input={input} key={input.id} problem={issues.find((issue) => issue.fieldId === input.id)} value={answers[input.id]} onChange={(value) => updateAnswer(input.id, value)} />
         )) : (
-          <p className="rounded-lg border border-slate-600/50 bg-slate-900/50 p-3 text-sm text-slate-300">No choices are needed for this app. Project OS will use safe defaults.</p>
+          <p className="rounded-lg border border-po-border bg-po-surface-soft p-3 text-sm text-po-text-secondary">No choices are needed for this app. Project OS will use safe defaults.</p>
         )}
         {advancedInputs.length > 0 && (
-          <Collapsible className="rounded-lg border border-slate-600/50 bg-slate-900/40 p-3">
-            <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between gap-3 text-left text-sm font-bold text-white">
+          <Collapsible className="rounded-lg border border-po-border bg-po-surface-soft p-3">
+            <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between gap-3 text-left text-sm font-bold text-po-text">
               Advanced install options
-              <span className="text-slate-400">Show</span>
+              <span className="text-po-text-muted">Show</span>
             </CollapsibleTrigger>
             <CollapsibleContent>
               <div className="mt-3 grid gap-4">
@@ -161,16 +161,16 @@ function InstallationChoiceField({ input, onChange, problem, value }: { input: D
   return (
     <div className="grid gap-2">
       <div className="flex items-center justify-between gap-3">
-        <label className="text-sm font-bold text-white" htmlFor={inputId}>{input.label}</label>
+        <label className="text-sm font-bold text-po-text" htmlFor={inputId}>{input.label}</label>
         {input.help && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-              <Button aria-label={`Explain ${input.label}`} className="size-7 rounded-full border-slate-500/50 bg-slate-900/50 text-slate-200 hover:bg-slate-900 hover:text-white" size="icon" type="button" variant="outline">
+              <Button aria-label={`Explain ${input.label}`} className="size-7 rounded-full border-po-border bg-po-surface-soft text-po-text-secondary hover:bg-po-surface-hover hover:text-po-text" size="icon" type="button" variant="outline">
                 <HelpCircle className="size-3.5" />
               </Button>
               </TooltipTrigger>
-              <TooltipContent className="max-w-72 border border-slate-700 bg-slate-950 text-slate-200">
+              <TooltipContent className="max-w-72 border border-sidebar-border bg-po-sidebar text-sidebar-foreground">
                 <p className="text-sm leading-6">{input.help}</p>
               </TooltipContent>
             </Tooltip>
@@ -180,23 +180,23 @@ function InstallationChoiceField({ input, onChange, problem, value }: { input: D
       {input.type === 'choice' ? (
         <>
           <Select value={String(value ?? '')} onValueChange={onChange}>
-            <SelectTrigger className={cn('h-12 w-full border-slate-500/40 bg-slate-950 text-white', problem && 'border-amber-300/60')} id={inputId}>
+            <SelectTrigger className={cn('h-12 w-full border-po-border bg-po-surface text-po-text', problem && 'border-po-warning-border')} id={inputId}>
               <SelectValue placeholder="Choose an option" />
             </SelectTrigger>
-            <SelectContent className="border-slate-700 bg-slate-950 text-slate-100">
+            <SelectContent className="border-po-border bg-popover text-popover-foreground">
               {input.options?.map((option) => (
-                <SelectItem className="focus:bg-slate-800 focus:text-white" key={option.value} value={option.value}>
+                <SelectItem className="focus:bg-po-surface-hover focus:text-popover-foreground" key={option.value} value={option.value}>
                   {option.label}{option.recommended ? ' (Recommended)' : ''}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <p className={cn('text-xs leading-5 text-slate-300', problem && 'text-amber-100')}>{problem?.message || selectedOption?.description || 'Project OS will use this choice when it prepares the app.'}</p>
+          <p className={cn('text-xs leading-5 text-po-text-secondary', problem && 'text-po-warning')}>{problem?.message || selectedOption?.description || 'Project OS will use this choice when it prepares the app.'}</p>
         </>
       ) : (
         <>
           <Input
-            className={cn('h-12 border-slate-500/40 bg-slate-950 text-white placeholder:text-slate-500', problem && 'border-amber-300/60')}
+            className={cn('h-12 border-po-border bg-po-surface text-po-text placeholder:text-po-text-muted', problem && 'border-po-warning-border')}
             id={inputId}
             inputMode={input.type === 'number-or-auto' ? 'numeric' : undefined}
             onChange={(event) => onChange(input.type === 'number-or-auto' ? normalizePortValue(event.target.value) : event.target.value)}
@@ -204,7 +204,7 @@ function InstallationChoiceField({ input, onChange, problem, value }: { input: D
             type="text"
             value={String(value ?? '')}
           />
-          <p className={cn('text-xs leading-5 text-slate-300', problem && 'text-amber-100')}>{problem?.message || input.help || 'Project OS will use this value when it prepares the app.'}</p>
+          <p className={cn('text-xs leading-5 text-po-text-secondary', problem && 'text-po-warning')}>{problem?.message || input.help || 'Project OS will use this value when it prepares the app.'}</p>
         </>
       )}
     </div>
@@ -227,9 +227,9 @@ function InstallImpactSummary({ app, installPlan, installPreview }: { app: Marke
   ];
 
   return (
-    <section className="rounded-lg border border-slate-700/40 bg-slate-900/70 p-4">
-      <h4 className="font-bold text-white">What Project OS will do</h4>
-      <ul className="mt-3 grid gap-2 pl-5 text-sm leading-6 text-slate-300">
+    <section className="rounded-lg border border-po-border bg-po-surface-soft p-4">
+      <h4 className="font-bold text-po-text">What Project OS will do</h4>
+      <ul className="mt-3 grid gap-2 pl-5 text-sm leading-6 text-po-text-secondary">
         {items.map((item) => <li className="list-disc" key={item}>{item}</li>)}
       </ul>
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -243,12 +243,12 @@ function InstallImpactSummary({ app, installPlan, installPreview }: { app: Marke
 
 function InstallBlockedCard({ message }: { message: string }) {
   return (
-    <section className="rounded-lg border border-amber-300/25 bg-amber-500/10 p-4">
+    <section className="rounded-lg border border-po-warning-border bg-po-warning-soft p-4">
       <div className="flex items-start gap-3">
-        <TriangleAlert className="mt-0.5 size-5 shrink-0 text-amber-200" />
+        <TriangleAlert className="mt-0.5 size-5 shrink-0 text-po-warning" />
         <div>
-          <h4 className="font-bold text-white">Install waiting</h4>
-          <p className="mt-1 text-sm leading-6 text-amber-100/80">{message}</p>
+          <h4 className="font-bold text-po-text">Install waiting</h4>
+          <p className="mt-1 text-sm leading-6 text-po-text-secondary">{message}</p>
         </div>
       </div>
     </section>
@@ -257,8 +257,8 @@ function InstallBlockedCard({ message }: { message: string }) {
 
 export function TechnicalPlanCard({ plan }: { plan: InstallPlan }) {
   return (
-    <section className="rounded-lg border border-violet-300/25 bg-violet-600/10 p-4">
-      <h4 className="font-bold text-white">Generated install plan</h4>
+    <section className="rounded-lg border border-po-info-border bg-po-info-soft p-4">
+      <h4 className="font-bold text-po-text">Generated install plan</h4>
       <dl className="mt-3 grid gap-2 sm:grid-cols-[minmax(120px,0.7fr)_1fr]">
         <Config label="Runtime root" value={plan.technical.runtimeRoot} />
         <Config label="Compose project" value={plan.technical.composeProject} />
@@ -284,13 +284,13 @@ export function TechnicalPlanCard({ plan }: { plan: InstallPlan }) {
 
 function InstallCaution({ app }: { app: MarketplaceApp }) {
   return (
-    <section className="rounded-lg border border-amber-300/25 bg-amber-500/10 p-4">
+    <section className="rounded-lg border border-po-warning-border bg-po-warning-soft p-4">
       <div className="flex items-start gap-3">
-        <TriangleAlert className="mt-0.5 size-5 shrink-0 text-amber-200" />
+        <TriangleAlert className="mt-0.5 size-5 shrink-0 text-po-warning" />
         <div>
-          <h4 className="font-bold text-white">{app.supportLevel} app</h4>
-          <p className="mt-1 text-sm leading-6 text-amber-50/80">{app.supportSummary}</p>
-          <p className="mt-2 text-xs leading-5 text-amber-100/70">Project OS can still install it, but review the generated plan and smoke-test notes before using it for anything important.</p>
+          <h4 className="font-bold text-po-text">{app.supportLevel} app</h4>
+          <p className="mt-1 text-sm leading-6 text-po-text-secondary">{app.supportSummary}</p>
+          <p className="mt-2 text-xs leading-5 text-po-text-muted">Project OS can still install it, but review the generated plan and smoke-test notes before using it for anything important.</p>
         </div>
       </div>
     </section>

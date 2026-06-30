@@ -353,24 +353,24 @@ function MarketplacePage() {
 
       <div className="mb-6 grid gap-4">
         <label className="relative block">
-          <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
-          <Input className="h-13 border-slate-700/40 bg-slate-900/70 pl-11 text-white placeholder:text-slate-500 focus-visible:border-sky-300 focus-visible:ring-sky-700/30" onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search by name, purpose, or category..." type="search" value={searchQuery} />
+          <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-po-text-muted" />
+          <Input className="h-13 border-po-border bg-po-surface pl-11 text-po-text placeholder:text-po-text-muted focus-visible:border-po-info-border focus-visible:ring-po-info/30" onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search by name, purpose, or category..." type="search" value={searchQuery} />
         </label>
         <div aria-label="Discover filters" className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-2 text-sm text-slate-500">
+          <span className="inline-flex items-center gap-2 text-sm text-po-text-muted">
             <Filter className="size-4" />
             {showAdvancedMetrics ? 'Show' : basicCatalogMode === 'all-safe' ? 'Safe apps' : 'Starter catalog'}
           </span>
           {showAdvancedMetrics && categories.map((category) => (
-            <Button className={cn('h-9 border-slate-700/40 bg-slate-900/65 px-4 text-slate-300 hover:bg-slate-800 hover:text-white', selectedCategory === category && 'border-sky-300/40 bg-sky-600/20 text-sky-100 hover:bg-sky-600/25')} key={category} onClick={() => setSelectedCategory(category)} type="button" variant="outline">
+            <Button className={cn('h-9 border-po-border bg-po-surface-soft px-4 text-po-text-secondary hover:bg-po-surface-hover hover:text-po-text', selectedCategory === category && 'border-po-info-border bg-po-info-soft text-po-brand hover:bg-po-info-soft/80')} key={category} onClick={() => setSelectedCategory(category)} type="button" variant="outline">
               {category}
             </Button>
           ))}
-          <Button className={cn('h-9 border-slate-700/40 bg-slate-900/65 px-4 text-slate-300 hover:bg-slate-800 hover:text-white', hideInstalled && 'border-sky-300/40 bg-sky-600/15 text-sky-100 hover:bg-sky-600/20')} onClick={() => setHideInstalled((value) => !value)} type="button" variant="outline">
+          <Button className={cn('h-9 border-po-border bg-po-surface-soft px-4 text-po-text-secondary hover:bg-po-surface-hover hover:text-po-text', hideInstalled && 'border-po-info-border bg-po-info-soft text-po-brand hover:bg-po-info-soft/80')} onClick={() => setHideInstalled((value) => !value)} type="button" variant="outline">
             {hideInstalled ? 'Showing new apps only' : 'Hide installed'}
           </Button>
           {canRestoreStartHere && (
-            <Button className="h-9 border-slate-700/40 bg-slate-900/65 px-4 text-slate-300 hover:bg-slate-800 hover:text-white" onClick={restoreStartHere} type="button" variant="outline">
+            <Button className="h-9 border-po-border bg-po-surface-soft px-4 text-po-text-secondary hover:bg-po-surface-hover hover:text-po-text" onClick={restoreStartHere} type="button" variant="outline">
               Show Start here
             </Button>
           )}
@@ -394,16 +394,16 @@ function InstallJobBanner({ apps, installJob, selectedAppId }: { apps: DiscoverA
   }
   if (installJob.status === 'failed') {
     return (
-      <div className="mb-5 rounded-lg border border-red-300/25 bg-red-500/10 p-4 text-sm text-red-100">
-        <p className="font-semibold text-white">Install failed for {appNameForJob(installJob, apps)}</p>
+      <div className="mb-5 rounded-lg border border-po-danger-border bg-po-danger-soft p-4 text-sm text-po-danger">
+        <p className="font-semibold text-current">Install failed for {appNameForJob(installJob, apps)}</p>
         <p className="mt-1">{installJob.error?.message || 'Project OS could not finish the install.'}</p>
       </div>
     );
   }
   if (installJob.status === 'succeeded') {
     return (
-      <div className="mb-5 rounded-lg border border-sky-300/25 bg-sky-500/10 p-4 text-sm text-sky-100">
-        <p className="font-semibold text-white">{appNameForJob(installJob, apps)} is ready</p>
+      <div className="mb-5 rounded-lg border border-po-success-border bg-po-success-soft p-4 text-sm text-po-success">
+        <p className="font-semibold text-current">{appNameForJob(installJob, apps)} is ready</p>
         <p className="mt-1">Open the app or create a first restore point before experimenting.</p>
       </div>
     );
@@ -423,16 +423,16 @@ function DiscoverGuidedHeader({
   onRefresh: () => void;
 }) {
   return (
-    <header className="mb-5 overflow-hidden rounded-2xl border border-white/10 bg-slate-900/65 p-5 text-slate-100 shadow-po-panel">
+    <header className="mb-5 overflow-hidden rounded-2xl border border-po-border bg-po-surface p-5 text-po-text shadow-po-panel">
       <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
         <div className="flex max-w-3xl gap-4">
-          <span className="hidden size-12 shrink-0 place-items-center rounded-2xl border border-sky-300/20 bg-sky-500/15 text-sky-100 sm:grid">
+          <span className="hidden size-12 shrink-0 place-items-center rounded-2xl border border-po-info-border bg-po-info-soft text-po-brand sm:grid">
             <Sparkles className="size-6" />
           </span>
           <div>
-            <Badge className="border-sky-300/25 bg-sky-500/10 text-sky-100" variant="outline">Discover</Badge>
-            <h2 className="mt-3 text-3xl font-bold leading-none text-white md:text-4xl">Discover Apps</h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
+            <Badge className="border-po-info-border bg-po-info-soft text-po-brand" variant="outline">Discover</Badge>
+            <h2 className="mt-3 text-3xl font-bold leading-none text-po-text md:text-4xl">Discover Apps</h2>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-po-text-muted">
               Install useful self-hosted apps without managing Docker by hand.
             </p>
           </div>
@@ -446,17 +446,17 @@ function DiscoverGuidedHeader({
                 How installs work
               </Button>
             </DialogTrigger>
-            <DialogContent className="border-slate-700 bg-slate-950 text-slate-100 sm:max-w-lg">
+            <DialogContent className="border-po-border bg-popover text-popover-foreground sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle>How Project OS installs apps</DialogTitle>
-                <DialogDescription className="text-slate-400">
+                <DialogDescription className="text-muted-foreground">
                   Project OS shows a plan before anything changes, then prepares the app with managed storage, local access, health checks, and backup defaults.
                 </DialogDescription>
               </DialogHeader>
-              <ol className="grid gap-3 text-sm text-slate-300">
+              <ol className="grid gap-3 text-sm text-po-text-secondary">
                 {['Pick an app that fits what you want to do.', 'Review setup choices and any host readiness notes.', 'Confirm the install plan before Project OS changes this server.', 'Open the app from My Apps and create a first restore point.'].map((step, index) => (
                   <li className="grid grid-cols-[28px_1fr] gap-3" key={step}>
-                    <span className="grid size-7 place-items-center rounded-full border border-sky-300/25 bg-sky-500/10 text-xs font-bold text-sky-100">{index + 1}</span>
+                    <span className="grid size-7 place-items-center rounded-full border border-po-info-border bg-po-info-soft text-xs font-bold text-po-brand">{index + 1}</span>
                     <span className="leading-6">{step}</span>
                   </li>
                 ))}
@@ -475,24 +475,24 @@ function DiscoverGuidedHeader({
                 <Bell className="size-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-72 border-slate-700 bg-slate-950 text-slate-100">
+            <DropdownMenuContent align="end" className="w-72 border-po-border bg-popover text-popover-foreground">
               <DropdownMenuLabel>Discover activity</DropdownMenuLabel>
-              <DropdownMenuSeparator className="bg-slate-800" />
+              <DropdownMenuSeparator className="bg-po-border" />
               <div className="grid max-h-80 gap-2 overflow-y-auto px-2 py-1.5 text-sm">
-                <div className="rounded-md border border-slate-800 bg-slate-900/60 p-2 text-xs text-slate-400">
+                <div className="rounded-md border border-po-border bg-po-surface-soft p-2 text-xs text-po-text-muted">
                   {appCount} apps shown - Last checked {lastRefreshAt ? lastRefreshAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'not yet'}
                 </div>
                 {marketplaceActivity.length ? marketplaceActivity.map((event) => (
-                  <div className="rounded-md border border-slate-800 bg-slate-900/50 p-2" key={event.id}>
+                  <div className="rounded-md border border-po-border bg-po-surface-soft p-2" key={event.id}>
                     <div className="flex items-center justify-between gap-2">
                       <span className={cn('text-xs font-semibold uppercase tracking-wide', marketplaceActivityTone(event.level))}>{event.outcome.replace('_', ' ')}</span>
-                      <span className="text-xs text-slate-500">{formatMarketplaceActivityTime(event.createdAt)}</span>
+                      <span className="text-xs text-po-text-muted">{formatMarketplaceActivityTime(event.createdAt)}</span>
                     </div>
-                    <p className="mt-1 font-medium text-slate-100">{event.title}</p>
-                    {event.message && <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">{event.message}</p>}
+                    <p className="mt-1 font-medium text-po-text">{event.title}</p>
+                    {event.message && <p className="mt-1 line-clamp-2 text-xs leading-5 text-po-text-muted">{event.message}</p>}
                   </div>
                 )) : (
-                  <div className="rounded-md border border-slate-800 bg-slate-900/50 p-3 text-sm text-slate-400">
+                  <div className="rounded-md border border-po-border bg-po-surface-soft p-3 text-sm text-po-text-muted">
                     No Discover activity has been recorded yet.
                   </div>
                 )}
@@ -502,9 +502,9 @@ function DiscoverGuidedHeader({
         </div>
       </div>
 
-      <div className="mt-5 rounded-xl border border-sky-300/20 bg-sky-500/10 p-4">
-        <p className="text-xs font-semibold uppercase tracking-normal text-sky-200">Recommended path</p>
-        <p className="mt-2 text-sm leading-6 text-slate-200">
+      <div className="mt-5 rounded-xl border border-po-info-border bg-po-info-soft p-4">
+        <p className="text-xs font-semibold uppercase tracking-normal text-po-brand">Recommended path</p>
+        <p className="mt-2 text-sm leading-6 text-po-text-secondary">
           Pick an app, review the setup, and Project OS will prepare storage, networking, health checks, and backups.
         </p>
       </div>
@@ -515,17 +515,17 @@ function DiscoverGuidedHeader({
 function StarterAppHandoff({ onDismiss, onSelect, recommendations }: { onDismiss: () => void; onSelect: (appId: string) => void; recommendations: StarterRecommendation[] }) {
   const blocked = recommendations.some((recommendation) => recommendation.readiness === 'blocked');
   return (
-    <section className="mb-5 rounded-2xl border border-sky-300/20 bg-sky-500/10 p-5 shadow-po-panel">
+    <section className="mb-5 rounded-2xl border border-po-info-border bg-po-info-soft p-5 shadow-po-panel">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-normal text-sky-200">Start here</p>
-          <h3 className="mt-2 text-2xl font-black text-white">Start with these apps</h3>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
+          <p className="text-xs font-black uppercase tracking-normal text-po-brand">Start here</p>
+          <h3 className="mt-2 text-2xl font-black text-po-text">Start with these apps</h3>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-po-text-muted">
             Reliable first installs based on your onboarding choices, with a few safe defaults when you have not picked starter apps yet.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge className={blocked ? 'border-amber-300/25 bg-amber-500/10 text-amber-100' : 'border-sky-300/25 bg-sky-500/10 text-sky-100'} variant="outline">
+          <Badge className={blocked ? 'border-po-warning-border bg-po-warning-soft text-po-warning' : 'border-po-info-border bg-po-info-soft text-po-brand'} variant="outline">
             {blocked ? 'Readiness review needed' : 'Ready to review'}
           </Badge>
           <Button aria-label="Hide Start here" className={poButtonClass('quietIcon')} onClick={onDismiss} size="icon" type="button" variant="outline">
@@ -535,24 +535,24 @@ function StarterAppHandoff({ onDismiss, onSelect, recommendations }: { onDismiss
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-3">
         {recommendations.map((recommendation) => (
-          <article className={poCardClass('normal', 'bg-slate-950/55')} key={recommendation.app.id}>
+          <article className={poCardClass('normal', 'bg-po-surface')} key={recommendation.app.id}>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h4 className="font-bold text-white">{recommendation.app.name}</h4>
-                <p className="mt-1 text-sm text-slate-400">{recommendation.app.shortValue || recommendation.app.plainLanguage}</p>
+                <h4 className="font-bold text-po-text">{recommendation.app.name}</h4>
+                <p className="mt-1 text-sm text-po-text-muted">{recommendation.app.shortValue || recommendation.app.plainLanguage}</p>
               </div>
               {recommendation.installed ? (
-                <Badge className="border-sky-300/25 bg-sky-500/10 text-sky-100" variant="outline">Installed</Badge>
+                <Badge className="border-po-info-border bg-po-info-soft text-po-brand" variant="outline">Installed</Badge>
               ) : (
-                <Badge className={recommendation.readiness === 'ready' ? 'border-sky-300/25 bg-sky-500/10 text-sky-100' : recommendation.readiness === 'blocked' ? 'border-amber-300/25 bg-amber-500/10 text-amber-100' : 'border-sky-300/25 bg-sky-500/10 text-sky-100'} variant="outline">
+                <Badge className={recommendation.readiness === 'ready' ? 'border-po-info-border bg-po-info-soft text-po-brand' : recommendation.readiness === 'blocked' ? 'border-po-warning-border bg-po-warning-soft text-po-warning' : 'border-po-info-border bg-po-info-soft text-po-brand'} variant="outline">
                   {recommendation.readiness === 'ready' ? 'Ready' : recommendation.readiness === 'blocked' ? 'Needs setup' : 'Review'}
                 </Badge>
               )}
             </div>
-            <div className="mt-3 grid gap-2 text-sm text-slate-300">
+            <div className="mt-3 grid gap-2 text-sm text-po-text-secondary">
               {recommendation.notes.map((note) => (
                 <div className="flex gap-2" key={note}>
-                  {recommendation.readiness === 'ready' ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-sky-300" /> : <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-300" />}
+                  {recommendation.readiness === 'ready' ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-po-brand" /> : <AlertTriangle className="mt-0.5 size-4 shrink-0 text-po-warning" />}
                   <span>{note}</span>
                 </div>
               ))}

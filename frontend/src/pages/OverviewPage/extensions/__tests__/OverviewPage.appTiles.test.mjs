@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   managedAppIconUrl,
   observedServiceIconUrl,
-} from './OverviewPage.appTiles.js';
+} from '../OverviewPage.appTiles.js';
 
 test('managed app tile uses its canonical app icon', () => {
   assert.equal(managedAppIconUrl({ icon: '/app-images/pi-hole.svg' }), '/app-images/pi-hole.svg');

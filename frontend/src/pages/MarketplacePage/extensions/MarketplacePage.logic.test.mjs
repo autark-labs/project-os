@@ -71,9 +71,9 @@ test('marketplaceVisibleAppViews hides only canonical current-instance installs'
 test('marketplace card tone uses canonical ownership cardTone', async () => {
   const { marketplaceCardToneClass } = await import('./MarketplacePage.logic.js');
 
-  assert.match(marketplaceCardToneClass({ cardTone: 'observed', state: 'found_on_server' }), /bg-amber-500/);
-  assert.match(marketplaceCardToneClass({ cardTone: 'info', state: 'pinned_external' }), /bg-sky-500/);
-  assert.match(marketplaceCardToneClass({ cardTone: 'success', state: 'installed_managed' }), /bg-emerald-500/);
+  assert.match(marketplaceCardToneClass({ cardTone: 'observed', state: 'found_on_server' }), /bg-po-warning-soft/);
+  assert.match(marketplaceCardToneClass({ cardTone: 'info', state: 'pinned_external' }), /bg-po-info-soft/);
+  assert.match(marketplaceCardToneClass({ cardTone: 'success', state: 'installed_managed' }), /bg-po-success-soft/);
 });
 
 test('marketplaceVisibleApps applies supported sort modes', () => {

@@ -176,13 +176,13 @@ export function marketplaceUpdateRank(lastUpdated) {
 export function marketplaceCardToneClass(view = {}) {
   const tone = view.cardTone || cardToneForState(view.state);
   const tones = {
-    success: 'border-emerald-300/25 bg-emerald-500/10 hover:bg-emerald-500/15',
-    info: 'border-sky-300/25 bg-sky-500/10 hover:bg-sky-500/15',
-    observed: 'border-amber-300/25 bg-amber-500/10 hover:bg-amber-500/15',
-    warning: 'border-orange-300/25 bg-orange-500/10 hover:bg-orange-500/15',
-    danger: 'border-red-300/25 bg-red-500/10 hover:bg-red-500/15',
-    neutral: 'border-slate-700/25 bg-slate-950/48 hover:bg-slate-900/70',
-    muted: 'border-slate-700/25 bg-slate-900/35 hover:bg-slate-900/50',
+    success: 'border-po-success-border bg-po-success-soft hover:bg-po-success-soft/80',
+    info: 'border-po-info-border bg-po-info-soft hover:bg-po-info-soft/80',
+    observed: 'border-po-warning-border bg-po-warning-soft hover:bg-po-warning-soft/80',
+    warning: 'border-po-warning-border bg-po-warning-soft hover:bg-po-warning-soft/80',
+    danger: 'border-po-danger-border bg-po-danger-soft hover:bg-po-danger-soft/80',
+    neutral: 'border-po-border bg-po-surface hover:bg-po-surface-elevated',
+    muted: 'border-po-border bg-po-surface-soft hover:bg-po-surface-hover',
   };
   return tones[tone] || tones.neutral;
 }
@@ -200,13 +200,13 @@ function cardToneForState(state) {
 export function marketplaceActivityTone(level) {
   switch (level) {
     case 'success':
-      return 'text-emerald-300';
+      return 'text-po-success';
     case 'warning':
-      return 'text-amber-300';
+      return 'text-po-warning';
     case 'error':
-      return 'text-red-300';
+      return 'text-po-danger';
     default:
-      return 'text-sky-300';
+      return 'text-po-brand';
   }
 }
 

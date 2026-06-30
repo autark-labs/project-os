@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { shouldShowActivityLogLink } from './OverviewPage.activityLink.js';
+import { shouldShowActivityLogLink } from '../OverviewPage.activityLink.js';
 
 test('Home hides Activity Log link in Basic mode even when activity exists', () => {
   assert.equal(shouldShowActivityLogLink('basic', [{ id: 'event-1' }]), false);

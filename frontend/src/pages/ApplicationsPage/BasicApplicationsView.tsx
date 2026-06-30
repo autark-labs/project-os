@@ -38,8 +38,8 @@ export function BasicApplicationsView({ emptyState, items, managementOpen, onSel
         <Card
           aria-hidden={managementOpen}
           className={cn(
-            'relative h-60 w-48 overflow-visible rounded-2xl border bg-sky-100 py-0 shadow-lg shadow-slate-950/20 ring-0 transition-all duration-200',
-            !managementOpen && 'cursor-pointer hover:-translate-y-1 hover:bg-sky-50 hover:shadow-xl hover:shadow-slate-950/25',
+            'relative h-60 w-48 overflow-visible rounded-2xl border bg-sky-200/90 py-0 shadow-lg shadow-slate-950/20 ring-0 transition-all duration-200',
+            !managementOpen && 'cursor-pointer hover:-translate-y-1 hover:bg-sky-200 hover:shadow-xl hover:shadow-slate-950/25',
             managementOpen && 'pointer-events-none cursor-default',
             item.attentionState !== 'none' && cn('border-orange-500 bg-orange-200', !managementOpen && 'hover:bg-orange-100'),
             item.readinessState === 'paused' && cn('border-slate-400 bg-slate-200', !managementOpen && 'hover:bg-slate-100'),
