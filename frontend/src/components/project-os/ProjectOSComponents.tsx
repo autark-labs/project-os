@@ -36,46 +36,46 @@ const toneClasses: Record<Tone, {
   text: string;
 }> = {
   brand: {
-    badge: 'border-po-border-accent bg-po-brand-soft text-violet-100',
+    badge: 'border-po-info-border bg-po-info-soft text-po-brand',
     glow: 'shadow-po-brand-glow',
-    icon: 'bg-po-brand-soft text-po-brand-strong',
+    icon: 'bg-po-info-soft text-po-brand',
     pulse: 'bg-po-brand shadow-po-pulse-brand',
-    text: 'text-po-brand-strong',
+    text: 'text-po-brand',
   },
   success: {
-    badge: 'border-po-success-border bg-po-success-soft text-emerald-100',
+    badge: 'border-po-success-border bg-po-success-soft text-po-success',
     glow: 'shadow-po-success-glow',
-    icon: 'bg-po-success-soft text-emerald-200',
+    icon: 'bg-po-success-soft text-po-success',
     pulse: 'bg-po-success shadow-po-pulse-success',
-    text: 'text-emerald-200',
+    text: 'text-po-success',
   },
   warning: {
-    badge: 'border-po-warning-border bg-po-warning-soft text-amber-100',
+    badge: 'border-po-warning-border bg-po-warning-soft text-po-warning',
     glow: 'shadow-po-warning-glow',
-    icon: 'bg-po-warning-soft text-amber-200',
+    icon: 'bg-po-warning-soft text-po-warning',
     pulse: 'bg-po-warning shadow-po-pulse-warning',
-    text: 'text-amber-200',
+    text: 'text-po-warning',
   },
   danger: {
-    badge: 'border-po-danger-border bg-po-danger-soft text-red-100',
+    badge: 'border-po-danger-border bg-po-danger-soft text-po-danger',
     glow: 'shadow-po-danger-glow',
-    icon: 'bg-po-danger-soft text-red-200',
+    icon: 'bg-po-danger-soft text-po-danger',
     pulse: 'bg-po-danger shadow-po-pulse-danger',
-    text: 'text-red-200',
+    text: 'text-po-danger',
   },
   info: {
-    badge: 'border-po-info-border bg-po-info-soft text-sky-100',
+    badge: 'border-po-info-border bg-po-info-soft text-po-brand',
     glow: 'shadow-po-info-glow',
-    icon: 'bg-po-info-soft text-sky-200',
+    icon: 'bg-po-info-soft text-po-brand',
     pulse: 'bg-po-info shadow-po-pulse-info',
-    text: 'text-sky-200',
+    text: 'text-po-brand',
   },
   teal: {
-    badge: 'border-po-teal-border bg-po-teal-soft text-teal-100',
+    badge: 'border-po-teal-border bg-po-teal-soft text-po-teal',
     glow: 'shadow-po-teal-glow',
-    icon: 'bg-po-teal-soft text-teal-200',
+    icon: 'bg-po-teal-soft text-po-teal',
     pulse: 'bg-po-teal shadow-po-pulse-teal',
-    text: 'text-teal-200',
+    text: 'text-po-teal',
   },
   neutral: {
     badge: 'border-po-border-strong bg-po-surface-inset text-po-text-secondary',
@@ -88,14 +88,14 @@ const toneClasses: Record<Tone, {
 
 const accentGlow: Record<PageAccent, string> = {
   overview: 'from-po-overview/22 via-po-info/10 to-transparent',
-  applications: 'from-po-applications/18 via-po-brand/10 to-transparent',
-  marketplace: 'from-po-marketplace/22 via-po-brand/12 to-transparent',
+  applications: 'from-po-applications/18 via-po-info/10 to-transparent',
+  marketplace: 'from-po-marketplace/22 via-po-info/12 to-transparent',
   network: 'from-po-network/18 via-po-info/10 to-transparent',
   storage: 'from-po-storage/18 via-po-teal/10 to-transparent',
   backups: 'from-po-backups/18 via-po-success/10 to-transparent',
-  monitoring: 'from-po-monitoring/18 via-po-brand/10 to-transparent',
-  automation: 'from-po-automation/18 via-po-brand/10 to-transparent',
-  settings: 'from-po-settings/16 via-po-brand/8 to-transparent',
+  monitoring: 'from-po-monitoring/18 via-po-warning/10 to-transparent',
+  automation: 'from-po-automation/18 via-po-info/10 to-transparent',
+  settings: 'from-po-settings/16 via-po-info/8 to-transparent',
   support: 'from-po-support/18 via-po-info/10 to-transparent',
 };
 
@@ -171,9 +171,9 @@ export function SoftCard({
   );
 }
 
-export const surfaceFrameClass = 'overflow-hidden rounded-lg border border-white/10 bg-slate-950/70 shadow-po-frame';
-export const surfacePanelClass = 'rounded-lg border border-white/10 bg-slate-950/70 p-5 shadow-po-panel';
-export const surfaceInsetClass = 'rounded-lg border border-slate-800 bg-slate-900/40 p-3';
+export const surfaceFrameClass = 'overflow-hidden rounded-lg border border-po-border bg-po-surface text-po-text shadow-po-frame';
+export const surfacePanelClass = 'rounded-lg border border-po-border bg-po-surface p-5 text-po-text shadow-po-panel';
+export const surfaceInsetClass = 'rounded-lg border border-po-border bg-po-surface-inset p-3 text-sidebar-foreground';
 
 export function SurfaceFrame({ as: Component = 'div', children, className }: { as?: 'div' | 'header'; children: ReactNode; className?: string }) {
   return <Component className={cn(surfaceFrameClass, className)}>{children}</Component>;
@@ -550,8 +550,8 @@ export function QuickAccessAppTile({
   statusTone?: Tone;
   to?: string;
 }) {
-  const primaryButtonClass = 'h-9 rounded-lg border-sky-400/30 bg-sky-500 px-4 text-sm font-semibold text-white shadow-po-info-glow hover:bg-sky-400';
-  const secondaryButtonClass = 'h-9 rounded-lg border-slate-700/75 bg-slate-950/45 px-4 text-sm font-semibold text-slate-200 hover:border-slate-600 hover:bg-slate-800 hover:text-white';
+  const primaryButtonClass = 'h-9 rounded-lg border-po-info-border bg-po-brand px-4 text-sm font-semibold text-sidebar-primary-foreground shadow-po-info-glow hover:bg-po-info';
+  const secondaryButtonClass = 'h-9 rounded-lg border-po-border bg-po-surface-soft px-4 text-sm font-semibold text-po-text-secondary hover:border-po-border-accent hover:bg-po-surface-hover hover:text-po-text';
   const action = href ? (
     <Button asChild className={primaryButtonClass} size="sm">
       <a href={href} rel="noreferrer" target="_blank">{actionLabel}</a>
@@ -587,19 +587,19 @@ export function QuickAccessAppTile({
   return (
     <SoftCard
       className={cn(
-        'grid min-h-[214px] content-between overflow-hidden rounded-xl border-slate-700/65 bg-slate-900/70 text-left shadow-po-card',
-        'transition hover:-translate-y-0.5 hover:border-sky-400/45 hover:bg-slate-900/85 hover:shadow-po-info-glow',
+        'grid min-h-[214px] content-between overflow-hidden rounded-xl border-po-border bg-po-surface text-left shadow-po-card',
+        'transition hover:-translate-y-0.5 hover:border-po-info-border hover:bg-po-surface-elevated hover:shadow-po-info-glow',
         className,
       )}
     >
       <div className="grid gap-4">
         <div className="flex items-start justify-between gap-3">
-          <div className="grid size-16 place-items-center overflow-hidden rounded-xl border border-slate-700/60 bg-slate-950/50 text-sky-200 shadow-po-sm">
+          <div className="grid size-16 place-items-center overflow-hidden rounded-xl border border-po-border bg-po-surface-soft text-po-brand shadow-po-sm">
             {iconUrl ? <img alt="" className="size-full object-contain p-2" src={iconUrl} /> : icon || <Sparkles className="size-8" />}
           </div>
           <div className="flex items-center gap-2">
             {status && <GlowBadge className="rounded-full px-2.5 py-0.5 text-xs" tone={statusTone}>{status}</GlowBadge>}
-            <Button asChild aria-label="App details" className="size-8 rounded-lg border-slate-700/65 bg-slate-950/35 text-slate-400 hover:bg-slate-800 hover:text-white" size="icon" variant="outline">
+            <Button asChild aria-label="App details" className="size-8 rounded-lg border-po-border bg-po-surface-soft text-po-text-muted hover:bg-po-surface-hover hover:text-po-text" size="icon" variant="outline">
               <Link to={detailRoute}>
                 <MoreVertical className="size-4" />
               </Link>
@@ -607,8 +607,8 @@ export function QuickAccessAppTile({
           </div>
         </div>
         <div>
-          <p className="m-0 truncate text-base font-bold text-white">{name}</p>
-          {description && <p className="mt-2 line-clamp-2 min-h-10 text-sm leading-5 text-slate-400">{description}</p>}
+          <p className="m-0 truncate text-base font-bold text-po-text">{name}</p>
+          {description && <p className="mt-2 line-clamp-2 min-h-10 text-sm leading-5 text-po-text-muted">{description}</p>}
         </div>
       </div>
       <div className={cn('grid gap-2 pt-4', secondaryAction && '2xl:grid-cols-2')}>
@@ -798,7 +798,7 @@ export function ViewModeToggle({ className }: { className?: string }) {
       <Button
         className={cn(
           'h-7 rounded-po-xs px-2 text-xs',
-          !advanced ? 'bg-po-brand text-white shadow-po-brand-glow hover:bg-po-brand/90' : 'bg-transparent text-po-text-muted hover:bg-po-surface-hover hover:text-po-text',
+          !advanced ? 'bg-po-brand text-sidebar-primary-foreground shadow-po-brand-glow hover:bg-po-brand/90' : 'bg-transparent text-po-text-muted hover:bg-po-surface-hover hover:text-po-text',
         )}
         onClick={() => setViewMode('basic')}
         type="button"
@@ -809,7 +809,7 @@ export function ViewModeToggle({ className }: { className?: string }) {
       <Button
         className={cn(
           'h-7 rounded-po-xs px-2 text-xs',
-          advanced ? 'bg-po-brand text-white shadow-po-brand-glow hover:bg-po-brand/90' : 'bg-transparent text-po-text-muted hover:bg-po-surface-hover hover:text-po-text',
+          advanced ? 'bg-po-brand text-sidebar-primary-foreground shadow-po-brand-glow hover:bg-po-brand/90' : 'bg-transparent text-po-text-muted hover:bg-po-surface-hover hover:text-po-text',
         )}
         onClick={() => setViewMode('advanced')}
         type="button"

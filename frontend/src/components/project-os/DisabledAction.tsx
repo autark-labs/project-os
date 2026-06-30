@@ -26,7 +26,7 @@ export function DisabledAction({ children, className, disabled, reason }: Disabl
             {children}
           </span>
         </TooltipTrigger>
-        <TooltipContent className="max-w-72 border border-slate-700 bg-slate-950 text-slate-200">
+        <TooltipContent className="max-w-72 border border-sidebar-border bg-po-sidebar text-sidebar-foreground shadow-po-md">
           {reason}
         </TooltipContent>
       </Tooltip>

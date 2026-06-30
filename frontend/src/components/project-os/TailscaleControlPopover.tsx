@@ -112,7 +112,7 @@ export function TailscaleControlPopover({ align = 'end', check = null, className
         </div>
 
         {!view.connected && (
-          <div className="rounded-po-sm border border-po-warning/25 bg-po-warning/10 p-3 text-xs text-po-text-secondary">
+          <div className="rounded-po-sm border border-po-warning-border bg-po-warning-soft p-3 text-xs text-po-text-secondary">
             <p className="m-0 font-semibold text-po-warning">Private access is optional.</p>
             <p className="m-0 mt-1 text-po-text-muted">Project OS still works on your home network. Sign in when you want private links from trusted devices.</p>
             <button className="mt-2 inline-flex items-center gap-1 text-left font-mono text-[0.72rem] text-po-text-secondary hover:text-po-text" onClick={copySetupCommand} type="button">
@@ -177,10 +177,10 @@ function StatusRow({ label, ready }: { label: string; ready: boolean }) {
 
 function toneClass(tone: 'amber' | 'green' | 'red') {
   if (tone === 'green') {
-    return 'border-po-success/30 bg-po-success/10 text-po-success hover:bg-po-success/15';
+    return 'border-po-success-border bg-po-success-soft text-po-success hover:bg-po-success-soft/80';
   }
   if (tone === 'amber') {
-    return 'border-po-warning/35 bg-po-warning/10 text-po-warning hover:bg-po-warning/15';
+    return 'border-po-warning-border bg-po-warning-soft text-po-warning hover:bg-po-warning-soft/80';
   }
-  return 'border-po-danger/35 bg-po-danger/10 text-po-danger hover:bg-po-danger/15';
+  return 'border-po-danger-border bg-po-danger-soft text-po-danger hover:bg-po-danger-soft/80';
 }
