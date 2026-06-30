@@ -43,7 +43,7 @@ import type {
 import { operationBlocksManagement } from '../extensions/ApplicationsPage.operations.js';
 
 type ApplicationSettingsTabProps = {
-  actions: Pick<ApplicationActionHandlers, 'onDirtyChange' | 'onSaveSettings' | 'onSettingsPlanRequest'>;
+  actions: Pick<ApplicationActionHandlers, 'onDirtyChange' | 'onSaveSettings' | 'onSettingsPlanRequest' | 'onSetPrivateNetworkAccess'>;
   item: ApplicationSurfaceItem;
   loadingAction: ApplicationSettingsAction | null;
 };
@@ -63,7 +63,6 @@ export function ApplicationSettingsTab({ actions, item, loadingAction }: Applica
       item.settings.backupRetention,
       item.settings.expectedLocalPort,
       item.settings.expectedProtocol,
-      item.settings.tailscaleEnabled,
     ],
   );
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -81,8 +80,10 @@ export function ApplicationSettingsTab({ actions, item, loadingAction }: Applica
   const values = useWatch({ control }) as ApplicationSettingsFormValues;
   const planning = loadingAction === 'planning';
   const saving = loadingAction === 'saving' || isSubmitting;
+  const accessChanging = loadingAction === 'private_access';
   const operationBusy = operationBlocksManagement(item.operationState);
-  const busy = planning || saving || operationBusy;
+  const busy = planning || saving || accessChanging || operationBusy;
+  const privateNetwork = privateNetworkStatus(item, accessChanging);
 
   useEffect(() => {
     reset(initialValues);
@@ -111,7 +112,7 @@ export function ApplicationSettingsTab({ actions, item, loadingAction }: Applica
   }, [isDirty]);
 
   const prepareSave = handleSubmit(async (nextValues) => {
-    if (!editable || operationBusy) {
+    if (!editable || busy) {
       return;
     }
 
@@ -210,15 +211,30 @@ export function ApplicationSettingsTab({ actions, item, loadingAction }: Applica
         </FieldSet>
 
         <FieldSet className="rounded-xl border border-sky-400/20 bg-slate-800 p-3">
-          <SettingsSectionHeader icon={KeyRound} status={values.tailscaleEnabled ? 'Private access on' : 'Local access'} title="Access" />
+          <SettingsSectionHeader icon={KeyRound} status={privateNetwork.status} title="Access" />
 
-          <SwitchField
-            control={control}
-            disabled={!editable || busy}
-            explanation="This asks Project OS to maintain a private Tailscale posture for the app. Saving may create, repair, or remove private access."
-            label="Private access with Tailscale"
-            name="tailscaleEnabled"
-          />
+          <Field className="rounded-lg border border-sky-400/20 bg-slate-900 px-3 py-2" data-disabled={!editable || busy} orientation="horizontal">
+            <FieldContent>
+              <SettingLabel
+                explanation="When this is on, Project OS serves the app across your Tailscale private network with a stable HTTPS link. Turning it off removes that private network route and keeps local access unchanged."
+                inputId="private-network-access"
+                label="Private network"
+              />
+              <FieldDescription className="text-sky-100/60">{privateNetwork.description}</FieldDescription>
+              {item.settings.privateAccessUrl && (
+                <p className="truncate font-mono text-xs text-sky-50/80">{item.settings.privateAccessUrl}</p>
+              )}
+            </FieldContent>
+            <div className="flex shrink-0 items-center gap-2">
+              {accessChanging && <Loader2 className="size-4 animate-spin text-cyan-200" />}
+              <Switch
+                checked={item.settings.tailscaleEnabled}
+                disabled={!editable || busy}
+                id="private-network-access"
+                onCheckedChange={(checked) => void actions.onSetPrivateNetworkAccess(item.id, checked)}
+              />
+            </div>
+          </Field>
         </FieldSet>
 
         <FieldSet className="rounded-xl border border-sky-400/20 bg-slate-800 p-3">
@@ -257,7 +273,9 @@ export function ApplicationSettingsTab({ actions, item, loadingAction }: Applica
             <p className="mt-1 text-xs leading-5 text-sky-100/60">
               {operationBusy
                 ? 'Settings are paused while Project OS finishes the current app action.'
-                : 'Save checks impact first. Project OS will warn before restarting containers or changing access.'}
+                : accessChanging
+                  ? 'Settings are paused while Project OS updates private network access.'
+                  : 'Save checks impact first. Project OS will warn before restarting containers.'}
             </p>
           </div>
           <div className="flex shrink-0 gap-2">
@@ -366,7 +384,7 @@ function SwitchField({
   disabled: boolean;
   explanation: string;
   label: string;
-  name: 'autoRepairEnabled' | 'backupEnabled' | 'tailscaleEnabled';
+  name: 'autoRepairEnabled' | 'backupEnabled';
 }) {
   const inputId = useId();
 
@@ -509,7 +527,34 @@ function settingsFormValues(item: ApplicationSurfaceItem): ApplicationSettingsFo
     backupRetention: item.settings.backupRetention,
     expectedProtocol: item.settings.expectedProtocol === 'https' ? 'https' : 'http',
     localPort: item.settings.expectedLocalPort,
-    tailscaleEnabled: item.settings.tailscaleEnabled,
+  };
+}
+
+function privateNetworkStatus(item: ApplicationSurfaceItem, accessChanging: boolean) {
+  if (accessChanging) {
+    return {
+      description: 'Project OS is updating the private network route.',
+      status: 'Updating',
+    };
+  }
+
+  if (!item.settings.tailscaleEnabled) {
+    return {
+      description: 'This app is only available through its local link.',
+      status: 'Local access',
+    };
+  }
+
+  if (item.settings.privateLinkStatus === 'configured' && item.settings.privateAccessUrl) {
+    return {
+      description: 'This app is available across your Tailscale private network.',
+      status: 'Private network on',
+    };
+  }
+
+  return {
+    description: 'Private network access is enabled, but the route needs attention.',
+    status: 'Needs repair',
   };
 }
 

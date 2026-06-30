@@ -224,17 +224,17 @@ public class InstalledAppsController {
 
     @PostMapping("/{id}/private-access/enable")
     public AppActionResult enablePrivateAccess(@PathVariable String id) {
-        return refreshAfter(appLifecycleService.enablePrivateAccess(id));
+        return invalidateAfter(appLifecycleService.enablePrivateAccess(id));
     }
 
     @PostMapping("/{id}/private-access/repair")
     public AppActionResult repairPrivateAccess(@PathVariable String id) {
-        return refreshAfter(appLifecycleService.enablePrivateAccess(id));
+        return invalidateAfter(appLifecycleService.enablePrivateAccess(id));
     }
 
     @PostMapping("/{id}/private-access/disable")
     public AppActionResult disablePrivateAccess(@PathVariable String id) {
-        return refreshAfter(appLifecycleService.disablePrivateAccess(id));
+        return invalidateAfter(appLifecycleService.disablePrivateAccess(id));
     }
 
     @PutMapping("/{id}/settings")
@@ -265,6 +265,11 @@ public class InstalledAppsController {
 
     private <T> T refreshAfter(T result) {
         applicationStateService.refreshInBackground();
+        return result;
+    }
+
+    private <T> T invalidateAfter(T result) {
+        applicationStateService.invalidate();
         return result;
     }
 

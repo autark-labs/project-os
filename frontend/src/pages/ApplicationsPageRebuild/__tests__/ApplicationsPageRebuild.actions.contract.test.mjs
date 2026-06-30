@@ -181,6 +181,30 @@ test('applications rebuild starts app backup jobs from real backup actions', () 
   assert.match(advanced, /actions\.onCreateBackup\(item\.id\)/);
 });
 
+test('applications rebuild changes private network access as a standalone settings action', () => {
+  const page = source('src/pages/ApplicationsPageRebuild/ApplicationsPage.tsx');
+  const panel = source('src/pages/ApplicationsPageRebuild/ApplicationManagementPanel.tsx');
+  const settings = source('src/pages/ApplicationsPageRebuild/managementTabs/ApplicationSettingsTab.tsx');
+  const types = source('src/pages/ApplicationsPageRebuild/extensions/ApplicationsPage.types.ts');
+
+  assert.match(types, /ApplicationSettingsAction = 'planning' \| 'saving' \| 'private_access'/);
+  assert.match(types, /onSetPrivateNetworkAccess: \(id: string, enabled: boolean\) => Promise<void>/);
+
+  assert.match(page, /runPrivateNetworkAccessChange\(appId: string, enabled: boolean\)/);
+  assert.match(page, /setSettingsLoading\(appId, 'private_access'\)/);
+  assert.match(page, /InstalledAppsAPIClient\.enablePrivateAccess\(appId\)/);
+  assert.match(page, /InstalledAppsAPIClient\.disablePrivateAccess\(appId\)/);
+  assert.match(page, /setRuntimeAppInApplicationStateCache\(queryClient, result\.app\)/);
+  assert.match(page, /invalidateNetworkQueries\(queryClient\)/);
+  assert.doesNotMatch(page, /repairPrivateAccess\(appId\)/);
+
+  assert.match(panel, /onSetPrivateNetworkAccess/);
+  assert.match(settings, /loadingAction === 'private_access'/);
+  assert.match(settings, /actions\.onSetPrivateNetworkAccess\(item\.id, checked\)/);
+  assert.match(settings, /Private network/);
+  assert.doesNotMatch(settings, /name: 'autoRepairEnabled' \| 'backupEnabled' \| 'tailscaleEnabled'/);
+});
+
 test('applications rebuild surfaces backup-aware safety warnings around risky flows', () => {
   const panel = source('src/pages/ApplicationsPageRebuild/ApplicationManagementPanel.tsx');
   const recovery = source('src/pages/ApplicationsPageRebuild/managementTabs/ApplicationRecoveryTab.tsx');

@@ -32,6 +32,7 @@ type ApplicationManagementPanelProps = {
     | 'onRunUninstall'
     | 'onSaveSettings'
     | 'onSettingsPlanRequest'
+    | 'onSetPrivateNetworkAccess'
     | 'onStart'
     | 'onStop'
     | 'onUnpinObservedService'

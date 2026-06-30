@@ -335,7 +335,8 @@ public class AppLifecycleService {
         saveRepairState(app, automatic ? "guardian_repair_running" : "manual_repair_running");
         repository.recordEvent(app.appId(), eventPrefix + "repair_started", "Project OS noticed: " + before.message() + ". " + repairPlanLabel(before));
         activityWarning(eventPrefix + "repair_started", "Repair started for " + app.appName(), before.message() + ". " + repairPlanLabel(before), app.appId());
-        if (shouldRepairPrivateAccess(before)) {
+        boolean repairingPrivateAccess = shouldRepairPrivateAccess(before);
+        if (repairingPrivateAccess) {
             try {
                 AppActionResult result = enablePrivateAccess(appId);
                 logs.addAll(result.logs() == null ? List.of() : result.logs());
@@ -369,8 +370,9 @@ public class AppLifecycleService {
 
         AppHealthSnapshot after = healthSnapshot(app);
         logs.add("After repair: " + after.status() + " - " + after.message());
-        String status = "Ready".equals(after.status()) || "Starting".equals(after.status()) ? "completed" : "needs_attention";
-        String message = repairMessage(app, before, after);
+        boolean privateAccessRepaired = repairingPrivateAccess && "reachable".equals(after.privateAccessStatus());
+        String status = "Ready".equals(after.status()) || "Starting".equals(after.status()) || privateAccessRepaired ? "completed" : "needs_attention";
+        String message = repairMessage(app, before, after, privateAccessRepaired);
         saveRepairState(app, automatic ? "guardian_repair_" + status : "manual_repair_" + status);
         repository.recordEvent(app.appId(), eventPrefix + "repair_completed", message);
         if ("completed".equals(status)) {
@@ -684,7 +686,10 @@ public class AppLifecycleService {
                 || "missing".equals(snapshot.privateAccessStatus());
     }
 
-    private String repairMessage(InstalledApp app, AppHealthSnapshot before, AppHealthSnapshot after) {
+    private String repairMessage(InstalledApp app, AppHealthSnapshot before, AppHealthSnapshot after, boolean privateAccessRepaired) {
+        if (privateAccessRepaired) {
+            return "Project OS repaired the private network link for " + app.appName() + ".";
+        }
         if ("Ready".equals(after.status())) {
             return "Project OS repaired " + app.appName() + ". It is ready now.";
         }

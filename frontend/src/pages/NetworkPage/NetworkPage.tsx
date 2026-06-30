@@ -12,7 +12,6 @@ import { apiErrorMessage } from '@/api/httpClient';
 import { showActionErrorNotification, showActionNotification } from '@/lib/actionNotifications';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
 import {
-  applicationStateQueryKey,
   invalidateApplicationState,
   setRuntimeAppInApplicationStateCache,
   useApplicationStateRepository,
@@ -23,7 +22,6 @@ import {
   useRemoveStalePrivateAccessMutation,
 } from '@/repositories/networkRepository';
 import type { AppRuntimeView } from '@/types/app';
-import type { ApplicationState } from '@/types/applicationState';
 import type { PrivateAccessReconciliationReport, SystemSetupStatus, TailscaleStatus } from '@/types/network';
 import { HostSetupPanel } from './HostSetupPanel';
 import { NetworkAdvancedPanel } from './NetworkAdvancedPanel';
@@ -90,23 +88,19 @@ function NetworkPage() {
   }, []);
 
   const updatePrivateAccess = useCallback(async (app: AppRuntimeView, enabled: boolean) => {
-    const previousState = queryClient.getQueryData<ApplicationState | undefined>(applicationStateQueryKey);
     setAppActionLoading(app.appId);
     setActionError(null);
-    setRuntimeAppInApplicationStateCache(queryClient, appWithOptimisticPrivateAccess(app, enabled));
     try {
       const result = enabled
-        ? await InstalledAppsAPIClient.repairPrivateAccess(app.appId)
+        ? await InstalledAppsAPIClient.enablePrivateAccess(app.appId)
         : await InstalledAppsAPIClient.disablePrivateAccess(app.appId);
       if (result.app) {
         setRuntimeAppInApplicationStateCache(queryClient, result.app);
-      } else {
-        void invalidateApplicationState(queryClient);
       }
-      showActionNotification(result, enabled ? 'Private access ready' : 'Private access turned off');
+      showActionNotification(result, enabled ? 'Private network ready' : 'Private network turned off');
+      void invalidateApplicationState(queryClient);
       void invalidateNetworkQueries(queryClient);
     } catch (err) {
-      queryClient.setQueryData<ApplicationState | undefined>(applicationStateQueryKey, previousState);
       const message = apiErrorMessage(err, 'Unable to update private access for this app.');
       setActionError(message);
       showActionErrorNotification(err, 'Private access update failed');
@@ -193,33 +187,6 @@ function NetworkPage() {
       )}
     </PageShell>
   );
-}
-
-function appWithOptimisticPrivateAccess(app: AppRuntimeView, enabled: boolean): AppRuntimeView {
-  return {
-    ...app,
-    desiredAccess: app.desiredAccess ? {
-      ...app.desiredAccess,
-      mode: enabled ? 'local-and-private' : 'local',
-      label: enabled ? 'Private / Tailscale' : 'This Server',
-      privateUrl: enabled ? app.desiredAccess.privateUrl : null,
-      privateAccessRequirement: enabled ? app.desiredAccess.privateAccessRequirement : 'disabled',
-      privateAccessRequired: enabled ? app.desiredAccess.privateAccessRequired : false,
-      privateAccessRecommended: enabled ? app.desiredAccess.privateAccessRecommended : false,
-    } : app.desiredAccess,
-    observedAccess: app.observedAccess ? {
-      ...app.observedAccess,
-      privateUrl: enabled ? app.observedAccess.privateUrl : null,
-      privateLinkStatus: enabled ? 'configured' : 'not_enabled',
-    } : app.observedAccess,
-    settings: app.settings ? {
-      ...app.settings,
-      tailscaleEnabled: enabled,
-      privateAccessUrl: enabled ? app.settings.privateAccessUrl : null,
-      desiredAccessMode: enabled ? 'local-and-private' : 'local',
-      privateAccessRequirement: enabled ? app.settings.privateAccessRequirement : 'disabled',
-    } : app.settings,
-  };
 }
 
 function TailscaleAccessCard({ posture, setup, tailscale }: { posture: ReturnType<typeof buildNetworkPosture>; setup: SystemSetupStatus | null; tailscale: TailscaleStatus | null }) {

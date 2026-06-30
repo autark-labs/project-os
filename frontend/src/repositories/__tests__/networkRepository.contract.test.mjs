@@ -24,3 +24,16 @@ test('Access page data loading is owned by the network repository', () => {
   assert.match(networkRepository, /useRemoveStalePrivateAccessMutation/);
   assert.match(networkRepository, /refetchInterval:\s*10_000/);
 });
+
+test('Access page private access mutations consume action results without local access projection', () => {
+  const networkPage = source('src/pages/NetworkPage/NetworkPage.tsx');
+
+  assert.match(networkPage, /InstalledAppsAPIClient\.enablePrivateAccess\(app\.appId\)/);
+  assert.match(networkPage, /InstalledAppsAPIClient\.disablePrivateAccess\(app\.appId\)/);
+  assert.match(networkPage, /setRuntimeAppInApplicationStateCache\(queryClient, result\.app\)/);
+  assert.match(networkPage, /invalidateApplicationState\(queryClient\)/);
+  assert.match(networkPage, /invalidateNetworkQueries\(queryClient\)/);
+  assert.doesNotMatch(networkPage, /appWithOptimisticPrivateAccess/);
+  assert.doesNotMatch(networkPage, /repairPrivateAccess\(app\.appId\)/);
+  assert.doesNotMatch(networkPage, /queryClient\.setQueryData<ApplicationState/);
+});

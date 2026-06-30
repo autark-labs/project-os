@@ -49,7 +49,7 @@ test('applications rebuild splits settings and links management tabs into focuse
   assert.match(telemetry, /memoryPercent/);
   assert.match(telemetry, /networkIo/);
   assert.match(page, /InstalledAppsAPIClient\.updateSettings\(appId, nextSettings\)/);
-  assert.match(page, /InstalledAppsAPIClient\.repairPrivateAccess\(appId\)/);
+  assert.match(page, /InstalledAppsAPIClient\.enablePrivateAccess\(appId\)/);
   assert.match(page, /InstalledAppsAPIClient\.disablePrivateAccess\(appId\)/);
   assert.match(liveModel, /links: appLinks\(app\)/);
   assert.match(liveModel, /settings: appSettings\(app\)/);
@@ -74,10 +74,14 @@ test('applications rebuild settings tab uses a guarded batch form for app settin
   assert.match(settings, /onSaveSettings\(item\.id, pendingValues\)/);
   assert.doesNotMatch(settings, /onAutoRepairChange\(item\.id, checked\)/);
   assert.doesNotMatch(settings, /onPrivateAccessChange\(item\.id, checked\)/);
+  assert.match(settings, /onSetPrivateNetworkAccess/);
+  assert.match(settings, /actions\.onSetPrivateNetworkAccess\(item\.id, checked\)/);
   assert.match(page, /saveApplicationSettings\(appId: string, values: ApplicationSettingsFormValues\)/);
   assert.match(page, /InstalledAppsAPIClient\.settingsChangePlan\(appId, nextSettings\)/);
   assert.match(page, /InstalledAppsAPIClient\.updateSettings\(appId, nextSettings\)/);
-  assert.match(page, /values\.tailscaleEnabled !== app\.settings\?\.tailscaleEnabled/);
+  assert.doesNotMatch(page, /values\.tailscaleEnabled !== app\.settings\?\.tailscaleEnabled/);
+  assert.doesNotMatch(page, /appWithOptimisticPrivateAccess/);
+  assert.doesNotMatch(settings, /name="tailscaleEnabled"/);
   assert.match(page, /window\.confirm\('Discard unsaved app settings\?'\)/);
   assert.match(rail, /canCloseManagement/);
 });

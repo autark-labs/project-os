@@ -201,6 +201,36 @@ class InstalledAppsControllerTests {
     }
 
     @Test
+    void privateAccessMutationInvalidatesCanonicalAppStateImmediately() {
+        AppLifecycleService lifecycleService = mock(AppLifecycleService.class);
+        MonitoringMetricsService metricsService = mock(MonitoringMetricsService.class);
+        AppUpdateService updateService = mock(AppUpdateService.class);
+        ApplicationStateService applicationStateService = mock(ApplicationStateService.class);
+        InstalledAppsController controller = new InstalledAppsController(
+                lifecycleService,
+                metricsService,
+                updateService,
+                applicationStateService,
+                jobService());
+        AppRuntimeView app = appRuntimeView("vaultwarden");
+        AppActionResult result = new AppActionResult(
+                "vaultwarden",
+                "private-access",
+                "completed",
+                "Vaultwarden is available privately.",
+                app,
+                List.of(),
+                Instant.parse("2026-06-21T12:00:00Z"));
+        when(lifecycleService.enablePrivateAccess("vaultwarden")).thenReturn(result);
+
+        AppActionResult returned = controller.enablePrivateAccess("vaultwarden");
+
+        assertThat(returned).isEqualTo(result);
+        verify(applicationStateService).invalidate();
+        verify(applicationStateService, never()).refreshInBackground();
+    }
+
+    @Test
     void uninstallEndpointReturnsDurableJobWithoutRemovingAppSynchronously() {
         AppLifecycleService lifecycleService = mock(AppLifecycleService.class);
         MonitoringMetricsService metricsService = mock(MonitoringMetricsService.class);

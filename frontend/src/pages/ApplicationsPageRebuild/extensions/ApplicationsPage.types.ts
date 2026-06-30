@@ -4,7 +4,7 @@ import type { ObservedServiceAdoptionPlan } from '@/types/observedService';
 
 export type ApplicationRuntimeState = 'running' | 'starting' | 'paused' | 'needs_attention' | 'found' | 'shortcut';
 export type ApplicationRuntimeAction = 'start' | 'stop' | 'restart' | 'repair' | 'backup';
-export type ApplicationSettingsAction = 'planning' | 'saving';
+export type ApplicationSettingsAction = 'planning' | 'saving' | 'private_access';
 export type AppManagementState = 'managed' | 'found' | 'linked';
 export type AppReadinessState = 'ready' | 'starting' | 'paused' | 'stopped' | 'unreachable' | 'unknown';
 export type AppAttentionState = 'none' | 'needs_review' | 'conflict' | 'blocked';
@@ -82,6 +82,7 @@ export type ApplicationActionHandlers = {
   onRunUninstall: (id: string) => Promise<void>;
   onSaveSettings: (id: string, values: ApplicationSettingsFormValues) => Promise<void>;
   onSettingsPlanRequest: (id: string, values: ApplicationSettingsFormValues) => Promise<ApplicationSettingsImpact | null>;
+  onSetPrivateNetworkAccess: (id: string, enabled: boolean) => Promise<void>;
   onStart: (id: string) => void;
   onStop: (id: string) => void;
   onUnpinObservedService: (serviceId: string) => Promise<void>;
@@ -94,7 +95,6 @@ export type ApplicationSettingsFormValues = {
   backupRetention: number;
   expectedProtocol: 'http' | 'https';
   localPort: number | null;
-  tailscaleEnabled: boolean;
 };
 
 export type ApplicationSettingsImpact = {

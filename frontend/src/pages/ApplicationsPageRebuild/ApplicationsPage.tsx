@@ -313,11 +313,10 @@ export const ApplicationsPage = () => {
 
     const previousState = queryClient.getQueryData<ApplicationState | undefined>(applicationStateQueryKey);
     const nextSettings = settingsFromFormValues(app, values);
-    const privateAccessChanged = values.tailscaleEnabled !== app.settings?.tailscaleEnabled;
 
     setSettingsLoading(appId, 'saving');
     setRuntimeAppInApplicationStateCache(queryClient, {
-      ...appWithOptimisticPrivateAccess(app, values.tailscaleEnabled),
+      ...app,
       settings: nextSettings,
     });
 
@@ -328,16 +327,6 @@ export const ApplicationsPage = () => {
       }
       const updatedApp = await InstalledAppsAPIClient.updateSettings(appId, nextSettings);
       setRuntimeAppInApplicationStateCache(queryClient, updatedApp);
-
-      if (privateAccessChanged) {
-        const result = values.tailscaleEnabled
-          ? await InstalledAppsAPIClient.repairPrivateAccess(appId)
-          : await InstalledAppsAPIClient.disablePrivateAccess(appId);
-        if (result.app) {
-          setRuntimeAppInApplicationStateCache(queryClient, result.app);
-        }
-        showActionNotification(result, values.tailscaleEnabled ? 'Private access ready' : 'Private access turned off');
-      }
 
       showActionNotification({
         ok: true,
@@ -351,6 +340,27 @@ export const ApplicationsPage = () => {
     } catch (err) {
       restoreApplicationState(previousState);
       showActionErrorNotification(err, 'Settings update failed');
+      throw err;
+    } finally {
+      setSettingsLoading(appId, null);
+    }
+  }
+
+  async function runPrivateNetworkAccessChange(appId: string, enabled: boolean) {
+    setSettingsLoading(appId, 'private_access');
+
+    try {
+      const result = enabled
+        ? await InstalledAppsAPIClient.enablePrivateAccess(appId)
+        : await InstalledAppsAPIClient.disablePrivateAccess(appId);
+      if (result.app) {
+        setRuntimeAppInApplicationStateCache(queryClient, result.app);
+      }
+      showActionNotification(result, enabled ? 'Private network ready' : 'Private network turned off');
+      void invalidateApplicationState(queryClient);
+      void invalidateNetworkQueries(queryClient);
+    } catch (err) {
+      showActionErrorNotification(err, enabled ? 'Private network could not be enabled' : 'Private network could not be turned off');
       throw err;
     } finally {
       setSettingsLoading(appId, null);
@@ -480,6 +490,7 @@ export const ApplicationsPage = () => {
     onRunUninstall: runUninstall,
     onSaveSettings: saveApplicationSettings,
     onSettingsPlanRequest: requestSettingsPlan,
+    onSetPrivateNetworkAccess: runPrivateNetworkAccessChange,
     onStart: handleStart,
     onStop: handleStop,
     onUnpinObservedService: unpinObservedService,
@@ -649,12 +660,8 @@ function settingsFromFormValues(app: AppRuntimeView, values: ApplicationSettings
       frequency: values.backupFrequency,
       retention: values.backupRetention,
     },
-    desiredAccessMode: values.tailscaleEnabled ? 'local-and-private' : 'local',
     expectedLocalPort: values.localPort,
     expectedProtocol: protocol,
-    privateAccessRequirement: values.tailscaleEnabled ? currentSettings.privateAccessRequirement : 'disabled',
-    privateAccessUrl: values.tailscaleEnabled ? currentSettings.privateAccessUrl : null,
-    tailscaleEnabled: values.tailscaleEnabled,
   };
 }
 
@@ -684,33 +691,6 @@ function accessUrlWithPort(currentUrl: string | null | undefined, protocol: stri
   } catch {
     return `${protocol}://localhost:${port}`;
   }
-}
-
-function appWithOptimisticPrivateAccess(app: AppRuntimeView, enabled: boolean): AppRuntimeView {
-  const currentSettings = settingsWithDefaults(app);
-
-  return {
-    ...app,
-    canonicalAccessState: enabled ? 'private_ready' : 'local_ready',
-    desiredAccess: app.desiredAccess ? {
-      ...app.desiredAccess,
-      mode: enabled ? 'local-and-private' : 'local',
-      privateAccessRequired: enabled ? app.desiredAccess.privateAccessRequired : false,
-      privateAccessRecommended: enabled ? app.desiredAccess.privateAccessRecommended : false,
-    } : app.desiredAccess,
-    observedAccess: app.observedAccess ? {
-      ...app.observedAccess,
-      privateLinkStatus: enabled ? 'configured' : 'not_enabled',
-      privateUrl: enabled ? app.observedAccess.privateUrl : null,
-    } : app.observedAccess,
-    settings: {
-      ...currentSettings,
-      desiredAccessMode: enabled ? 'local-and-private' : 'local',
-      privateAccessRequirement: enabled ? currentSettings.privateAccessRequirement : 'disabled',
-      privateAccessUrl: enabled ? currentSettings.privateAccessUrl : null,
-      tailscaleEnabled: enabled,
-    },
-  };
 }
 
 function appActionLabel(action: ApplicationRuntimeAction) {
