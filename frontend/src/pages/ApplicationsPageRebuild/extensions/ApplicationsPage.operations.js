@@ -22,13 +22,13 @@ export function operationStateForItem(item, localAction, settingsAction, jobs = 
     };
   }
 
-  const failedJob = matchingJobs.find((job) => job.status === 'failed');
-  if (failedJob) {
+  const terminalJob = matchingJobs.find((job) => TERMINAL_JOB_STATUSES.has(job.status));
+  if (terminalJob?.status === 'failed' && failedJobStillRelevant(item, terminalJob)) {
     return {
       kind: 'failed',
       label: 'Action failed',
-      message: failedJob.error?.message || 'Project OS could not finish this action.',
-      jobId: failedJob.jobId,
+      message: terminalJob.error?.message || 'Project OS could not finish this action.',
+      jobId: terminalJob.jobId,
     };
   }
 
@@ -120,6 +120,19 @@ function jobsForItem(item, jobs) {
     .filter((job) => itemIds.has(job.subjectId))
     .filter((job) => ['start_app', 'stop_app', 'restart_app', 'backup', 'backup_verify', 'uninstall_app'].includes(job.type))
     .toSorted((left, right) => jobTime(right) - jobTime(left));
+}
+
+function failedJobStillRelevant(item, job) {
+  if (!['start_app', 'stop_app', 'restart_app'].includes(job.type)) {
+    return true;
+  }
+  if (!item?.readinessState && !item?.attentionState) {
+    return true;
+  }
+  if (['ready', 'starting', 'paused'].includes(item?.readinessState)) {
+    return false;
+  }
+  return item?.attentionState !== 'none' || ['stopped', 'unreachable', 'unknown'].includes(item?.readinessState);
 }
 
 function currentJobStepText(job) {

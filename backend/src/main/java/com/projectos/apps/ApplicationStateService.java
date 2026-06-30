@@ -239,7 +239,7 @@ public class ApplicationStateService {
                 .filter(candidate -> app.appId().equals(candidate.subjectId()))
                 .findFirst()
                 .orElse(null);
-        AppOperationView operation = operationState(job);
+        AppOperationView operation = operationState(job, app);
         return app.withSurfaceState(
                 operation,
                 "managed:" + app.appId(),
@@ -255,20 +255,35 @@ public class ApplicationStateService {
     }
 
     private boolean isLifecycleOperationJob(ProjectOsJob job) {
-        if (job == null || !List.of("queued", "running", "failed").contains(job.status())) {
+        if (job == null || !List.of("queued", "running", "failed", "succeeded", "cancelled", "canceled").contains(job.status())) {
             return false;
         }
         return List.of("start_app", "stop_app", "restart_app", "uninstall_app").contains(job.type());
     }
 
-    private AppOperationView operationState(ProjectOsJob job) {
+    private AppOperationView operationState(ProjectOsJob job, AppRuntimeView app) {
         if (job == null) {
             return AppOperationView.idle();
         }
         if ("failed".equals(job.status())) {
+            if (!failedLifecycleJobStillRelevant(app)) {
+                return AppOperationView.idle();
+            }
             return AppOperationView.failed(operationLabel(job.type()), job.jobId(), job.error() == null ? "" : job.error().message());
         }
+        if (!"queued".equals(job.status()) && !"running".equals(job.status())) {
+            return AppOperationView.idle();
+        }
         return AppOperationView.running(operationKind(job.type()), operationLabel(job.type()), job.jobId(), currentStepText(job), currentStepText(job));
+    }
+
+    private boolean failedLifecycleJobStillRelevant(AppRuntimeView app) {
+        String readinessState = app.readinessState() == null ? "" : app.readinessState();
+        if (List.of("ready", "starting", "paused").contains(readinessState)) {
+            return false;
+        }
+        String friendlyStatus = app.friendlyStatus() == null ? "" : app.friendlyStatus();
+        return !List.of("Ready", "Starting", "Paused").contains(friendlyStatus);
     }
 
     private String operationKind(String type) {

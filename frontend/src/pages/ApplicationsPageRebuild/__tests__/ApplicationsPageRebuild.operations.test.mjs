@@ -65,8 +65,8 @@ test('operationStateForItem maps durable jobs by app subject and current step', 
   });
 });
 
-test('operationStateForItem maps failed durable jobs and ignores jobs for other apps', () => {
-  assert.deepEqual(operationStateForItem(item('vaultwarden'), null, null, [
+test('operationStateForItem maps relevant failed durable jobs and ignores jobs for other apps', () => {
+  assert.deepEqual(operationStateForItem(item('vaultwarden', { readinessState: 'unreachable', attentionState: 'needs_review' }), null, null, [
     {
       ...job('failed-1', 'uninstall_app', 'vaultwarden', 'failed', 'remove'),
       error: { message: 'Docker could not remove the app safely.' },
@@ -80,6 +80,38 @@ test('operationStateForItem maps failed durable jobs and ignores jobs for other 
 
   assert.deepEqual(operationStateForItem(item('vaultwarden'), null, null, [
     job('backup-2', 'backup', 'jellyfin', 'running', 'archive'),
+  ]), {
+    kind: 'idle',
+  });
+});
+
+test('operationStateForItem does not resurrect stale failed lifecycle jobs after recovery', () => {
+  assert.deepEqual(operationStateForItem(item('syncthing', { readinessState: 'ready', attentionState: 'none' }), null, null, [
+    {
+      ...job('failed-1', 'restart_app', 'syncthing', 'failed', 'wait'),
+      error: { message: 'Port 8385 is already in use.' },
+    },
+  ]), {
+    kind: 'idle',
+  });
+
+  assert.deepEqual(operationStateForItem(item('syncthing', { readinessState: 'starting', attentionState: 'none' }), null, null, [
+    {
+      ...job('failed-1', 'start_app', 'syncthing', 'failed', 'wait'),
+      error: { message: 'Port 8385 is already in use.' },
+    },
+  ]), {
+    kind: 'idle',
+  });
+
+  assert.deepEqual(operationStateForItem(item('syncthing', { readinessState: 'ready', attentionState: 'none' }), null, null, [
+    {
+      ...job('success-1', 'restart_app', 'syncthing', 'succeeded', 'wait', '2026-06-29T12:01:00Z'),
+    },
+    {
+      ...job('failed-1', 'restart_app', 'syncthing', 'failed', 'wait', '2026-06-29T12:00:00Z'),
+      error: { message: 'Port 8385 is already in use.' },
+    },
   ]), {
     kind: 'idle',
   });
@@ -99,15 +131,16 @@ test('failed operations do not block settings or uninstall recovery actions', ()
   assert.equal(operationBlocksManagement({ kind: 'uninstalling' }), true);
 });
 
-function item(id) {
+function item(id, overrides = {}) {
   return {
     id,
     sourceId: id,
     name: id,
+    ...overrides,
   };
 }
 
-function job(jobId, type, subjectId, status, currentStep) {
+function job(jobId, type, subjectId, status, currentStep, updatedAt = '2026-06-29T12:00:00Z') {
   return {
     jobId,
     type,
@@ -121,6 +154,6 @@ function job(jobId, type, subjectId, status, currentStep) {
       { id: 'remove', label: 'Remove app', message: 'Removing containers', status: currentStep === 'remove' ? 'running' : 'pending' },
     ],
     createdAt: '2026-06-29T12:00:00Z',
-    updatedAt: '2026-06-29T12:00:00Z',
+    updatedAt,
   };
 }

@@ -247,6 +247,61 @@ class ApplicationStateServiceTests {
         assertThat(state.runtimeApps().get(1).readinessState()).isEqualTo("starting");
     }
 
+    @Test
+    void snapshotIgnoresOlderFailedLifecycleJobAfterNewerSuccess() {
+        ApplicationStateService service = new ApplicationStateService(
+                List::of,
+                () -> List.of(runtimeApp("syncthing", "Syncthing")),
+                new ObservedServiceService(repository(), noScan()),
+                null,
+                () -> Instant.parse("2026-06-21T12:00:00Z"),
+                () -> List.of(
+                        lifecycleJob("restart-success", "restart_app", "syncthing", "succeeded", "wait_until_ready", "2026-06-21T12:01:00Z"),
+                        lifecycleJob("restart-failed", "restart_app", "syncthing", "failed", "wait_until_ready", "2026-06-21T12:00:00Z")));
+
+        ApplicationState state = service.refreshNow();
+
+        assertThat(state.runtimeApps().getFirst().operationState().kind()).isEqualTo("idle");
+        assertThat(state.runtimeApps().getFirst().readinessState()).isEqualTo("ready");
+    }
+
+    @Test
+    void snapshotDoesNotSurfaceFailedLifecycleJobWhenRuntimeIsHealthyOrStarting() {
+        ApplicationStateService healthyService = new ApplicationStateService(
+                List::of,
+                () -> List.of(runtimeApp("syncthing", "Syncthing")),
+                new ObservedServiceService(repository(), noScan()),
+                null,
+                () -> Instant.parse("2026-06-21T12:00:00Z"),
+                () -> List.of(lifecycleJob("start-failed", "start_app", "syncthing", "failed", "wait_until_ready")));
+        ApplicationState startingState = new ApplicationStateService(
+                List::of,
+                () -> List.of(runtimeApp("syncthing", "Syncthing", "Starting")),
+                new ObservedServiceService(repository(), noScan()),
+                null,
+                () -> Instant.parse("2026-06-21T12:00:00Z"),
+                () -> List.of(lifecycleJob("start-failed", "start_app", "syncthing", "failed", "wait_until_ready"))).refreshNow();
+
+        assertThat(healthyService.refreshNow().runtimeApps().getFirst().operationState().kind()).isEqualTo("idle");
+        assertThat(startingState.runtimeApps().getFirst().operationState().kind()).isEqualTo("idle");
+        assertThat(startingState.runtimeApps().getFirst().readinessState()).isEqualTo("starting");
+    }
+
+    @Test
+    void snapshotSurfacesFailedLifecycleJobWhenRuntimeStillNeedsAttention() {
+        ApplicationStateService service = new ApplicationStateService(
+                List::of,
+                () -> List.of(runtimeApp("syncthing", "Syncthing", "Unavailable")),
+                new ObservedServiceService(repository(), noScan()),
+                null,
+                () -> Instant.parse("2026-06-21T12:00:00Z"),
+                () -> List.of(lifecycleJob("start-failed", "start_app", "syncthing", "failed", "wait_until_ready")));
+
+        ApplicationState state = service.refreshNow();
+
+        assertThat(state.runtimeApps().getFirst().operationState().kind()).isEqualTo("failed");
+    }
+
     private ObservedServiceScanner noScan() {
         return new ObservedServiceScanner(List::of, () -> new com.projectos.system.ProjectOsIdentity("", "project-os", "", "", Instant.EPOCH, 1));
     }
@@ -329,6 +384,10 @@ class ApplicationStateServiceTests {
     }
 
     private AppRuntimeView runtimeApp(String appId, String name) {
+        return runtimeApp(appId, name, "Ready");
+    }
+
+    private AppRuntimeView runtimeApp(String appId, String name, String friendlyStatus) {
         return new AppRuntimeView(
                 appId,
                 name,
@@ -336,7 +395,7 @@ class ApplicationStateServiceTests {
                 name + " app",
                 "1.0.0",
                 "",
-                "Ready",
+                friendlyStatus,
                 "running",
                 "healthy",
                 "/runtime/apps/" + appId,
@@ -357,6 +416,10 @@ class ApplicationStateServiceTests {
     }
 
     private ProjectOsJob lifecycleJob(String jobId, String type, String subjectId, String status, String currentStep) {
+        return lifecycleJob(jobId, type, subjectId, status, currentStep, "2026-06-21T12:00:01Z");
+    }
+
+    private ProjectOsJob lifecycleJob(String jobId, String type, String subjectId, String status, String currentStep, String updatedAt) {
         return new ProjectOsJob(
                 jobId,
                 type,
@@ -367,7 +430,7 @@ class ApplicationStateServiceTests {
                         ProjectOsJobStep.pending("run_command", "Run app command"),
                         ProjectOsJobStep.running("wait_until_ready", "Wait for app readiness", "Waiting for the app to report ready.")),
                 Instant.parse("2026-06-21T12:00:00Z"),
-                Instant.parse("2026-06-21T12:00:01Z"),
+                Instant.parse(updatedAt),
                 null);
     }
 
