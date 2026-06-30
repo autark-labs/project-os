@@ -16,105 +16,104 @@
   text-rendering: optimizeLegibility;
 
   /* Project OS design tokens */
-  --po-bg-app: #070a12;
-  --po-bg-page: #080d19;
-  --po-bg-page-soft: #0b1220;
+  --po-bg-app: #0d1728;
+  --po-bg-page: #93b8ca;
+  --po-bg-page-soft: #c9dfe8;
   --po-bg-mesh:
-    radial-gradient(circle at 20% -10%, rgb(139 92 246 / 0.18), transparent 30rem),
-    radial-gradient(circle at 88% 0%, rgb(56 189 248 / 0.1), transparent 24rem),
-    radial-gradient(circle at 50% 100%, rgb(20 184 166 / 0.07), transparent 34rem),
-    linear-gradient(135deg, #070a12 0%, #101827 45%, #080a11 100%);
-  --po-bg-sidebar: rgb(5 8 18 / 0.88);
+    radial-gradient(circle at 18% 0%, rgb(34 211 238 / 0.16), transparent 28rem),
+    radial-gradient(circle at 92% 8%, rgb(8 145 178 / 0.12), transparent 24rem),
+    linear-gradient(135deg, #93b8ca 0%, #b1ccd8 48%, #7fa8bb 100%);
+  --po-bg-sidebar: #0d1728;
   --po-hero-automation:
-    radial-gradient(circle at top left, rgb(124 58 237 / 0.28), transparent 34%),
-    linear-gradient(135deg, rgb(15 23 42 / 0.96), rgb(2 6 23 / 0.98));
+    radial-gradient(circle at top left, rgb(34 211 238 / 0.18), transparent 32%),
+    linear-gradient(135deg, rgb(13 23 40 / 0.96), rgb(18 35 58 / 0.94));
   --po-hero-backups:
-    radial-gradient(circle at top left, rgb(139 92 246 / 0.22), transparent 32%),
-    radial-gradient(circle at top right, rgb(20 184 166 / 0.15), transparent 30%),
-    linear-gradient(135deg, rgb(15 23 42 / 0.98), rgb(2 6 23 / 0.96));
+    radial-gradient(circle at top left, rgb(5 150 105 / 0.16), transparent 30%),
+    radial-gradient(circle at top right, rgb(34 211 238 / 0.14), transparent 28%),
+    linear-gradient(135deg, rgb(13 23 40 / 0.96), rgb(18 35 58 / 0.94));
   --po-hero-devices:
-    radial-gradient(circle at top left, rgb(34 211 238 / 0.2), transparent 30%),
-    radial-gradient(circle at top right, rgb(16 185 129 / 0.18), transparent 28%),
-    linear-gradient(135deg, rgb(15 23 42 / 0.98), rgb(2 6 23 / 0.96));
+    radial-gradient(circle at top left, rgb(34 211 238 / 0.18), transparent 30%),
+    radial-gradient(circle at top right, rgb(15 118 110 / 0.14), transparent 28%),
+    linear-gradient(135deg, rgb(13 23 40 / 0.96), rgb(18 35 58 / 0.94));
   --po-hero-monitoring:
-    radial-gradient(circle at top left, rgb(124 58 237 / 0.24), transparent 34%),
-    linear-gradient(135deg, rgb(15 23 42 / 0.98), rgb(2 6 23 / 0.96));
+    radial-gradient(circle at top left, rgb(194 65 12 / 0.16), transparent 34%),
+    linear-gradient(135deg, rgb(13 23 40 / 0.96), rgb(18 35 58 / 0.94));
   --po-hero-overview:
-    radial-gradient(circle at 15% 0%, rgb(139 92 246 / 0.28), transparent 32%),
-    radial-gradient(circle at 85% 8%, rgb(20 184 166 / 0.18), transparent 28%),
-    linear-gradient(135deg, rgb(15 23 42 / 0.96), rgb(4 9 22 / 0.98));
+    radial-gradient(circle at 15% 0%, rgb(34 211 238 / 0.18), transparent 32%),
+    radial-gradient(circle at 85% 8%, rgb(15 118 110 / 0.14), transparent 28%),
+    linear-gradient(135deg, rgb(13 23 40 / 0.96), rgb(18 35 58 / 0.94));
   --po-hero-marketplace:
-    linear-gradient(135deg, rgb(88 28 135 / 0.28), rgb(15 23 42 / 0.74) 45%, rgb(14 116 144 / 0.18));
+    linear-gradient(135deg, rgb(8 145 178 / 0.24), rgb(18 35 58 / 0.78) 45%, rgb(15 118 110 / 0.16));
   --po-hero-marketplace-handoff:
-    linear-gradient(135deg, rgb(6 78 59 / 0.28), rgb(15 23 42 / 0.78) 48%, rgb(88 28 135 / 0.18));
+    linear-gradient(135deg, rgb(5 150 105 / 0.22), rgb(18 35 58 / 0.78) 48%, rgb(34 211 238 / 0.16));
   --po-hero-app-spotlight:
-    linear-gradient(135deg, rgb(88 28 135 / 0.28), rgb(15 23 42 / 0.72) 42%, rgb(8 47 73 / 0.26));
+    linear-gradient(135deg, rgb(8 145 178 / 0.24), rgb(18 35 58 / 0.76) 42%, rgb(15 118 110 / 0.18));
   --po-hero-settings:
-    radial-gradient(circle at top left, rgb(139 92 246 / 0.2), transparent 30%),
-    radial-gradient(circle at top right, rgb(14 165 233 / 0.12), transparent 28%),
-    linear-gradient(135deg, rgb(15 23 42 / 0.98), rgb(2 6 23 / 0.96));
+    radial-gradient(circle at top left, rgb(34 211 238 / 0.16), transparent 30%),
+    radial-gradient(circle at top right, rgb(148 163 184 / 0.12), transparent 28%),
+    linear-gradient(135deg, rgb(13 23 40 / 0.96), rgb(18 35 58 / 0.94));
   --po-hero-storage:
-    radial-gradient(circle at top left, rgb(16 185 129 / 0.18), transparent 30%),
-    radial-gradient(circle at top right, rgb(245 158 11 / 0.14), transparent 28%),
-    linear-gradient(135deg, rgb(15 23 42 / 0.98), rgb(2 6 23 / 0.96));
+    radial-gradient(circle at top left, rgb(15 118 110 / 0.16), transparent 30%),
+    radial-gradient(circle at top right, rgb(194 65 12 / 0.12), transparent 28%),
+    linear-gradient(135deg, rgb(13 23 40 / 0.96), rgb(18 35 58 / 0.94));
   --po-hero-support:
-    radial-gradient(circle at top left, rgb(14 165 233 / 0.2), transparent 32%),
-    radial-gradient(circle at top right, rgb(124 58 237 / 0.2), transparent 28%),
-    linear-gradient(135deg, rgb(15 23 42 / 0.98), rgb(2 6 23 / 0.96));
-  --po-overview-side-overlay: linear-gradient(90deg, rgb(4 9 22 / 0.56) 0%, rgb(4 9 22 / 0.16) 46%, rgb(4 9 22 / 0.3) 100%);
-  --po-overview-vertical-overlay: linear-gradient(180deg, rgb(4 9 22 / 0.04) 0%, rgb(4 9 22 / 0) 40%, rgb(4 9 22 / 0.5) 100%);
-  --po-overview-bottom-fade: linear-gradient(180deg, transparent, #050b18 90%);
-  --po-card-amber-gradient: linear-gradient(135deg, #261809, #0d1830);
-  --po-card-purple-gradient: linear-gradient(135deg, #211244, #0d1830);
-  --po-card-red-gradient: linear-gradient(135deg, #2a1018, #0d1830);
-  --po-card-hover-sheen: linear-gradient(135deg, rgb(255 255 255 / 0.05), transparent 48%, transparent);
+    radial-gradient(circle at top left, rgb(34 211 238 / 0.18), transparent 32%),
+    radial-gradient(circle at top right, rgb(8 145 178 / 0.16), transparent 28%),
+    linear-gradient(135deg, rgb(13 23 40 / 0.96), rgb(18 35 58 / 0.94));
+  --po-overview-side-overlay: linear-gradient(90deg, rgb(13 23 40 / 0.48) 0%, rgb(13 23 40 / 0.12) 46%, rgb(13 23 40 / 0.24) 100%);
+  --po-overview-vertical-overlay: linear-gradient(180deg, rgb(13 23 40 / 0.03) 0%, rgb(13 23 40 / 0) 40%, rgb(13 23 40 / 0.34) 100%);
+  --po-overview-bottom-fade: linear-gradient(180deg, transparent, #0d1728 90%);
+  --po-card-amber-gradient: linear-gradient(135deg, #dfc1a9, #d5e6ee);
+  --po-card-accent-gradient: linear-gradient(135deg, #b8d3df, #d5e6ee);
+  --po-card-red-gradient: linear-gradient(135deg, #e7b8b8, #d5e6ee);
+  --po-card-hover-sheen: linear-gradient(135deg, rgb(255 255 255 / 0.28), transparent 48%, transparent);
 
-  --po-surface-base: rgb(15 23 42 / 0.72);
-  --po-surface-soft: rgb(15 23 42 / 0.52);
-  --po-surface-elevated: rgb(17 24 39 / 0.82);
-  --po-surface-inset: rgb(2 6 23 / 0.58);
-  --po-surface-hover: rgb(30 41 59 / 0.62);
+  --po-surface-base: #d5e6ee;
+  --po-surface-soft: #e4eef3;
+  --po-surface-elevated: #f1f7fa;
+  --po-surface-inset: #12233a;
+  --po-surface-hover: #c5dce7;
 
-  --po-border-subtle: rgb(255 255 255 / 0.1);
-  --po-border-strong: rgb(148 163 184 / 0.32);
-  --po-border-accent: rgb(167 139 250 / 0.34);
+  --po-border-subtle: rgb(14 116 144 / 0.2);
+  --po-border-strong: rgb(14 116 144 / 0.34);
+  --po-border-accent: rgb(34 211 238 / 0.6);
 
-  --po-text-primary: #f5f7ff;
-  --po-text-secondary: #c8d2e3;
-  --po-text-muted: #8794aa;
-  --po-text-disabled: #556174;
+  --po-text-primary: #0f172a;
+  --po-text-secondary: #33536a;
+  --po-text-muted: #567184;
+  --po-text-disabled: #7f98a8;
 
-  --po-brand: #8b5cf6;
-  --po-brand-strong: #a78bfa;
-  --po-brand-soft: rgb(139 92 246 / 0.14);
-  --po-brand-gradient: linear-gradient(135deg, #8b5cf6 0%, #6d5dfc 52%, #38bdf8 100%);
+  --po-brand: #0891b2;
+  --po-brand-strong: #22d3ee;
+  --po-brand-soft: rgb(34 211 238 / 0.14);
+  --po-brand-gradient: linear-gradient(135deg, #0891b2 0%, #0e7490 58%, #22d3ee 100%);
 
-  --po-success: #10b981;
-  --po-success-soft: rgb(16 185 129 / 0.12);
-  --po-success-border: rgb(52 211 153 / 0.28);
-  --po-warning: #f59e0b;
-  --po-warning-soft: rgb(245 158 11 / 0.13);
-  --po-warning-border: rgb(251 191 36 / 0.3);
-  --po-danger: #ef4444;
-  --po-danger-soft: rgb(239 68 68 / 0.13);
-  --po-danger-border: rgb(248 113 113 / 0.3);
-  --po-info: #38bdf8;
-  --po-info-soft: rgb(56 189 248 / 0.12);
-  --po-info-border: rgb(56 189 248 / 0.28);
-  --po-teal: #14b8a6;
-  --po-teal-soft: rgb(20 184 166 / 0.12);
-  --po-teal-border: rgb(45 212 191 / 0.28);
+  --po-success: #059669;
+  --po-success-soft: rgb(5 150 105 / 0.13);
+  --po-success-border: rgb(16 185 129 / 0.3);
+  --po-warning: #c2410c;
+  --po-warning-soft: rgb(194 65 12 / 0.13);
+  --po-warning-border: rgb(249 115 22 / 0.34);
+  --po-danger: #dc2626;
+  --po-danger-soft: rgb(220 38 38 / 0.13);
+  --po-danger-border: rgb(248 113 113 / 0.34);
+  --po-info: #22d3ee;
+  --po-info-soft: rgb(34 211 238 / 0.14);
+  --po-info-border: rgb(34 211 238 / 0.34);
+  --po-teal: #0f766e;
+  --po-teal-soft: rgb(15 118 110 / 0.13);
+  --po-teal-border: rgb(20 184 166 / 0.3);
 
-  --po-accent-overview: #8b5cf6;
-  --po-accent-applications: #38bdf8;
-  --po-accent-marketplace: #a78bfa;
-  --po-accent-network: #14b8a6;
-  --po-accent-storage: #2dd4bf;
-  --po-accent-backups: #22c55e;
-  --po-accent-monitoring: #f59e0b;
-  --po-accent-automation: #60a5fa;
-  --po-accent-settings: #94a3b8;
-  --po-accent-support: #38bdf8;
+  --po-accent-overview: #0891b2;
+  --po-accent-applications: #22d3ee;
+  --po-accent-marketplace: #0891b2;
+  --po-accent-network: #0f766e;
+  --po-accent-storage: #0f766e;
+  --po-accent-backups: #059669;
+  --po-accent-monitoring: #c2410c;
+  --po-accent-automation: #0e7490;
+  --po-accent-settings: #567184;
+  --po-accent-support: #22d3ee;
 
   --po-radius-xs: 0.375rem;
   --po-radius-sm: 0.5rem;
@@ -123,26 +122,26 @@
   --po-radius-xl: 1.25rem;
   --po-radius-full: 9999px;
 
-  --po-shadow-sm: 0 8px 24px rgb(0 0 0 / 0.18);
-  --po-shadow-md: 0 18px 54px rgb(0 0 0 / 0.24);
-  --po-shadow-lg: 0 28px 90px rgb(0 0 0 / 0.34);
-  --po-shadow-frame: 0 24px 80px rgb(0 0 0 / 0.22);
-  --po-shadow-panel: 0 18px 60px rgb(0 0 0 / 0.2);
-  --po-shadow-card: 0 18px 50px rgb(0 0 0 / 0.18);
-  --po-shadow-sidebar: 10px 0 42px rgb(0 0 0 / 0.28);
-  --po-glow-brand: 0 0 0 1px rgb(167 139 250 / 0.24), 0 18px 55px rgb(124 58 237 / 0.28);
-  --po-glow-success: 0 0 0 1px rgb(52 211 153 / 0.18), 0 14px 42px rgb(16 185 129 / 0.18);
-  --po-glow-warning: 0 0 0 1px rgb(251 191 36 / 0.2), 0 14px 42px rgb(245 158 11 / 0.16);
-  --po-glow-danger: 0 0 0 1px rgb(248 113 113 / 0.22), 0 14px 42px rgb(239 68 68 / 0.16);
-  --po-glow-info: 0 0 0 1px rgb(56 189 248 / 0.2), 0 14px 42px rgb(56 189 248 / 0.14);
-  --po-glow-teal: 0 0 0 1px rgb(45 212 191 / 0.18), 0 14px 42px rgb(20 184 166 / 0.14);
-  --po-pulse-brand: 0 0 0 5px rgb(139 92 246 / 0.16);
-  --po-pulse-success: 0 0 0 5px rgb(16 185 129 / 0.16);
-  --po-pulse-warning: 0 0 0 5px rgb(245 158 11 / 0.16);
-  --po-pulse-danger: 0 0 0 5px rgb(239 68 68 / 0.16);
-  --po-pulse-info: 0 0 0 5px rgb(56 189 248 / 0.16);
-  --po-pulse-teal: 0 0 0 5px rgb(20 184 166 / 0.16);
-  --po-pulse-neutral: 0 0 0 5px rgb(135 148 170 / 0.12);
+  --po-shadow-sm: 0 8px 24px rgb(8 47 73 / 0.12);
+  --po-shadow-md: 0 18px 54px rgb(8 47 73 / 0.16);
+  --po-shadow-lg: 0 28px 90px rgb(8 47 73 / 0.22);
+  --po-shadow-frame: 0 24px 80px rgb(8 47 73 / 0.18);
+  --po-shadow-panel: 0 18px 60px rgb(8 47 73 / 0.18);
+  --po-shadow-card: 0 18px 50px rgb(8 47 73 / 0.14);
+  --po-shadow-sidebar: 10px 0 42px rgb(2 6 23 / 0.28);
+  --po-glow-brand: 0 0 0 1px rgb(34 211 238 / 0.24), 0 18px 55px rgb(8 145 178 / 0.24);
+  --po-glow-success: 0 0 0 1px rgb(16 185 129 / 0.2), 0 14px 42px rgb(5 150 105 / 0.18);
+  --po-glow-warning: 0 0 0 1px rgb(249 115 22 / 0.22), 0 14px 42px rgb(194 65 12 / 0.18);
+  --po-glow-danger: 0 0 0 1px rgb(248 113 113 / 0.22), 0 14px 42px rgb(220 38 38 / 0.16);
+  --po-glow-info: 0 0 0 1px rgb(34 211 238 / 0.22), 0 14px 42px rgb(8 145 178 / 0.18);
+  --po-glow-teal: 0 0 0 1px rgb(20 184 166 / 0.2), 0 14px 42px rgb(15 118 110 / 0.16);
+  --po-pulse-brand: 0 0 0 5px rgb(34 211 238 / 0.15);
+  --po-pulse-success: 0 0 0 5px rgb(5 150 105 / 0.14);
+  --po-pulse-warning: 0 0 0 5px rgb(194 65 12 / 0.14);
+  --po-pulse-danger: 0 0 0 5px rgb(220 38 38 / 0.14);
+  --po-pulse-info: 0 0 0 5px rgb(34 211 238 / 0.15);
+  --po-pulse-teal: 0 0 0 5px rgb(15 118 110 / 0.14);
+  --po-pulse-neutral: 0 0 0 5px rgb(86 113 132 / 0.12);
 
   --po-space-page-x: clamp(1.25rem, 2vw, 2rem);
   --po-space-page-y: clamp(1.25rem, 2vw, 2rem);
@@ -156,38 +155,38 @@
   --po-type-small: 0.8125rem;
   --po-type-caption: 0.75rem;
 
-  --background: oklch(0.12 0.025 265);
-  --foreground: oklch(0.98 0.005 260);
-  --card: oklch(0.18 0.03 265);
-  --card-foreground: oklch(0.98 0.005 260);
-  --popover: oklch(0.16 0.03 265);
-  --popover-foreground: oklch(0.98 0.005 260);
-  --primary: oklch(0.59 0.22 292);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.23 0.03 265);
-  --secondary-foreground: oklch(0.95 0.01 260);
-  --muted: oklch(0.23 0.03 265);
-  --muted-foreground: oklch(0.68 0.02 260);
-  --accent: oklch(0.27 0.06 285);
-  --accent-foreground: oklch(0.96 0.02 285);
-  --destructive: oklch(0.62 0.22 25);
-  --border: oklch(0.34 0.03 265);
-  --input: oklch(0.28 0.03 265);
-  --ring: oklch(0.66 0.2 292);
-  --chart-1: oklch(0.66 0.2 292);
-  --chart-2: oklch(0.69 0.17 250);
-  --chart-3: oklch(0.72 0.16 160);
-  --chart-4: oklch(0.78 0.16 80);
-  --chart-5: oklch(0.68 0.19 25);
+  --background: oklch(0.73 0.045 220);
+  --foreground: oklch(0.18 0.035 245);
+  --card: oklch(0.88 0.035 220);
+  --card-foreground: oklch(0.18 0.035 245);
+  --popover: oklch(0.16 0.035 245);
+  --popover-foreground: oklch(0.96 0.015 220);
+  --primary: oklch(0.55 0.12 215);
+  --primary-foreground: oklch(0.99 0.01 220);
+  --secondary: oklch(0.84 0.035 220);
+  --secondary-foreground: oklch(0.2 0.035 245);
+  --muted: oklch(0.82 0.025 220);
+  --muted-foreground: oklch(0.43 0.035 230);
+  --accent: oklch(0.82 0.055 215);
+  --accent-foreground: oklch(0.2 0.04 245);
+  --destructive: oklch(0.56 0.19 28);
+  --border: oklch(0.68 0.045 220);
+  --input: oklch(0.9 0.025 220);
+  --ring: oklch(0.68 0.13 210);
+  --chart-1: oklch(0.58 0.13 215);
+  --chart-2: oklch(0.55 0.11 175);
+  --chart-3: oklch(0.62 0.14 145);
+  --chart-4: oklch(0.62 0.16 55);
+  --chart-5: oklch(0.56 0.19 28);
   --radius: 0.5rem;
-  --sidebar: oklch(0.15 0.03 265);
-  --sidebar-foreground: oklch(0.94 0.01 260);
-  --sidebar-primary: oklch(0.59 0.22 292);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.23 0.03 265);
-  --sidebar-accent-foreground: oklch(0.95 0.01 260);
-  --sidebar-border: oklch(0.34 0.03 265);
-  --sidebar-ring: oklch(0.66 0.2 292);
+  --sidebar: oklch(0.16 0.035 245);
+  --sidebar-foreground: oklch(0.94 0.018 220);
+  --sidebar-primary: oklch(0.65 0.13 210);
+  --sidebar-primary-foreground: oklch(0.18 0.035 245);
+  --sidebar-accent: oklch(0.23 0.04 240);
+  --sidebar-accent-foreground: oklch(0.94 0.018 220);
+  --sidebar-border: oklch(0.32 0.035 235);
+  --sidebar-ring: oklch(0.68 0.13 210);
 }
 
 @theme inline {
@@ -283,7 +282,7 @@
   --background-image-po-overview-vertical-overlay: var(--po-overview-vertical-overlay);
   --background-image-po-overview-bottom-fade: var(--po-overview-bottom-fade);
   --background-image-po-card-amber: var(--po-card-amber-gradient);
-  --background-image-po-card-purple: var(--po-card-purple-gradient);
+  --background-image-po-card-accent: var(--po-card-accent-gradient);
   --background-image-po-card-red: var(--po-card-red-gradient);
   --background-image-po-card-hover-sheen: var(--po-card-hover-sheen);
   --radius-po-xs: var(--po-radius-xs);
@@ -342,7 +341,7 @@ input {
 }
 
 ::selection {
-  background: rgb(139 92 246 / 0.35);
+  background: rgb(34 211 238 / 0.32);
   color: var(--po-text-primary);
 }
 
