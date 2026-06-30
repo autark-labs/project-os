@@ -241,6 +241,39 @@ test('project os job helper applies backend operation state without reordering a
   assert.equal(updated.managedApps[1].userStatus, 'Starting');
 });
 
+test('project os job helper maps install and backup work for existing apps', () => {
+  const state = {
+    runtimeApps: [runtimeApp('vaultwarden', 'Ready')],
+    managedApps: [{ catalogAppId: 'vaultwarden', name: 'Vaultwarden', userStatus: 'Ready' }],
+  };
+
+  const installing = setProjectOsJobInState(state, {
+    jobId: 'install-1',
+    type: 'install_app',
+    subjectId: 'vaultwarden',
+    status: 'queued',
+    currentStep: 'install',
+    steps: [{ id: 'install', label: 'Install app', status: 'pending', message: 'Project OS is installing the app.' }],
+    createdAt: updatedAt,
+    updatedAt,
+  });
+  const backingUp = setProjectOsJobInState(state, {
+    jobId: 'backup-1',
+    type: 'backup',
+    subjectId: 'vaultwarden',
+    status: 'queued',
+    currentStep: 'backup',
+    steps: [{ id: 'backup', label: 'Create backup', status: 'pending', message: 'Project OS is creating a backup.' }],
+    createdAt: updatedAt,
+    updatedAt,
+  });
+
+  assert.equal(installing.runtimeApps[0].operationState.kind, 'installing');
+  assert.equal(installing.runtimeApps[0].friendlyStatus, 'Installing');
+  assert.equal(backingUp.runtimeApps[0].operationState.kind, 'backing_up');
+  assert.equal(backingUp.runtimeApps[0].friendlyStatus, 'Ready');
+});
+
 function runtimeApp(appId, friendlyStatus, healthSnapshot = null) {
   return {
     appId,

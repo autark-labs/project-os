@@ -7,7 +7,7 @@ import type { ActivityLog } from '@/types/activity';
 import type { DiscoverAppView, DiscoverInstallPreview, DiscoverInstallRequestOptions } from '@/types/discover';
 import type { ProjectOsJob } from '@/types/jobs';
 import type { OnboardingState, StorageReport, SystemDoctorStatus } from '@/types/system';
-import { invalidateApplicationState } from './applicationStateRepository';
+import { invalidateApplicationState, setProjectOsJobInApplicationStateCache } from './applicationStateRepository';
 import { invalidateBackupQueries } from './backupRepository';
 import {
   JOB_FAMILIES,
@@ -114,6 +114,7 @@ export function useDiscoverInstallMutation() {
     mutationFn: ({ appId, answers, options = {} }) => DiscoverAPIClient.install(appId, answers, options),
     onSuccess: (job) => {
       setProjectOsJobCache(queryClient, job);
+      setProjectOsJobInApplicationStateCache(queryClient, job);
       void invalidateDiscoverQueries(queryClient);
       void invalidateApplicationState(queryClient);
     },
@@ -126,6 +127,7 @@ export function useDiscoverBackupMutation() {
     mutationFn: (appId) => BackupAPIClient.run(appId),
     onSuccess: (job) => {
       setProjectOsJobCache(queryClient, job);
+      setProjectOsJobInApplicationStateCache(queryClient, job);
       void invalidateDiscoverQueries(queryClient);
       void invalidateBackupQueries(queryClient);
       void invalidateApplicationState(queryClient);

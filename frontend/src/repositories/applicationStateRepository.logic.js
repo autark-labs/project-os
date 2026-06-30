@@ -146,7 +146,7 @@ export function setRuntimeAppInState(state, app) {
 }
 
 function lifecycleJobTypes() {
-  return new Set(['start_app', 'stop_app', 'restart_app', 'uninstall_app']);
+  return new Set(['install_app', 'start_app', 'stop_app', 'restart_app', 'backup', 'backup_verify', 'uninstall_app']);
 }
 
 function operationStateFromProjectOsJob(job) {
@@ -192,6 +192,8 @@ function operationKind(type) {
   if (type === 'start_app') return 'starting';
   if (type === 'stop_app') return 'stopping';
   if (type === 'restart_app') return 'restarting';
+  if (type === 'install_app') return 'installing';
+  if (type === 'backup' || type === 'backup_verify') return 'backing_up';
   if (type === 'uninstall_app') return 'uninstalling';
   return 'idle';
 }
@@ -200,6 +202,8 @@ function operationLabel(type) {
   if (type === 'start_app') return 'Starting';
   if (type === 'stop_app') return 'Pausing';
   if (type === 'restart_app') return 'Restarting';
+  if (type === 'install_app') return 'Installing';
+  if (type === 'backup' || type === 'backup_verify') return 'Creating backup';
   if (type === 'uninstall_app') return 'Uninstalling safely';
   return 'Working';
 }
@@ -208,7 +212,7 @@ function readinessStateForOperation(operation, current) {
   if (!operation || operation.kind === 'idle' || operation.kind === 'failed') {
     return current;
   }
-  if (operation.kind === 'starting' || operation.kind === 'restarting') {
+  if (operation.kind === 'starting' || operation.kind === 'restarting' || operation.kind === 'installing') {
     return 'starting';
   }
   if (operation.kind === 'stopping') {
@@ -224,6 +228,9 @@ function friendlyStatusForOperation(operation, current) {
   if (operation.kind === 'starting' || operation.kind === 'restarting') {
     return 'Starting';
   }
+  if (operation.kind === 'installing') {
+    return 'Installing';
+  }
   if (operation.kind === 'stopping') {
     return 'Paused';
   }
@@ -234,7 +241,7 @@ function runtimeStateForOperation(operation, current) {
   if (!operation || operation.kind === 'idle' || operation.kind === 'failed') {
     return current;
   }
-  if (operation.kind === 'starting' || operation.kind === 'restarting') {
+  if (operation.kind === 'starting' || operation.kind === 'restarting' || operation.kind === 'installing') {
     return 'starting';
   }
   if (operation.kind === 'stopping') {

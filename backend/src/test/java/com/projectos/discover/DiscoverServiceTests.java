@@ -1,6 +1,9 @@
 package com.projectos.discover;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,6 +15,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.projectos.apps.AppOwnershipState;
+import com.projectos.apps.ApplicationState;
+import com.projectos.apps.ApplicationStateService;
 import com.projectos.host.ObservedService;
 import com.projectos.host.ObservedServiceRepository;
 import com.projectos.host.ObservedServiceScanner;
@@ -226,6 +231,34 @@ class DiscoverServiceTests {
             assertThat(record.accessMode()).isEqualTo("private_lan");
             assertThat(record.backupPolicy()).isEqualTo("enabled_first_checkpoint");
         });
+    }
+
+    @Test
+    void installInvalidatesApplicationStateWhenJobIsAccepted() {
+        RuntimeLayout layout = runtimeLayout();
+        DiscoverSetupRepository setupRepository = new DiscoverSetupRepository(layout);
+        DiscoverSetupService setupService = new DiscoverSetupService(setupRepository);
+        InstallCustomizationResolver customizationResolver = new InstallCustomizationResolver(new PortAllocator());
+        ApplicationStateService applicationStateService = mock(ApplicationStateService.class);
+        when(applicationStateService.snapshot()).thenReturn(new ApplicationState(
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                Instant.parse("2026-06-21T12:00:00Z")));
+        DiscoverService service = new DiscoverService(
+                catalogService(),
+                applicationStateService,
+                setupService,
+                new DiscoverInstallPreviewService(new InstallPlanService(layout, customizationResolver), setupService),
+                new RecordingMarketplaceInstallService(),
+                jobService());
+
+        service.install("vaultwarden", new DiscoverInstallRequest(Map.of(), false, true));
+
+        verify(applicationStateService).invalidate();
     }
 
     private DiscoverService discoverService(ObservedServiceRepository observedRepository) {

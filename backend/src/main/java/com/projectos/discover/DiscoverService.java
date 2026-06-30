@@ -119,16 +119,18 @@ public class DiscoverService {
         }
         DiscoverSetupAnswers answers = setupService.mergedAnswers(manifest, answersRequest);
         setupService.persist(appId, manifest.id(), answers);
-        return jobService.startWithJob("install_app", appId, installJobSteps(manifest.name()), job -> {
+        ProjectOsJob job = jobService.startWithJob("install_app", appId, installJobSteps(manifest.name()), activeJob -> {
             List<ProjectOsJobStep> liveSteps = new ArrayList<>();
             InstallOptionsRequest installOptions = installOptions(preview.installOptions(), request);
             InstallResult result = marketplaceInstallService.install(manifest, installOptions, step -> {
                 liveSteps.add(installStep(step));
-                jobService.recordProgress(job.jobId(), List.copyOf(liveSteps));
+                jobService.recordProgress(activeJob.jobId(), List.copyOf(liveSteps));
             });
             invalidateApplicationState.run();
             return installOutcome(result);
         });
+        invalidateApplicationState.run();
+        return job;
     }
 
     private InstallOptionsRequest installOptions(InstallOptionsRequest options, DiscoverInstallRequest request) {
