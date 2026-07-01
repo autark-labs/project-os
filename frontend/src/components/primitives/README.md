@@ -25,3 +25,11 @@ Discouraged:
 ```
 
 Raw Tailwind colors are acceptable for local status meaning. Shared surface, panel, border, and action colors should move through semantic variables or reusable primitives as pages are touched.
+
+## Current Reference Pages
+
+Applications uses `PageShell`, `PageHeader`, `Surface`, `MetricCard`, `ProjectEmptyState`, and application-specific button/card wrappers.
+
+Home uses `PageShell`, `Surface`, and `StatusPill`, with homepage-only cards and timeline components under `pages/OverviewPage/components`. Keep feature-specific composition local until a second page needs the same component.
+
+Avoid importing the legacy broad `ProjectOSComponents` styling helpers into pages as they are cleaned up. If a page needs one of those patterns, copy the visual decision into a small primitive or feature component and keep `className` available for layout tweaks.

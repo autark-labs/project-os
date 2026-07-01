@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
-const root = resolve(import.meta.dirname, '../../');
+const root = resolve(import.meta.dirname, '../../../../');
 
 function source(relativePath) {
   return readFileSync(resolve(root, relativePath), 'utf8');

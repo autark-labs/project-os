@@ -1,20 +1,19 @@
 import { useMemo } from 'react';
-import { AlertTriangle, Boxes, CheckCircle2, Clock3, Database, Pin, LockKeyhole, ShieldCheck, Sparkles } from 'lucide-react';
+import { AlertTriangle, Boxes, CheckCircle2, Database, Pin, LockKeyhole, ShieldCheck, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import {
-  ActivityTimeline,
-  IssueBanner,
-  MetricStoryCard,
-  PageSection,
-  PageShell,
-  PrimaryActionCard,
-  QuickAccessAppTile,
-  SoftCard,
-  StatusPill,
-} from '@/components/project-os/ProjectOSComponents';
+  HomeActionCard,
+  HomeActivityTimeline,
+  HomeIssueBanner,
+  HomeMetricCard,
+  HomeQuickAccessTile,
+  HomeSection,
+  HomeSoftCard,
+} from './components/HomeCards';
+import { HomeHero } from './components/HomeHero';
+import { PageShell } from '@/components/layout/PageShell';
 import { Button } from '@/components/ui/button';
-import overviewBackground from '@/assets/overviewBackground.png';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
 import { useApplicationStateRepository } from '@/repositories/applicationStateRepository';
 import { useHomeRepository } from '@/repositories/homeRepository';
@@ -23,7 +22,6 @@ import { homeMajorActivity } from './extensions/OverviewPage.activity';
 import { shouldShowActivityLogLink } from './extensions/OverviewPage.activityLink';
 import type { ActivityLog } from '@/types/activity';
 import type { AppInstanceView } from '@/types/app';
-import type { SystemSummary } from '@/types/system';
 
 function OverviewPage() {
   const { viewMode } = useProjectSettings();
@@ -42,19 +40,17 @@ function OverviewPage() {
   const pageLoading = home.isLoading || appState.isLoading;
 
   return (
-    <PageShell maxWidth="max-w-[90%]">
+    <PageShell className="bg-transparent text-slate-950" contentClassName="mx-0 max-w-[90%] p-0 md:p-0 2xl:px-0">
       <HomeHero
         deviceName={deviceName}
         loading={pageLoading}
-        pinnedServices={pinnedServices.length}
-        readyApps={readyApps.length}
         summary={home.summary}
       />
 
       <section className="grid gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] lg:items-start">
         <div className="grid gap-5">
           {primaryAction ? (
-            <PrimaryActionCard
+            <HomeActionCard
               action={primaryAction.primaryAction}
               body={primaryAction.body}
               dismissible={primaryAction.dismissible}
@@ -62,7 +58,7 @@ function OverviewPage() {
               title={primaryAction.title}
             />
           ) : (
-            <PrimaryActionCard
+            <HomeActionCard
               action={{ id: 'open-discover', label: apps.length ? 'Discover apps' : 'Install your first app', route: '/discover', confirmationRequired: false, danger: false }}
               body={apps.length ? 'Project OS does not see anything urgent right now.' : 'Start with a verified app and Project OS will guide the setup.'}
               severity="success"
@@ -71,15 +67,15 @@ function OverviewPage() {
           )}
 
           {observedNeedingReview.length > 0 && (
-            <SoftCard className="border-po-warning-border bg-po-warning-soft">
+            <HomeSoftCard className="border-orange-500/35 bg-orange-600/10">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex min-w-0 gap-3">
-                  <div className="grid size-9 shrink-0 place-items-center rounded-po-sm bg-po-surface-elevated text-po-warning">
+                  <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-sky-50 text-orange-700">
                     <AlertTriangle className="size-4" />
                   </div>
                   <div className="min-w-0">
-                    <p className="m-0 text-sm font-bold text-po-text">Services found on this server</p>
-                    <p className="m-0 mt-1 text-sm leading-5 text-po-text-secondary">
+                    <p className="m-0 text-sm font-bold text-slate-950">Services found on this server</p>
+                    <p className="m-0 mt-1 text-sm leading-5 text-slate-600">
                       Project OS found {observedNeedingReview.length} service{observedNeedingReview.length === 1 ? '' : 's'} that need review before they are treated as managed apps.
                     </p>
                   </div>
@@ -88,10 +84,10 @@ function OverviewPage() {
                   <Link to="/apps/found">Review</Link>
                 </Button>
               </div>
-            </SoftCard>
+            </HomeSoftCard>
           )}
 
-          <PageSection
+          <HomeSection
             action={<Button asChild variant="outline"><Link to="/apps">Manage apps</Link></Button>}
             description="These are the apps ready to open now."
             title="Your Apps"
@@ -99,7 +95,7 @@ function OverviewPage() {
             {readyApps.length ? (
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {readyApps.slice(0, 6).map((app) => (
-                  <QuickAccessAppTile
+                  <HomeQuickAccessTile
                     actionLabel="Open"
                     description={app.category}
                     href={app.privateUrl || app.localUrl}
@@ -114,28 +110,28 @@ function OverviewPage() {
                 ))}
               </div>
             ) : (
-              <SoftCard>
+              <HomeSoftCard>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="m-0 font-bold text-po-text">{apps.length ? 'No apps are ready to open yet' : 'No apps installed yet'}</p>
-                    <p className="m-0 mt-1 text-sm text-po-text-muted">{apps.length ? 'Open My Apps to review setup or repair options.' : 'Discover verified starter apps to get going.'}</p>
+                    <p className="m-0 font-bold text-slate-950">{apps.length ? 'No apps are ready to open yet' : 'No apps installed yet'}</p>
+                    <p className="m-0 mt-1 text-sm text-slate-500">{apps.length ? 'Open My Apps to review setup or repair options.' : 'Discover verified starter apps to get going.'}</p>
                   </div>
                   <Button asChild>
                     <Link to={apps.length ? '/apps' : '/discover'}>{apps.length ? 'Review apps' : 'Open Discover'}</Link>
                   </Button>
                 </div>
-              </SoftCard>
+              </HomeSoftCard>
             )}
-          </PageSection>
+          </HomeSection>
 
           {pinnedServices.length > 0 && (
-            <PageSection
+            <HomeSection
               description="Pinned services Project OS can open or check but does not own."
               title="Pinned External Services"
             >
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {pinnedServices.slice(0, 6).map((service) => (
-                  <QuickAccessAppTile
+                  <HomeQuickAccessTile
                     actionLabel="Open"
                     description={`${service.category} - ${service.accessScope}`}
                     href={service.url || undefined}
@@ -149,34 +145,34 @@ function OverviewPage() {
                   />
                 ))}
               </div>
-            </PageSection>
+            </HomeSection>
           )}
         </div>
 
         <div className="grid gap-5">
-          <PageSection title="System Status">
+          <HomeSection title="System Status">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-              <MetricStoryCard detail={home.summary?.docker.summary || 'Checking Docker'} icon={Boxes} label="Docker" tone={home.summary?.docker.ready ? 'success' : 'warning'} value={home.summary?.docker.ready ? 'Ready' : 'Needs setup'} />
-              <MetricStoryCard detail={observedNeedingReview.length ? `${observedNeedingReview.length} observed service${observedNeedingReview.length === 1 ? '' : 's'} to review` : `${pinnedServices.length} pinned external service${pinnedServices.length === 1 ? '' : 's'}`} icon={Pin} label="Pinned" tone="info" value={pinnedServices.length ? 'Available' : 'None'} />
-              <MetricStoryCard detail={home.summary?.access.summary || 'Checking access'} icon={LockKeyhole} label="Access" tone={home.summary?.access.mode === 'private_ready' ? 'success' : 'info'} value={accessModeLabel(home.summary?.access.mode)} />
-              <MetricStoryCard detail={home.summary?.backups.summary || 'Checking backups'} icon={ShieldCheck} label="Backups" tone={home.summary?.backups.state === 'needs_restore_point' ? 'warning' : 'success'} value={backupStateLabel(home.summary?.backups.state)} />
-              <MetricStoryCard detail={home.summary?.storage.summary || 'Checking storage'} icon={Database} label="Storage" tone="teal" value={home.summary?.storage.state || 'Checking'} />
+              <HomeMetricCard detail={home.summary?.docker.summary || 'Checking Docker'} icon={Boxes} label="Docker" tone={home.summary?.docker.ready ? 'success' : 'warning'} value={home.summary?.docker.ready ? 'Ready' : 'Needs setup'} />
+              <HomeMetricCard detail={observedNeedingReview.length ? `${observedNeedingReview.length} observed service${observedNeedingReview.length === 1 ? '' : 's'} to review` : `${pinnedServices.length} pinned external service${pinnedServices.length === 1 ? '' : 's'}`} icon={Pin} label="Pinned" tone="info" value={pinnedServices.length ? 'Available' : 'None'} />
+              <HomeMetricCard detail={home.summary?.access.summary || 'Checking access'} icon={LockKeyhole} label="Access" tone={home.summary?.access.mode === 'private_ready' ? 'success' : 'info'} value={accessModeLabel(home.summary?.access.mode)} />
+              <HomeMetricCard detail={home.summary?.backups.summary || 'Checking backups'} icon={ShieldCheck} label="Backups" tone={home.summary?.backups.state === 'needs_restore_point' ? 'warning' : 'success'} value={backupStateLabel(home.summary?.backups.state)} />
+              <HomeMetricCard detail={home.summary?.storage.summary || 'Checking storage'} icon={Database} label="Storage" tone="teal" value={home.summary?.storage.state || 'Checking'} />
             </div>
-          </PageSection>
+          </HomeSection>
 
           {home.summary?.issues.length ? (
-            <PageSection title="Needs Review">
+            <HomeSection title="Needs Review">
               <div className="grid gap-2">
-                {home.summary.issues.slice(0, 3).map((issue) => <IssueBanner issue={issue} key={issue.id} />)}
+                {home.summary.issues.slice(0, 3).map((issue) => <HomeIssueBanner issue={issue} key={issue.id} />)}
               </div>
-            </PageSection>
+            </HomeSection>
           ) : null}
 
-          <PageSection
+          <HomeSection
             action={showActivityLogLink ? <Button asChild size="sm" variant="outline"><Link to="/activity">Activity Log</Link></Button> : null}
             title="Recent Activity"
           >
-            <ActivityTimeline
+            <HomeActivityTimeline
               emptyText={home.isLoading ? 'Loading recent activity.' : 'No recent activity recorded.'}
               items={majorActivity.map((item) => ({
                 id: item.id,
@@ -187,87 +183,13 @@ function OverviewPage() {
                 icon: item.level === 'error' ? Sparkles : CheckCircle2,
               }))}
             />
-          </PageSection>
+          </HomeSection>
         </div>
       </section>
 
-      {home.error && <IssueBanner issue={{ id: 'home-load-error', scope: 'system', subjectId: '', severity: 'warning', reasonCode: 'home_partial_load', title: 'Some Home data did not load', summary: home.error, secondaryActions: [], advancedDetails: {} }} />}
+      {home.error && <HomeIssueBanner issue={{ id: 'home-load-error', scope: 'system', subjectId: '', severity: 'warning', reasonCode: 'home_partial_load', title: 'Some Home data did not load', summary: home.error, secondaryActions: [], advancedDetails: {} }} />}
     </PageShell>
   );
-}
-
-function HomeHero({
-  deviceName,
-  loading,
-  pinnedServices,
-  readyApps,
-  summary,
-}: {
-  deviceName: string;
-  loading: boolean;
-  pinnedServices: number;
-  readyApps: number;
-  summary: SystemSummary | null;
-}) {
-  const needsReview = Boolean(summary?.issues.length);
-  const statusTone = loading ? 'info' : needsReview ? 'warning' : 'success';
-  const readyStatus = loading ? 'Checking' : needsReview ? 'Needs review' : 'Ready';
-
-  return (
-    <header className="relative overflow-hidden rounded-po-lg border border-po-border bg-po-sidebar/70 shadow-po-lg">
-      <div className="relative min-h-[360px] overflow-hidden md:min-h-[430px]">
-        <img alt="" className="absolute inset-x-0 top-0 h-full w-full object-cover object-center opacity-95" src={overviewBackground} />
-        <div className="absolute inset-0 bg-po-overview-side-overlay" />
-        <div className="absolute inset-0 bg-po-overview-vertical-overlay" />
-        <div className="absolute inset-x-0 bottom-0 h-40 bg-po-overview-bottom-fade" />
-
-        <div className="relative z-10 flex min-h-[360px] flex-col justify-between gap-7 p-5 md:min-h-[430px] md:p-7">
-          <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-            <div className="max-w-2xl">
-              <p className="m-0 text-xs font-black uppercase tracking-normal text-po-brand">Project OS</p>
-              <h1 className="m-0 mt-3 text-4xl font-black leading-none text-sidebar-foreground md:text-5xl">
-                {timeGreeting()}, {shortName(deviceName)}.
-              </h1>
-              <p className="mt-4 max-w-xl text-lg font-semibold leading-7 text-sidebar-foreground/90">
-                {homeHeroSubtitle(summary, loading)}
-              </p>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-sidebar-muted-foreground">
-                Open apps, handle the next setup step, and keep your home server calm.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 xl:justify-end">
-              <StatusPill tone={statusTone}>{readyStatus}</StatusPill>
-              {loading && (
-                <span className="inline-flex items-center gap-2 rounded-po-full border border-sidebar-border bg-po-surface-inset px-3 py-2 text-xs font-semibold text-sidebar-foreground shadow-po-sm">
-                  <Clock3 className="size-3.5" />
-                  Updating
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </header>
-  );
-}
-
-function homeHeroSubtitle(summary: SystemSummary | null, loading: boolean) {
-  if (loading && !summary) return 'Project OS is checking your home server.';
-  if (summary?.issues.length) return 'Your server needs a quick look.';
-  if (summary?.setup.complete === false) return summary.setup.summary || 'Finish setup to unlock the full Project OS experience.';
-  return 'Your digital home is ready.';
-}
-
-function timeGreeting() {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 17) return 'Good afternoon';
-  return 'Good evening';
-}
-
-function shortName(value: string) {
-  return value.split(/[\s.-]+/).filter(Boolean)[0]?.replace(/^./, (first) => first.toUpperCase()) || 'there';
 }
 
 function accessLabel(app: AppInstanceView) {
