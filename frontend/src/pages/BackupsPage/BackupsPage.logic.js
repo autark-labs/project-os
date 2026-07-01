@@ -64,9 +64,9 @@ export function backupSchedulerLabel(status) {
  */
 export function backupSchedulerTone(status) {
   if (status === 'healthy') return 'border-emerald-300/20 bg-emerald-500/10 text-emerald-100';
-  if (status === 'warning') return 'border-red-300/20 bg-red-500/10 text-red-100';
+  if (status === 'warning') return 'border-red-400/40 bg-red-500/10 text-red-200';
   if (status === 'off') return 'border-slate-700 bg-slate-900 text-slate-300';
-  return 'border-amber-300/20 bg-amber-500/10 text-amber-100';
+  return 'border-orange-400/45 bg-orange-500/10 text-orange-200';
 }
 
 /**
@@ -75,8 +75,8 @@ export function backupSchedulerTone(status) {
  */
 export function backupAppBadgeTone(status) {
   if (status === 'protected') return 'border-emerald-300/20 bg-emerald-500/10 text-emerald-100';
-  if (status === 'failed') return 'border-red-300/20 bg-red-500/10 text-red-100';
-  return 'border-amber-300/20 bg-amber-500/10 text-amber-100';
+  if (status === 'failed') return 'border-red-400/40 bg-red-500/10 text-red-200';
+  return 'border-orange-400/45 bg-orange-500/10 text-orange-200';
 }
 
 /**

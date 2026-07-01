@@ -1,8 +1,10 @@
 import { AlertTriangle, AppWindow, Archive, CalendarClock, CheckCircle2, Clock3, Info, Layers3, Loader2, Play, RotateCcw, ShieldCheck, Sparkles, TimerReset } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { DisabledAction } from '@/components/project-os/DisabledAction';
+import { ProjectDarkControlButton, ProjectPrimaryButton } from '@/components/primitives/ProjectButtons';
+import { Surface } from '@/components/primitives/Surface';
 import {
   Dialog,
   DialogContent,
@@ -12,7 +14,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { SurfaceInset, SurfacePanel } from '@/components/project-os/ProjectOSComponents';
 import { cn } from '@/lib/utils';
 import type { AppBackupStatus, BackupReport, RestorePlan, RestorePoint } from '@/types/backup';
 import { restorePointDetails } from './BackupsPage.restoreDetails';
@@ -26,16 +27,32 @@ import {
   formatBackupDate,
 } from './BackupsPage.logic';
 
+export function BackupPanel({ children, className, id }: { children: ReactNode; className?: string; id?: string }) {
+  return (
+    <Surface as="section" className={cn('p-5', className)} id={id} tone="panel">
+      {children}
+    </Surface>
+  );
+}
+
+export function BackupInset({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <Surface className={cn('p-3', className)} tone="muted">
+      {children}
+    </Surface>
+  );
+}
+
 export function ProtectionPanel({ latestRestore, report }: { latestRestore: RestorePoint | null; report: BackupReport | null }) {
   const protectedPercent = report?.totalApps ? Math.round((report.protectedApps / report.totalApps) * 100) : 0;
   return (
-    <SurfacePanel className="bg-slate-950/55 shadow-none">
+    <BackupInset className="bg-slate-900 shadow-none">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-sm font-bold text-white">{report?.settings.automaticBackupsEnabled ? 'Routine backups on' : 'Routine backups off'}</p>
           <p className="mt-1 text-xs text-slate-400">{report?.settings.nextRunLabel || 'Schedule unavailable'}</p>
         </div>
-        <span className={cn('grid size-11 place-items-center rounded-lg border', report?.settings.automaticBackupsEnabled ? 'border-emerald-300/20 bg-emerald-500/10 text-emerald-200' : 'border-amber-300/20 bg-amber-500/10 text-amber-100')}>
+        <span className={cn('grid size-11 place-items-center rounded-lg border', report?.settings.automaticBackupsEnabled ? 'border-emerald-300/20 bg-emerald-500/10 text-emerald-200' : 'border-orange-400/45 bg-orange-500/10 text-orange-200')}>
           <ShieldCheck className="size-5" />
         </span>
       </div>
@@ -45,21 +62,21 @@ export function ProtectionPanel({ latestRestore, report }: { latestRestore: Rest
           <span>{report?.protectedApps ?? 0}/{report?.totalApps ?? 0}</span>
         </div>
         <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800">
-          <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-emerald-400" style={{ width: `${protectedPercent}%` }} />
+          <div className="h-full rounded-full bg-gradient-to-r from-cyan-300 to-emerald-400" style={{ width: `${protectedPercent}%` }} />
         </div>
       </div>
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
         <MiniStat icon={Archive} label="Restore points" value={`${report?.recentRestorePoints.length ?? 0}`} />
         <MiniStat icon={Clock3} label="Latest" value={latestRestore ? formatBackupDate(latestRestore.createdAt) : 'None'} />
       </div>
-    </SurfacePanel>
+    </BackupInset>
   );
 }
 
 export function RoutineHealthPanel({ report, showAdvancedMetrics }: { report: BackupReport; showAdvancedMetrics: boolean }) {
   const tone = backupSchedulerTone(report.settings.schedulerHealth);
   return (
-    <SurfacePanel>
+    <BackupPanel>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <SectionHeader icon={TimerReset} title="Protection rhythm" description="Last good checkpoint, next scheduled run, and current scheduler status." />
         <Badge className={cn('border', tone)}>{backupSchedulerLabel(report.settings.schedulerHealth)}</Badge>
@@ -69,32 +86,32 @@ export function RoutineHealthPanel({ report, showAdvancedMetrics }: { report: Ba
         <FactRow label="Next scheduled backup" value={report.settings.nextRoutineRun ? formatBackupDate(report.settings.nextRoutineRun) : 'Not scheduled'} />
         <FactRow label="Protected by restore point" value={`${report.protectedApps}/${report.totalApps}`} />
       </div>
-      <SurfaceInset className="mt-4 text-sm leading-6 text-slate-300">{report.settings.schedulerMessage}</SurfaceInset>
+      <BackupInset className="mt-4 text-sm leading-6 text-slate-300">{report.settings.schedulerMessage}</BackupInset>
       {showAdvancedMetrics && (
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <FactRow label="Last routine run" value={report.settings.lastRoutineRun ? `${backupStatusLabel(report.settings.lastRoutineRun.status)} · ${formatBackupDate(report.settings.lastRoutineRun.createdAt)}` : 'No routine run yet'} />
           <FactRow label="Last verified" value={report.settings.lastSuccessfulVerification ? formatBackupDate(report.settings.lastSuccessfulVerification.verifiedAt || report.settings.lastSuccessfulVerification.createdAt) : 'None yet'} />
         </div>
       )}
-    </SurfacePanel>
+    </BackupPanel>
   );
 }
 
-export function ActionCard({ busy, description, disabled = false, disabledReason = 'This action is not available yet.', icon: Icon, label, onClick, title, tone }: { busy: boolean; description: string; disabled?: boolean; disabledReason?: string; icon: LucideIcon; label: string; onClick: () => void; title: string; tone: 'violet' | 'sky' | 'emerald' }) {
+export function ActionCard({ busy, description, disabled = false, disabledReason = 'This action is not available yet.', icon: Icon, label, onClick, title, tone }: { busy: boolean; description: string; disabled?: boolean; disabledReason?: string; icon: LucideIcon; label: string; onClick: () => void; title: string; tone: 'cyan' | 'sky' | 'emerald' }) {
   const tones = {
-    violet: 'border-violet-300/20 bg-violet-500/10 text-violet-100',
-    sky: 'border-sky-300/20 bg-sky-500/10 text-sky-100',
+    cyan: 'border-cyan-300/35 bg-cyan-400/10 text-cyan-100',
+    sky: 'border-sky-400/30 bg-sky-500/10 text-sky-100',
     emerald: 'border-emerald-300/20 bg-emerald-500/10 text-emerald-100',
   };
   const isDisabled = busy || disabled;
   return (
     <DisabledAction className="w-full" disabled={isDisabled} reason={busy ? 'Wait for the current backup job to finish.' : disabledReason}>
-      <button className={cn('group w-full rounded-lg border p-4 text-left transition hover:-translate-y-0.5 hover:bg-slate-900/70 disabled:cursor-not-allowed disabled:opacity-50', tones[tone])} disabled={isDisabled} onClick={onClick} type="button">
+      <button className={cn('group w-full rounded-lg border p-4 text-left transition hover:-translate-y-0.5 hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50', tones[tone])} disabled={isDisabled} onClick={onClick} type="button">
         <div className="flex items-start justify-between gap-3">
-          <span className="grid size-11 place-items-center rounded-lg border border-white/10 bg-slate-950/55 text-white">
+          <span className="grid size-11 place-items-center rounded-lg border border-sky-400/25 bg-slate-900 text-white">
             {busy ? <Loader2 className="size-5 animate-spin" /> : <Icon className="size-5" />}
           </span>
-          <Badge className="border-white/10 bg-slate-950/60 text-current">{label}</Badge>
+          <Badge className="border-sky-400/20 bg-slate-900 text-current">{label}</Badge>
         </div>
         <p className="mt-4 font-black text-white">{title}</p>
         <p className="mt-2 text-sm leading-6 text-current/75">{description}</p>
@@ -108,7 +125,7 @@ export function RoutineTimeline({ apps, latestRestore, nextRun, onDetails, onRes
     return <EmptyState title="No restore points yet" message="Run a routine backup after installing an app to create the first restore point." />;
   }
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-800 bg-slate-900/35 p-4">
+    <BackupInset className="overflow-hidden p-4">
       <div className="mb-4 grid gap-3 md:grid-cols-2">
         <TimelineSummary icon={CheckCircle2} label="Last successful backup" value={latestRestore ? formatBackupDate(latestRestore.createdAt) : 'None yet'} />
         <TimelineSummary icon={CalendarClock} label="Next scheduled backup" value={nextRun ? formatBackupDate(nextRun) : 'Not scheduled'} />
@@ -118,7 +135,7 @@ export function RoutineTimeline({ apps, latestRestore, nextRun, onDetails, onRes
           <TimelinePoint apps={apps} first={index === 0} key={point.id} onDetails={onDetails} onRestore={onRestore} onVerify={onVerify} point={point} running={running === `verify-${point.id}`} />
         ))}
       </div>
-    </div>
+    </BackupInset>
   );
 }
 
@@ -136,13 +153,13 @@ export function RestoreList({ apps, appRestorePoints, fullRestorePoints, onDetai
 
 export function AppBackupCard({ app, onRun, running, showAdvancedMetrics }: { app: AppBackupStatus; onRun: (app: AppBackupStatus) => void; running: boolean; showAdvancedMetrics: boolean }) {
   return (
-    <SurfaceInset className="p-4">
+    <BackupInset className="p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-bold text-white">{app.appName}</p>
             <Badge className={cn('border', backupAppBadgeTone(app.status))}>{backupStatusLabel(app.status)}</Badge>
-            {app.backupContract.reviewRequired && <Badge className="border-amber-300/20 bg-amber-500/10 text-amber-100">Review</Badge>}
+            {app.backupContract.reviewRequired && <Badge className="border-orange-400/45 bg-orange-500/10 text-orange-200">Review</Badge>}
           </div>
           <p className="mt-1 text-xs leading-5 text-slate-500">{app.message}</p>
         </div>
@@ -155,19 +172,19 @@ export function AppBackupCard({ app, onRun, running, showAdvancedMetrics }: { ap
         <Metric label="Latest" value={app.latestBackup ? formatBackupDate(app.latestBackup.createdAt) : 'None'} />
       </div>
       {showAdvancedMetrics && (
-        <div className="mt-3 rounded-lg border border-slate-800 bg-slate-950/45 p-3">
+        <BackupInset className="mt-3 bg-slate-900 p-3">
           <p className="text-xs font-bold uppercase text-slate-500">Backup contract</p>
           <p className="mt-1 text-sm font-semibold text-slate-200">{app.backupContract.label}</p>
           <p className="mt-1 text-xs leading-5 text-slate-500">{app.backupContract.summary}</p>
-        </div>
+        </BackupInset>
       )}
       <DisabledAction className="mt-4 w-full" disabled={running || app.status === 'unprotected'} reason={running ? 'Wait for the current app backup to finish.' : 'Turn backups on for this app before creating a restore point.'}>
-        <Button className="mt-4 w-full border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" disabled={running || app.status === 'unprotected'} onClick={() => onRun(app)} size="sm" type="button" variant="outline">
+        <ProjectDarkControlButton className="mt-4 w-full" disabled={running || app.status === 'unprotected'} onClick={() => onRun(app)} size="sm" type="button">
           {running ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
           {running ? 'Running' : 'Back up app'}
-        </Button>
+        </ProjectDarkControlButton>
       </DisabledAction>
-    </SurfaceInset>
+    </BackupInset>
   );
 }
 
@@ -176,7 +193,7 @@ export function RestorePointDetailsDialog({ apps, onClose, onRestore, onVerify, 
   const details = point ? restorePointDetails(point, apps, plan) : null;
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-      <DialogContent className="max-w-2xl border-white/10 bg-slate-950 text-slate-100">
+      <DialogContent className="max-w-2xl border-sky-400/30 bg-slate-900 text-slate-100">
         <DialogHeader>
           <DialogTitle>{details?.title || 'Restore point details'}</DialogTitle>
           <DialogDescription className="text-slate-400">Review what this backup contains before verifying or restoring it.</DialogDescription>
@@ -196,19 +213,19 @@ export function RestorePointDetailsDialog({ apps, onClose, onRestore, onVerify, 
           </div>
         )}
         <DialogFooter>
-          <Button className="border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" onClick={onClose} type="button" variant="outline">Close</Button>
+          <ProjectDarkControlButton onClick={onClose} type="button">Close</ProjectDarkControlButton>
           {point && (
             <>
               <DisabledAction disabled={running === `verify-${point.id}`} reason="Project OS is already verifying this restore point.">
-                <Button className="border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" disabled={running === `verify-${point.id}`} onClick={() => onVerify(point)} type="button" variant="outline">
+                <ProjectDarkControlButton disabled={running === `verify-${point.id}`} onClick={() => onVerify(point)} type="button">
                   {running === `verify-${point.id}` ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
                   Verify
-                </Button>
+                </ProjectDarkControlButton>
               </DisabledAction>
-              <Button className="bg-violet-600 text-white hover:bg-violet-500" onClick={() => onRestore(point)} type="button">
+              <ProjectPrimaryButton onClick={() => onRestore(point)} type="button">
                 <RotateCcw className="size-4" />
                 Restore
-              </Button>
+              </ProjectPrimaryButton>
             </>
           )}
         </DialogFooter>
@@ -223,13 +240,13 @@ export function RestoreDialog({ appOptions, loading, onClose, onRestore, onTarge
   const selectableApps = point?.scope === 'full' ? appOptions.filter((app) => included.includes(app.appId)) : appOptions.filter((app) => app.appId === point?.appId);
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-      <DialogContent className="max-w-2xl border-white/10 bg-slate-950 text-slate-100">
+      <DialogContent className="max-w-2xl border-sky-400/30 bg-slate-900 text-slate-100">
         <DialogHeader>
           <DialogTitle>{plan?.title || 'Restore backup'}</DialogTitle>
           <DialogDescription className="text-slate-400">{plan?.summary || 'Review what Project OS will restore before continuing.'}</DialogDescription>
         </DialogHeader>
         {point?.scope === 'full' && (
-          <div className="rounded-lg border border-slate-800 bg-slate-900/45 p-3">
+          <BackupInset>
             <label className="text-xs font-bold uppercase text-slate-500" htmlFor="restore-target">Restore target</label>
             <Select onValueChange={(value) => onTargetChange(value === 'all' ? null : value)} value={targetAppId || 'all'}>
               <SelectTrigger className="mt-2 h-10 w-full border-slate-700 bg-slate-950/70 text-slate-100" id="restore-target">
@@ -244,7 +261,7 @@ export function RestoreDialog({ appOptions, loading, onClose, onRestore, onTarge
                 </SelectGroup>
               </SelectContent>
             </Select>
-          </div>
+          </BackupInset>
         )}
         {plan && (
           <div className="grid gap-4">
@@ -261,12 +278,12 @@ export function RestoreDialog({ appOptions, loading, onClose, onRestore, onTarge
           </div>
         )}
         <DialogFooter>
-          <Button className="border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" onClick={onClose} type="button" variant="outline">Cancel</Button>
+          <ProjectDarkControlButton onClick={onClose} type="button">Cancel</ProjectDarkControlButton>
           <DisabledAction disabled={!plan?.executable || loading} reason={loading ? 'Wait for the restore job to start.' : 'This restore point cannot be restored until the restore plan is executable.'}>
-            <Button className="bg-violet-600 text-white hover:bg-violet-500" disabled={!plan?.executable || loading} onClick={onRestore} type="button">
+            <ProjectPrimaryButton disabled={!plan?.executable || loading} onClick={onRestore} type="button">
               {loading ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />}
               Restore
-            </Button>
+            </ProjectPrimaryButton>
           </DisabledAction>
         </DialogFooter>
       </DialogContent>
@@ -276,17 +293,17 @@ export function RestoreDialog({ appOptions, loading, onClose, onRestore, onTarge
 
 export function FactRow({ label, value }: { label: string; value: string }) {
   return (
-    <SurfaceInset>
+    <BackupInset>
       <p className="text-xs font-bold uppercase text-slate-500">{label}</p>
       <p className="mt-1 break-words text-sm text-slate-200">{value}</p>
-    </SurfaceInset>
+    </BackupInset>
   );
 }
 
 export function SectionHeader({ compact = false, description, icon: Icon, title }: { compact?: boolean; description?: string; icon: LucideIcon; title: string }) {
   return (
     <div className="flex items-start gap-3">
-      <span className={cn('grid place-items-center rounded-lg border border-white/10 bg-slate-900 text-violet-300', compact ? 'size-9' : 'size-10')}>
+      <span className={cn('grid place-items-center rounded-lg border border-sky-400/25 bg-slate-800 text-cyan-200', compact ? 'size-9' : 'size-10')}>
         <Icon className="size-4" />
       </span>
       <div>
@@ -299,18 +316,18 @@ export function SectionHeader({ compact = false, description, icon: Icon, title 
 
 export function EmptyState({ compact = false, message, title }: { compact?: boolean; message: string; title: string }) {
   return (
-    <div className={cn('rounded-lg border border-slate-800 bg-slate-900/40 text-center', compact ? 'p-4' : 'p-8')}>
+    <BackupInset className={cn('text-center', compact ? 'p-4' : 'p-8')}>
       <p className="font-bold text-white">{title}</p>
       <p className="mt-1 text-sm text-slate-400">{message}</p>
-    </div>
+    </BackupInset>
   );
 }
 
 export function AttentionCard({ app }: { app: AppBackupStatus }) {
   return (
-    <div className="rounded-lg border border-amber-300/20 bg-amber-500/10 p-4 text-amber-100">
+    <div className="rounded-lg border border-orange-400/45 bg-orange-500/10 p-4 text-orange-200">
       <p className="font-bold text-white">{app.appName}</p>
-      <p className="mt-1 text-sm text-amber-100/80">{app.message}</p>
+      <p className="mt-1 text-sm text-orange-100/80">{app.message}</p>
     </div>
   );
 }
@@ -320,10 +337,10 @@ function TimelinePoint({ apps, first, onDetails, onRestore, onVerify, point, run
   const eligibleApps = apps.filter((app) => included.includes(app.appId));
   return (
     <div className="relative min-w-[260px]">
-      {!first && <span className="absolute left-[-1rem] top-7 h-px w-4 bg-violet-400/40" />}
-      <div className="rounded-lg border border-violet-300/20 bg-slate-950/70 p-4">
+      {!first && <span className="absolute left-[-1rem] top-7 h-px w-4 bg-cyan-300/40" />}
+      <div className="rounded-lg border border-sky-400/30 bg-slate-900 p-4">
         <div className="flex items-center justify-between gap-3">
-          <span className="grid size-12 place-items-center rounded-lg bg-gradient-to-br from-violet-600 to-sky-500 text-white shadow-po-brand-glow">
+          <span className="grid size-12 place-items-center rounded-lg border border-cyan-300/40 bg-cyan-300 text-slate-950 shadow-lg shadow-cyan-500/20">
             <Archive className="size-5" />
           </span>
           <Badge className="border-sky-300/20 bg-sky-500/10 text-sky-100">Routine</Badge>
@@ -332,27 +349,27 @@ function TimelinePoint({ apps, first, onDetails, onRestore, onVerify, point, run
         <p className="mt-1 text-xs text-slate-500">{formatBackupBytes(point.sizeBytes)} stored</p>
         <VerificationBadge point={point} />
         <div className="mt-4 flex items-center gap-2 text-xs text-slate-400">
-          <Sparkles className="size-3.5 text-violet-300" />
+          <Sparkles className="size-3.5 text-cyan-200" />
           {eligibleApps.length} app{eligibleApps.length === 1 ? '' : 's'} included
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
-          <Button className="border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" onClick={() => onDetails(point)} size="sm" type="button" variant="outline">
+          <ProjectDarkControlButton onClick={() => onDetails(point)} size="sm" type="button">
             <Info className="size-3.5" />
             Details
-          </Button>
-          <Button className="bg-violet-600 text-white hover:bg-violet-500" onClick={() => onRestore(point, null)} size="sm" type="button">
+          </ProjectDarkControlButton>
+          <ProjectPrimaryButton onClick={() => onRestore(point, null)} size="sm" type="button">
             Restore all
-          </Button>
+          </ProjectPrimaryButton>
           <DisabledAction disabled={!eligibleApps.length} reason="No currently installed app matches this restore point.">
-            <Button className="border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" disabled={!eligibleApps.length} onClick={() => onRestore(point, eligibleApps[0]?.appId || null)} size="sm" type="button" variant="outline">
+            <ProjectDarkControlButton disabled={!eligibleApps.length} onClick={() => onRestore(point, eligibleApps[0]?.appId || null)} size="sm" type="button">
               One app
-            </Button>
+            </ProjectDarkControlButton>
           </DisabledAction>
           <DisabledAction disabled={running} reason="Project OS is already verifying this restore point.">
-            <Button className="border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" disabled={running} onClick={() => onVerify(point)} size="sm" type="button" variant="outline">
+            <ProjectDarkControlButton disabled={running} onClick={() => onVerify(point)} size="sm" type="button">
               {running ? <Loader2 className="size-3.5 animate-spin" /> : <ShieldCheck className="size-3.5" />}
               Verify
-            </Button>
+            </ProjectDarkControlButton>
           </DisabledAction>
         </div>
       </div>
@@ -364,11 +381,11 @@ function RestorePointRow({ apps, onDetails, onRestore, onVerify, point, running 
   const included = point.includedAppIds.split(',').map((id) => id.trim()).filter(Boolean);
   const eligibleApps = point.scope === 'full' ? apps.filter((app) => included.includes(app.appId)) : apps.filter((app) => app.appId === point.appId);
   return (
-    <SurfaceInset className="grid gap-3 p-4 xl:grid-cols-[minmax(0,1fr)_120px_130px_auto] xl:items-center">
+    <BackupInset className="grid gap-3 p-4 xl:grid-cols-[minmax(0,1fr)_120px_130px_auto] xl:items-center">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <p className="font-bold text-white">{point.scope === 'full' ? 'Full backup' : point.appName}</p>
-          <Badge className={cn('border', point.source === 'automatic' ? 'border-sky-300/20 bg-sky-500/10 text-sky-100' : 'border-violet-300/20 bg-violet-500/10 text-violet-100')}>{point.source}</Badge>
+          <Badge className={cn('border', point.source === 'automatic' ? 'border-sky-300/20 bg-sky-500/10 text-sky-100' : 'border-cyan-300/35 bg-cyan-400/10 text-cyan-100')}>{point.source}</Badge>
           <Badge className="border-slate-700 bg-slate-950 text-slate-300">{point.scope}</Badge>
           <VerificationBadge point={point} />
         </div>
@@ -377,28 +394,28 @@ function RestorePointRow({ apps, onDetails, onRestore, onVerify, point, running 
       <Metric label="Size" value={formatBackupBytes(point.sizeBytes)} />
       <Metric label="Created" value={formatBackupDate(point.createdAt)} />
       <div className="flex flex-wrap gap-2 xl:justify-end">
-        <Button className="border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" onClick={() => onDetails(point)} size="sm" type="button" variant="outline">
+        <ProjectDarkControlButton onClick={() => onDetails(point)} size="sm" type="button">
           <Info className="size-3.5" />
           Details
-        </Button>
+        </ProjectDarkControlButton>
         {point.scope === 'full' && (
-          <Button className="border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" onClick={() => onRestore(point, null)} size="sm" type="button" variant="outline">
+          <ProjectDarkControlButton onClick={() => onRestore(point, null)} size="sm" type="button">
             Restore all
-          </Button>
+          </ProjectDarkControlButton>
         )}
         <DisabledAction disabled={!eligibleApps.length} reason="No currently installed app matches this restore point.">
-          <Button className="border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" disabled={!eligibleApps.length} onClick={() => onRestore(point, eligibleApps[0]?.appId || null)} size="sm" type="button" variant="outline">
+          <ProjectDarkControlButton disabled={!eligibleApps.length} onClick={() => onRestore(point, eligibleApps[0]?.appId || null)} size="sm" type="button">
             Restore app
-          </Button>
+          </ProjectDarkControlButton>
         </DisabledAction>
         <DisabledAction disabled={running} reason="Project OS is already verifying this restore point.">
-          <Button className="border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" disabled={running} onClick={() => onVerify(point)} size="sm" type="button" variant="outline">
+          <ProjectDarkControlButton disabled={running} onClick={() => onVerify(point)} size="sm" type="button">
             {running ? <Loader2 className="size-3.5 animate-spin" /> : <ShieldCheck className="size-3.5" />}
             Verify
-          </Button>
+          </ProjectDarkControlButton>
         </DisabledAction>
       </div>
-    </SurfaceInset>
+    </BackupInset>
   );
 }
 
@@ -407,26 +424,26 @@ function VerificationBadge({ point }: { point: RestorePoint }) {
   const tone = status === 'verified'
     ? 'border-emerald-300/20 bg-emerald-500/10 text-emerald-100'
     : status === 'failed'
-      ? 'border-red-300/20 bg-red-500/10 text-red-100'
-      : 'border-amber-300/20 bg-amber-500/10 text-amber-100';
+      ? 'border-red-400/40 bg-red-500/10 text-red-200'
+      : 'border-orange-400/45 bg-orange-500/10 text-orange-200';
   const label = status === 'verified' ? `Verified · ${capitalizeBackupLabel(point.restoreConfidence || 'unknown')}` : status === 'failed' ? 'Verification failed' : 'Not verified';
   return <Badge className={tone}>{label}</Badge>;
 }
 
 function MiniStat({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
   return (
-    <SurfaceInset>
+    <BackupInset>
       <Icon className="size-4 text-slate-500" />
       <p className="mt-2 text-xs font-bold uppercase text-slate-500">{label}</p>
       <p className="mt-1 truncate text-sm font-semibold text-slate-200">{value}</p>
-    </SurfaceInset>
+    </BackupInset>
   );
 }
 
 function TimelineSummary({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-slate-950/60 p-3">
-      <span className="grid size-9 place-items-center rounded-lg border border-violet-300/20 bg-violet-500/10 text-violet-200">
+    <div className="flex items-center gap-3 rounded-lg border border-sky-400/25 bg-slate-900 p-3">
+      <span className="grid size-9 place-items-center rounded-lg border border-cyan-300/35 bg-cyan-400/10 text-cyan-100">
         <Icon className="size-4" />
       </span>
       <span className="min-w-0">
@@ -439,9 +456,9 @@ function TimelineSummary({ icon: Icon, label, value }: { icon: LucideIcon; label
 
 function InfoBlock({ title, tone = 'default', values }: { title: string; tone?: 'default' | 'warning'; values: string[] }) {
   return (
-    <div className={cn('rounded-lg border p-3', tone === 'warning' ? 'border-amber-300/20 bg-amber-500/10 text-amber-100' : 'border-slate-800 bg-slate-900/45 text-slate-300')}>
+    <div className={cn('rounded-lg border p-3', tone === 'warning' ? 'border-orange-400/45 bg-orange-500/10 text-orange-200' : 'border-sky-400/25 bg-slate-800 text-slate-300')}>
       <p className="text-sm font-bold text-white">{title}</p>
-      <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
+      <ul className="mt-2 flex list-disc flex-col gap-1 pl-5 text-sm">
         {values.map((value) => <li key={value}>{value}</li>)}
       </ul>
     </div>

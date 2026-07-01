@@ -6,12 +6,12 @@ import { RefreshStatus } from '@/components/RefreshStatus';
 import { CanonicalRecommendedAction } from '@/components/project-os/CanonicalRecommendedAction';
 import { DisabledAction } from '@/components/project-os/DisabledAction';
 import { JobProgress } from '@/components/project-os/JobProgress';
-import { PageErrorState, PageLoadingState } from '@/components/project-os/PageState';
-import { PageShell, SurfaceFrame, SurfacePanel } from '@/components/project-os/ProjectOSComponents';
+import { PageShell } from '@/components/layout/PageShell';
+import { ProjectDarkControlButton, ProjectPrimaryButton } from '@/components/primitives/ProjectButtons';
+import { Surface } from '@/components/primitives/Surface';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
 import { showActionNotification, showJobNotification } from '@/lib/actionNotifications';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   useBackupReportRepository,
   useBackupJobsQuery,
@@ -29,6 +29,7 @@ import type { ProjectOsJob } from '@/types/jobs';
 import {
   ActionCard,
   AppBackupCard,
+  BackupPanel,
   AttentionCard,
   EmptyState,
   FactRow,
@@ -231,33 +232,33 @@ function BackupsPage() {
 
   if (backupReport.isLoading) {
     return (
-      <PageLoadingState label="Checking backups" sublabel="Loading protection status, restore points, and app backup coverage." />
+      <BackupsLoadingState />
     );
   }
 
   return (
-    <PageShell className="po-page-tall">
-      <SurfaceFrame as="header">
-        <div className="grid gap-5 border-b border-white/10 bg-po-hero-backups p-6 md:p-7 xl:grid-cols-[minmax(0,1fr)_420px]">
+    <PageShell>
+      <Surface as="header" className="overflow-hidden" tone="panel">
+        <div className="grid gap-5 border-b border-sky-400/20 bg-slate-900 p-6 md:p-7 xl:grid-cols-[minmax(0,1fr)_420px]">
           <div className="flex min-w-0 flex-col justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-normal text-violet-300">Backups</p>
+              <p className="text-xs font-black uppercase tracking-normal text-cyan-200">Backups</p>
               <h1 className="mt-2 text-3xl font-black leading-tight text-white md:text-4xl">{protectionHero.title}</h1>
               <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300 md:text-base">{protectionHero.summary}</p>
             </div>
             <div className="mt-5 flex flex-wrap gap-2">
               <DisabledAction disabled={running === 'routine' || !report?.settings.automaticBackupsEnabled} reason={running === 'routine' ? 'Wait for the current routine backup to finish.' : 'Turn on routine backups in Settings first.'}>
-                <Button className="bg-violet-600 text-white hover:bg-violet-500" disabled={running === 'routine' || !report?.settings.automaticBackupsEnabled} onClick={() => void runRoutineBackup()} type="button">
+                <ProjectPrimaryButton disabled={running === 'routine' || !report?.settings.automaticBackupsEnabled} onClick={() => void runRoutineBackup()} type="button">
                   {running === 'routine' ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
                   Run routine backup
-                </Button>
+                </ProjectPrimaryButton>
               </DisabledAction>
               {showAdvancedMetrics && (
                 <DisabledAction disabled={running === 'full'} reason="Wait for the current full checkpoint to finish.">
-                  <Button className="border-violet-300/30 bg-slate-950/50 text-violet-100 hover:bg-slate-900" disabled={running === 'full'} onClick={() => void runFullBackup()} type="button" variant="outline">
+                  <ProjectDarkControlButton disabled={running === 'full'} onClick={() => void runFullBackup()} type="button">
                     {running === 'full' ? <Loader2 className="size-4 animate-spin" /> : <Layers3 className="size-4" />}
                     Full checkpoint
-                  </Button>
+                  </ProjectDarkControlButton>
                 </DisabledAction>
               )}
               <RefreshStatus intervalLabel={restorePoint || running ? 'Auto-update paused' : 'Auto-updates every 30s'} onRefresh={() => void backupReport.refresh()} refreshing={backupReport.isFetching || activeJobQuery.isFetching} updatedAt={backupReport.updatedAt} />
@@ -266,16 +267,16 @@ function BackupsPage() {
           <ProtectionPanel latestRestore={latestRestore} report={report} />
         </div>
 
-        {pageError && <PageErrorState className="rounded-none border-x-0 border-t-0 px-6 py-4" message={pageError} onRetry={() => void backupReport.refresh()} title="Backup status could not refresh" />}
+        {pageError && <BackupsErrorState message={pageError} onRetry={() => void backupReport.refresh()} />}
         {currentActiveJob && !terminalJob(currentActiveJob) && <BackupJobBanner job={currentActiveJob} />}
-      </SurfaceFrame>
+      </Surface>
 
       <CanonicalRecommendedAction />
 
       {report && (
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="space-y-5">
-            <SurfacePanel>
+          <div className="flex flex-col gap-5">
+            <BackupPanel>
               <SectionHeader icon={DatabaseBackup} title="Create a manual backup" description="Choose the smallest backup that matches what you are about to do." />
               <div className="mt-5 grid gap-4 lg:grid-cols-3">
                 {showAdvancedMetrics && <ActionCard
@@ -285,7 +286,7 @@ function BackupsPage() {
                   label="Full checkpoint"
                   onClick={() => void runFullBackup()}
                   title="Back up everything"
-                  tone="violet"
+                  tone="cyan"
                 />}
                 <ActionCard
                   busy={false}
@@ -310,15 +311,15 @@ function BackupsPage() {
                   tone="emerald"
                 />
               </div>
-            </SurfacePanel>
+            </BackupPanel>
 
             <RoutineHealthPanel report={report} showAdvancedMetrics={showAdvancedMetrics} />
 
-            <SurfacePanel>
+            <BackupPanel>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <SectionHeader icon={RotateCcw} title="Restore" description="Browse restore points as a visual routine timeline or a compact list." />
                 <Tabs className="w-fit shrink-0" onValueChange={(value) => setRestoreView(value as RestoreView)} value={restoreView}>
-                  <TabsList className="border border-slate-800 bg-slate-900/80">
+                  <TabsList className="border border-sky-400/25 bg-slate-800">
                     <TabsTrigger className="px-3 text-slate-400 data-active:text-white" value="timeline">Timeline</TabsTrigger>
                     <TabsTrigger className="px-3 text-slate-400 data-active:text-white" value="list">List</TabsTrigger>
                   </TabsList>
@@ -331,9 +332,9 @@ function BackupsPage() {
                   <RestoreList apps={report.apps} appRestorePoints={appRestorePoints} fullRestorePoints={fullRestorePoints} onDetails={openRestorePointDetails} onRestore={openRestore} onVerify={verifyRestorePoint} running={running} />
                 )}
               </div>
-            </SurfacePanel>
+            </BackupPanel>
 
-            <SurfacePanel id="app-backups">
+            <BackupPanel id="app-backups">
               <SectionHeader icon={Boxes} title="App backups" description="Create a focused backup for a specific app." />
               <div className="mt-5 grid gap-3 md:grid-cols-2">
                 {report.apps.length ? report.apps.map((app) => (
@@ -342,29 +343,29 @@ function BackupsPage() {
                   <EmptyState title="No apps installed" message="Install apps to begin backup protection." />
                 )}
               </div>
-            </SurfacePanel>
+            </BackupPanel>
           </div>
 
-          <aside className="space-y-5">
-            <SurfacePanel>
+          <aside className="flex flex-col gap-5">
+            <BackupPanel>
               <SectionHeader compact icon={HardDrive} title="Storage" />
               <div className="mt-4 grid gap-3">
                 <FactRow label="Used" value={formatBackupBytes(report.backupStorageBytes)} />
                 <FactRow label="Restore points" value={`${report.recentRestorePoints.length}`} />
                 <FactRow label="Protected by restore point" value={`${report.protectedApps}/${report.totalApps}`} />
                 {showAdvancedMetrics && <FactRow label="Backup folder" value={report.backupRoot} />}
-                <Button asChild className="mt-1 justify-start border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-900" size="sm" variant="outline">
+                <ProjectDarkControlButton asChild className="mt-1 justify-start" size="sm">
                   <Link to="/storage">View storage</Link>
-                </Button>
+                </ProjectDarkControlButton>
               </div>
-            </SurfacePanel>
+            </BackupPanel>
 
-            <SurfacePanel>
+            <BackupPanel>
               <SectionHeader compact icon={AlertTriangle} title="Needs attention" />
               <div className="mt-4 grid gap-3">
                 {needsAttention.length ? needsAttention.map((app) => <AttentionCard app={app} key={app.appId} />) : <EmptyState compact title={report.totalApps ? 'All apps have restore points' : 'No apps installed'} message={report.totalApps ? 'Installed apps are protected by completed restore points.' : 'Install an app before backup protection can begin.'} />}
               </div>
-            </SurfacePanel>
+            </BackupPanel>
           </aside>
         </div>
       )}
@@ -402,8 +403,43 @@ function BackupsPage() {
 
 function BackupJobBanner({ job }: { job: ProjectOsJob }) {
   return (
-    <div className="border-b border-violet-300/20 bg-violet-500/10 px-6 py-4">
+    <div className="border-b border-cyan-300/30 bg-cyan-400/10 px-6 py-4">
       <JobProgress job={job} subjectLabel={backupSubjectLabel(job)} />
+    </div>
+  );
+}
+
+function BackupsLoadingState() {
+  return (
+    <PageShell>
+      <Surface className="grid min-h-[520px] place-items-center p-8 text-center" tone="panel">
+        <div className="grid justify-items-center gap-3">
+          <span className="grid size-12 place-items-center rounded-lg border border-cyan-300/35 bg-cyan-400/10 text-cyan-100">
+            <Loader2 className="size-5 animate-spin" />
+          </span>
+          <div>
+            <p className="font-black text-white">Checking backups</p>
+            <p className="mt-1 max-w-md text-sm leading-6 text-sky-100/80">Loading protection status, restore points, and app backup coverage.</p>
+          </div>
+        </div>
+      </Surface>
+    </PageShell>
+  );
+}
+
+function BackupsErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="border-b border-red-400/40 bg-red-500/10 px-6 py-4 text-red-100">
+      <div className="flex gap-3">
+        <AlertTriangle className="mt-0.5 size-5 shrink-0" />
+        <div className="min-w-0 flex-1">
+          <p className="font-bold text-current">Backup status could not refresh</p>
+          <p className="mt-1 text-sm leading-6 text-current/80">{message}</p>
+          <ProjectDarkControlButton className="mt-3 border-red-300/30 text-red-100 hover:bg-red-500/20" onClick={onRetry} size="sm" type="button">
+            Try again
+          </ProjectDarkControlButton>
+        </div>
+      </div>
     </div>
   );
 }
