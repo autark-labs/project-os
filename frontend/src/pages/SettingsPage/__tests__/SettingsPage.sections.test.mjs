@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { settingsGroups, sectionsForGroup, defaultSettingsGroup, visibleSettingsGroups } from './SettingsPage.sections.js';
+import { settingsGroups, sectionsForGroup, defaultSettingsGroup, visibleSettingsGroups } from '../SettingsPage.sections.js';
 
 test('consolidates settings into four top-level groups', () => {
   assert.deepEqual(settingsGroups.map((group) => group.id), ['general', 'backups', 'network', 'advanced']);

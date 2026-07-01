@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { shouldApplyProjectSettingsToApps } from './SettingsPage.logic.js';
+import { shouldApplyProjectSettingsToApps } from '../SettingsPage.logic.js';
 
 const baseSettings = {
   automaticBackupsEnabled: true,
