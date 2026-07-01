@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { AlertTriangle, Archive, CheckCircle2, Copy, Database, FolderSearch, HardDrive, Info, Loader2, PackageOpen, Trash2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { apiErrorMessage } from '@/api/httpClient';
 import { RefreshStatus } from '@/components/RefreshStatus';
 import { DisabledAction } from '@/components/project-os/DisabledAction';
-import { PageErrorState, PageLoadingState } from '@/components/project-os/PageState';
-import { PageShell, SurfaceFrame, SurfaceInset, SurfacePanel } from '@/components/project-os/ProjectOSComponents';
+import { PageShell } from '@/components/layout/PageShell';
+import { ProjectDarkControlButton, ProjectWarningButton } from '@/components/primitives/ProjectButtons';
+import { Surface } from '@/components/primitives/Surface';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
@@ -17,6 +18,22 @@ import { showActionErrorNotification, showActionNotification } from '@/lib/actio
 import { cn } from '@/lib/utils';
 import { useCleanupOrphanMutation, useStorageReportRepository } from '@/repositories/storageRepository';
 import type { AppStorageUsage, OrphanedStorage, StorageRecommendation, StorageReport, StorageUsage } from '@/types/system';
+
+function StoragePanel({ children, className, id }: { children: ReactNode; className?: string; id?: string }) {
+  return (
+    <Surface as="section" className={cn('p-5', className)} id={id} tone="panel">
+      {children}
+    </Surface>
+  );
+}
+
+function StorageInset({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <Surface className={cn('p-3', className)} tone="muted">
+      {children}
+    </Surface>
+  );
+}
 
 function StoragePage() {
   const { showAdvancedMetrics } = useProjectSettings();
@@ -65,17 +82,17 @@ function StoragePage() {
 
   if (storage.isLoading) {
     return (
-      <PageLoadingState label="Checking storage" sublabel="Reading disk space, app data, backups, and cleanup candidates." />
+      <StorageLoadingState />
     );
   }
 
   return (
-    <PageShell className="po-page-tall">
-      <SurfaceFrame>
-        <div className="grid gap-6 border-b border-white/10 bg-po-hero-storage p-6 md:p-7 xl:grid-cols-[minmax(0,1fr)_360px]">
+    <PageShell>
+      <Surface className="overflow-hidden" tone="panel">
+        <div className="grid gap-6 border-b border-sky-400/20 bg-slate-900 p-6 md:p-7 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="flex min-w-0 flex-col justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-normal text-emerald-300">Storage</p>
+              <p className="text-xs font-black uppercase tracking-normal text-cyan-200">Storage</p>
               <h1 className="mt-2 text-3xl font-black leading-tight text-white md:text-4xl">{storageHero.title}</h1>
               <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300 md:text-base">{storageHero.summary}</p>
             </div>
@@ -84,89 +101,89 @@ function StoragePage() {
               <span className="text-sm text-slate-400">{report ? `${formatBytes(report.hostDisk.usableBytes)} free on this computer` : 'Storage totals unavailable'}</span>
             </div>
           </div>
-          <div className="grid gap-4 rounded-lg border border-white/10 bg-slate-950/55 p-5">
+          <StorageInset className="grid gap-4 bg-slate-900 p-5">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-sm font-bold text-white">Space at a glance</p>
                 <p className="mt-1 text-xs text-slate-400">Apps, backups, and free space in one view.</p>
               </div>
-              <RefreshStatus intervalLabel="Auto-updates every 30s" onRefresh={() => void storage.refresh()} refreshing={storage.isFetching} tone="emerald" updatedAt={storage.updatedAt} />
+              <RefreshStatus intervalLabel="Auto-updates every 30s" onRefresh={() => void storage.refresh()} refreshing={storage.isFetching} tone="cyan" updatedAt={storage.updatedAt} />
             </div>
             <DiskCapacityGauge usage={report?.hostDisk ?? null} />
-          </div>
+          </StorageInset>
         </div>
 
-        {error && <PageErrorState className="rounded-none border-x-0 border-t-0 px-6 py-4" message={error} onRetry={() => void storage.refresh()} title="Storage data could not refresh" />}
+        {error && <StorageErrorState message={error} onRetry={() => void storage.refresh()} />}
 
         <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-4">
           <SignalCard icon={statusIcon(report?.status)} label="Health" value={report?.headline || 'Unknown'} detail={storageHero.action} tone={statusTone(report?.status)} />
           <SignalCard icon={HardDrive} label="Free space" value={report ? formatBytes(report.hostDisk.usableBytes) : 'Unknown'} detail={report ? `${percentLabel(report.hostDisk.usedPercent)} used overall` : 'Not reported'} tone={usageTone(report?.hostDisk.usedPercent)} />
-          <SignalCard icon={Database} label="App data" value={formatBytes(appDataBytes)} detail={`${report?.apps.length ?? 0} installed apps tracked`} tone="violet" />
+          <SignalCard icon={Database} label="App data" value={formatBytes(appDataBytes)} detail={`${report?.apps.length ?? 0} installed apps tracked`} tone="cyan" />
           <SignalCard icon={Archive} label="Backup data" value={report ? formatBytes(report.backupStorage.usedBytes) : 'Unknown'} detail={`${appsWithBackupsOn}/${report?.apps.length ?? 0} apps with backups on`} tone="green" />
         </div>
-      </SurfaceFrame>
+      </Surface>
 
       {report && (
         <>
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
-            <div className="space-y-5">
-              <SurfacePanel>
+            <div className="flex flex-col gap-5">
+              <StoragePanel>
                 <SectionHeader icon={HardDrive} title="Space breakdown" description="The main places storage goes: apps you run, backups that protect them, and free room for growth." />
                 <div className="mt-5 grid gap-4 lg:grid-cols-3">
-                  <StorageShareCard color="bg-violet-400" detail={`${report.apps.length} installed apps`} label="App data" totalBytes={report.hostDisk.totalBytes} valueBytes={appDataBytes} />
+                  <StorageShareCard color="bg-cyan-300" detail={`${report.apps.length} installed apps`} label="App data" totalBytes={report.hostDisk.totalBytes} valueBytes={appDataBytes} />
                   <StorageShareCard color="bg-emerald-400" detail={`${appsWithBackupsOn}/${report.apps.length} apps with backups on`} label="Backups" totalBytes={report.hostDisk.totalBytes} valueBytes={report.backupStorage.usedBytes} />
                   <StorageShareCard color="bg-sky-400" detail="Ready for installs and growth" label="Free room" totalBytes={report.hostDisk.totalBytes} valueBytes={report.hostDisk.usableBytes} />
                 </div>
-              </SurfacePanel>
+              </StoragePanel>
 
               {showAdvancedMetrics && (
-                <SurfacePanel>
+                <StoragePanel>
                   <SectionHeader icon={HardDrive} title="Advanced filesystem details" description="Exact paths and filesystem totals for troubleshooting." />
                   <div className="mt-5 grid gap-4 lg:grid-cols-3">
                     <UsagePanel usage={report.hostDisk} title="Host disk" />
                     <UsagePanel usage={report.runtimeDisk} title="Project OS data" />
                     <UsagePanel usage={report.backupStorage} title="Backups" />
                   </div>
-                </SurfacePanel>
+                </StoragePanel>
               )}
 
-              <SurfacePanel>
+              <StoragePanel>
                 <SectionHeader icon={PackageOpen} title="Largest apps" description="Start here if app data is the reason storage is growing." />
                 <div className="mt-5 grid gap-3">
                   {largestApps.length ? largestApps.map((app) => <AppStorageRow app={app} copied={copied} key={app.appId} onCopy={copy} showAdvancedMetrics={showAdvancedMetrics} />) : (
                     <EmptyState title="No app data found" message="Installed app storage will appear here after apps are installed." />
                   )}
                 </div>
-              </SurfacePanel>
+              </StoragePanel>
             </div>
 
-            <aside className="space-y-5">
-              <SurfacePanel>
+            <aside className="flex flex-col gap-5">
+              <StoragePanel>
                 <SectionHeader compact icon={Info} title="Needs attention" />
                 <div className="mt-4 grid gap-3">
                   {report.recommendations.length ? report.recommendations.map((recommendation) => <RecommendationCard key={recommendation.id} recommendation={recommendation} />) : (
                     <EmptyState compact title="No storage issues" message="Project OS did not find anything that needs storage cleanup right now." />
                   )}
                 </div>
-              </SurfacePanel>
+              </StoragePanel>
 
-              <SurfacePanel>
+              <StoragePanel>
                 <SectionHeader compact icon={Archive} title="Backups" />
                 <div className="mt-4 grid gap-3">
                   <FactRow label="Apps with backups on" value={`${appsWithBackupsOn}/${report.apps.length}`} />
                   <FactRow label="Backup storage used" value={formatBytes(report.backupStorage.usedBytes)} />
                   {showAdvancedMetrics && <FactRow label="Backup folder" value={report.backupStorage.path} />}
                 </div>
-              </SurfacePanel>
+              </StoragePanel>
 
-              <SurfacePanel>
+              <StoragePanel>
                 <SectionHeader compact icon={FolderSearch} title="Unused data" />
                 <div className="mt-4 grid gap-3">
                   {cleanupCandidates.length ? cleanupCandidates.map((orphan) => <OrphanedRow key={orphan.path} onCleanup={setCleanupTarget} orphan={orphan} showAdvancedMetrics={showAdvancedMetrics} />) : (
                     <EmptyState compact title="No unused folders" message="Project OS did not find orphaned app data." />
                   )}
                 </div>
-              </SurfacePanel>
+              </StoragePanel>
             </aside>
           </div>
         </>
@@ -193,9 +210,9 @@ function DiskCapacityGauge({ usage }: { usage: StorageUsage | null }) {
     <div className="grid place-items-center gap-4 sm:grid-cols-[180px_minmax(0,1fr)]">
       <div
         className="grid size-40 place-items-center rounded-full"
-        style={{ background: `conic-gradient(#34d399 ${percent * 3.6}deg, rgba(15,23,42,0.95) 0deg)` }}
+        style={{ background: `conic-gradient(rgb(103 232 249) ${percent * 3.6}deg, rgb(15 23 42) 0deg)` }}
       >
-        <div className="grid size-28 place-items-center rounded-full border border-white/10 bg-slate-950 text-center">
+        <div className="grid size-28 place-items-center rounded-full border border-sky-400/25 bg-slate-950 text-center">
           <div>
             <p className="text-3xl font-black text-white">{label}</p>
             <p className="text-xs font-bold uppercase text-slate-500">used</p>
@@ -204,7 +221,7 @@ function DiskCapacityGauge({ usage }: { usage: StorageUsage | null }) {
       </div>
       <div className="grid w-full gap-2">
         <GaugeLine color="bg-emerald-400" label="Free" value={usage ? formatBytes(usage.usableBytes) : 'Unknown'} />
-        <GaugeLine color="bg-violet-400" label="Used" value={usage ? formatBytes(usage.usedBytes) : 'Unknown'} />
+        <GaugeLine color="bg-cyan-300" label="Used" value={usage ? formatBytes(usage.usedBytes) : 'Unknown'} />
         <GaugeLine color="bg-slate-500" label="Total" value={usage ? formatBytes(usage.totalBytes) : 'Unknown'} />
       </div>
     </div>
@@ -213,7 +230,7 @@ function DiskCapacityGauge({ usage }: { usage: StorageUsage | null }) {
 
 function GaugeLine({ color, label, value }: { color: string; label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-slate-900/45 px-3 py-2 text-sm">
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-sky-400/25 bg-slate-800 px-3 py-2 text-sm">
       <span className="inline-flex items-center gap-2 text-slate-400"><span className={cn('size-2 rounded-full', color)} />{label}</span>
       <span className="font-semibold text-white">{value}</span>
     </div>
@@ -223,7 +240,7 @@ function GaugeLine({ color, label, value }: { color: string; label: string; valu
 function StorageShareCard({ color, detail, label, totalBytes, valueBytes }: { color: string; detail: string; label: string; totalBytes: number; valueBytes: number }) {
   const width = totalBytes > 0 ? Math.max(4, Math.min(100, (valueBytes / totalBytes) * 100)) : 0;
   return (
-    <SurfaceInset className="p-4">
+    <StorageInset className="p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-bold text-white">{label}</p>
@@ -234,13 +251,13 @@ function StorageShareCard({ color, detail, label, totalBytes, valueBytes }: { co
       <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-950">
         <div className={cn('h-full rounded-full', color)} style={{ width: `${width}%` }} />
       </div>
-    </SurfaceInset>
+    </StorageInset>
   );
 }
 
 function UsagePanel({ title, usage }: { title: string; usage: StorageUsage }) {
   return (
-    <SurfaceInset className="p-4">
+    <StorageInset className="p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-bold text-white">{title}</p>
@@ -254,18 +271,18 @@ function UsagePanel({ title, usage }: { title: string; usage: StorageUsage }) {
         <span><span className="block font-bold text-slate-200">{formatBytes(usage.usableBytes)}</span>Free</span>
         <span><span className="block font-bold text-slate-200">{formatBytes(usage.totalBytes)}</span>Total</span>
       </div>
-    </SurfaceInset>
+    </StorageInset>
   );
 }
 
 function AppStorageRow({ app, copied, onCopy, showAdvancedMetrics }: { app: AppStorageUsage; copied: string | null; onCopy: (value: string, id: string) => void; showAdvancedMetrics: boolean }) {
   return (
-    <SurfaceInset className={cn('grid gap-3 p-4 md:items-center', showAdvancedMetrics ? 'md:grid-cols-[minmax(0,1fr)_130px_110px_120px_auto]' : 'md:grid-cols-[minmax(0,1fr)_130px_110px_120px]')}>
+    <StorageInset className={cn('grid gap-3 p-4 md:items-center', showAdvancedMetrics ? 'md:grid-cols-[minmax(0,1fr)_130px_110px_120px_auto]' : 'md:grid-cols-[minmax(0,1fr)_130px_110px_120px]')}>
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <p className="font-bold text-white">{app.appName}</p>
           <Badge className="border-slate-700 bg-slate-950 text-slate-300">{app.status}</Badge>
-          <Badge className={cn('border', app.backupEnabled ? 'border-emerald-300/20 bg-emerald-500/10 text-emerald-100' : 'border-amber-300/20 bg-amber-500/10 text-amber-100')}>
+          <Badge className={cn('border', app.backupEnabled ? 'border-emerald-300/20 bg-emerald-500/10 text-emerald-100' : 'border-orange-400/45 bg-orange-500/10 text-orange-200')}>
             {app.backupEnabled ? `${app.backupFrequency} backup` : 'Backup off'}
           </Badge>
         </div>
@@ -282,16 +299,16 @@ function AppStorageRow({ app, copied, onCopy, showAdvancedMetrics }: { app: AppS
       </div>
       <div>
         <p className="text-xs font-bold uppercase text-slate-500">7-day change</p>
-        <p className={cn('mt-1 text-sm', app.sevenDayGrowthBytes > 0 ? 'text-amber-100' : 'text-slate-300')}>{growthLabel(app)}</p>
+        <p className={cn('mt-1 text-sm', app.sevenDayGrowthBytes > 0 ? 'text-orange-200' : 'text-slate-300')}>{growthLabel(app)}</p>
       </div>
       {showAdvancedMetrics && (
-        <Button className="w-fit border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" onClick={() => onCopy(app.path, app.appId)} size="sm" type="button" variant="outline">
+        <ProjectDarkControlButton className="w-fit" onClick={() => onCopy(app.path, app.appId)} size="sm" type="button">
           {copied === app.appId ? <CheckCircle2 className="size-3.5" /> : <Copy className="size-3.5" />}
           {copied === app.appId ? 'Copied' : 'Copy path'}
-        </Button>
+        </ProjectDarkControlButton>
       )}
       {showAdvancedMetrics && <StorageSparkline app={app} />}
-    </SurfaceInset>
+    </StorageInset>
   );
 }
 
@@ -312,20 +329,20 @@ function RecommendationCard({ recommendation }: { recommendation: StorageRecomme
 
 function OrphanedRow({ onCleanup, orphan, showAdvancedMetrics }: { onCleanup: (orphan: OrphanedStorage) => void; orphan: OrphanedStorage; showAdvancedMetrics: boolean }) {
   return (
-    <div className="rounded-lg border border-amber-300/20 bg-amber-500/10 p-3 text-amber-100">
+    <div className="rounded-lg border border-orange-400/45 bg-orange-500/10 p-3 text-orange-200">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 gap-3">
         <Trash2 className="mt-0.5 size-4 shrink-0" />
         <div className="min-w-0">
           <p className="font-bold text-white">{orphan.name}</p>
-          <p className="mt-1 text-xs text-amber-100/70">{formatBytes(orphan.usedBytes)}</p>
-          <p className="mt-1 text-xs text-amber-100/60">Not tied to an installed app</p>
-          {showAdvancedMetrics && <p className="mt-1 break-all font-mono text-xs text-amber-100/50">{orphan.path}</p>}
+          <p className="mt-1 text-xs text-orange-100/70">{formatBytes(orphan.usedBytes)}</p>
+          <p className="mt-1 text-xs text-orange-100/60">Not tied to an installed app</p>
+          {showAdvancedMetrics && <p className="mt-1 break-all font-mono text-xs text-orange-100/50">{orphan.path}</p>}
         </div>
         </div>
-        <Button className="border-amber-300/20 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20" onClick={() => onCleanup(orphan)} size="sm" type="button" variant="outline">
+        <ProjectWarningButton onClick={() => onCleanup(orphan)} size="sm" type="button">
           Review
-        </Button>
+        </ProjectWarningButton>
       </div>
     </div>
   );
@@ -336,7 +353,7 @@ function CleanupDialog({ confirmation, loading, onChange, onClose, onConfirm, ta
   const safetyChecklist = backupSafetyChecklist('storage-cleanup');
   return (
     <Dialog open={Boolean(target)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-xl border-white/10 bg-slate-950 text-slate-100">
+      <DialogContent className="max-w-xl border-sky-400/30 bg-slate-900 text-slate-100">
         <DialogHeader>
           <DialogTitle>Clean up unused app data</DialogTitle>
           <DialogDescription className="text-slate-400">
@@ -348,7 +365,7 @@ function CleanupDialog({ confirmation, loading, onChange, onClose, onConfirm, ta
             <FactRow label="Folder" value={target.name} />
             <FactRow label="Path" value={target.path} />
             <FactRow label="Space to recover" value={formatBytes(target.usedBytes)} />
-            <div className="rounded-lg border border-amber-300/20 bg-amber-500/10 p-3 text-sm text-amber-100">
+            <div className="rounded-lg border border-orange-400/45 bg-orange-500/10 p-3 text-sm text-orange-200">
               {safetyChecklist[1]}
             </div>
             <label className="text-sm font-semibold text-slate-300" htmlFor="cleanup-confirmation">Type `{target.name}` to confirm</label>
@@ -361,12 +378,12 @@ function CleanupDialog({ confirmation, loading, onChange, onClose, onConfirm, ta
           </div>
         )}
         <DialogFooter>
-          <Button className="border-slate-700/60 bg-slate-950/50 text-slate-200 hover:bg-slate-800" onClick={onClose} type="button" variant="outline">Cancel</Button>
+          <ProjectDarkControlButton onClick={onClose} type="button">Cancel</ProjectDarkControlButton>
           <DisabledAction disabled={!canConfirm || loading} reason={loading ? 'Project OS is already preparing this cleanup.' : 'Type the folder name exactly before cleanup can continue.'}>
-            <Button className="bg-red-600 text-white hover:bg-red-500" disabled={!canConfirm || loading} onClick={onConfirm} type="button">
+            <ProjectWarningButton disabled={!canConfirm || loading} onClick={onConfirm} type="button">
               {loading ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
               Create checkpoint and remove
-            </Button>
+            </ProjectWarningButton>
           </DisabledAction>
         </DialogFooter>
       </DialogContent>
@@ -392,17 +409,17 @@ function StorageSparkline({ app }: { app: AppStorageUsage }) {
 
 function FactRow({ label, value }: { label: string; value: string }) {
   return (
-    <SurfaceInset>
+    <StorageInset>
       <p className="text-xs font-bold uppercase text-slate-500">{label}</p>
       <p className="mt-1 break-words text-sm text-slate-200">{value}</p>
-    </SurfaceInset>
+    </StorageInset>
   );
 }
 
 function SectionHeader({ compact = false, description, icon: Icon, title }: { compact?: boolean; description?: string; icon: LucideIcon; title: string }) {
   return (
     <div className="flex items-start gap-3">
-      <span className={cn('grid place-items-center rounded-lg border border-white/10 bg-slate-900 text-emerald-300', compact ? 'size-9' : 'size-10')}>
+      <span className={cn('grid place-items-center rounded-lg border border-sky-400/25 bg-slate-800 text-cyan-200', compact ? 'size-9' : 'size-10')}>
         <Icon className="size-4" />
       </span>
       <div>
@@ -413,13 +430,13 @@ function SectionHeader({ compact = false, description, icon: Icon, title }: { co
   );
 }
 
-function SignalCard({ detail, icon: Icon, label, tone, value }: { detail: string; icon: LucideIcon; label: string; tone: 'green' | 'amber' | 'red' | 'slate' | 'violet'; value: string }) {
+function SignalCard({ detail, icon: Icon, label, tone, value }: { detail: string; icon: LucideIcon; label: string; tone: 'green' | 'orange' | 'red' | 'slate' | 'cyan'; value: string }) {
   const tones = {
     green: 'border-emerald-300/20 bg-emerald-500/10 text-emerald-200',
-    amber: 'border-amber-300/20 bg-amber-500/10 text-amber-100',
-    red: 'border-red-300/20 bg-red-500/10 text-red-100',
+    orange: 'border-orange-400/45 bg-orange-500/10 text-orange-200',
+    red: 'border-red-400/40 bg-red-500/10 text-red-200',
     slate: 'border-slate-700/60 bg-slate-900/55 text-slate-300',
-    violet: 'border-violet-300/20 bg-violet-500/10 text-violet-100',
+    cyan: 'border-cyan-300/35 bg-cyan-400/10 text-cyan-100',
   };
   return (
     <div className={cn('rounded-lg border p-4', tones[tone])}>
@@ -435,9 +452,44 @@ function SignalCard({ detail, icon: Icon, label, tone, value }: { detail: string
 
 function EmptyState({ compact = false, message, title }: { compact?: boolean; message: string; title: string }) {
   return (
-    <div className={cn('rounded-lg border border-slate-800 bg-slate-900/40 text-center', compact ? 'p-4' : 'p-8')}>
+    <StorageInset className={cn('text-center', compact ? 'p-4' : 'p-8')}>
       <p className="font-bold text-white">{title}</p>
       <p className="mt-1 text-sm text-slate-400">{message}</p>
+    </StorageInset>
+  );
+}
+
+function StorageLoadingState() {
+  return (
+    <PageShell>
+      <Surface className="grid min-h-[520px] place-items-center p-8 text-center" tone="panel">
+        <div className="grid justify-items-center gap-3">
+          <span className="grid size-12 place-items-center rounded-lg border border-cyan-300/35 bg-cyan-400/10 text-cyan-100">
+            <Loader2 className="size-5 animate-spin" />
+          </span>
+          <div>
+            <p className="font-black text-white">Checking storage</p>
+            <p className="mt-1 max-w-md text-sm leading-6 text-sky-100/80">Reading disk space, app data, backups, and cleanup candidates.</p>
+          </div>
+        </div>
+      </Surface>
+    </PageShell>
+  );
+}
+
+function StorageErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="border-b border-red-400/40 bg-red-500/10 px-6 py-4 text-red-100">
+      <div className="flex gap-3">
+        <AlertTriangle className="mt-0.5 size-5 shrink-0" />
+        <div className="min-w-0 flex-1">
+          <p className="font-bold text-current">Storage data could not refresh</p>
+          <p className="mt-1 text-sm leading-6 text-current/80">{message}</p>
+          <ProjectDarkControlButton className="mt-3 border-red-300/30 text-red-100 hover:bg-red-500/20" onClick={onRetry} size="sm" type="button">
+            Try again
+          </ProjectDarkControlButton>
+        </div>
+      </div>
     </div>
   );
 }
@@ -477,31 +529,31 @@ function statusIcon(status?: string) {
   return Info;
 }
 
-function statusTone(status?: string): 'green' | 'amber' | 'red' | 'slate' | 'violet' {
+function statusTone(status?: string): 'green' | 'orange' | 'red' | 'slate' | 'cyan' {
   if (status === 'healthy') return 'green';
   if (status === 'critical') return 'red';
-  if (status === 'warning') return 'amber';
-  return 'violet';
+  if (status === 'warning') return 'orange';
+  return 'cyan';
 }
 
-function usageTone(value?: number): 'green' | 'amber' | 'red' | 'slate' | 'violet' {
+function usageTone(value?: number): 'green' | 'orange' | 'red' | 'slate' | 'cyan' {
   if (value == null || value < 0) return 'slate';
   if (value >= 90) return 'red';
-  if (value >= 75) return 'amber';
+  if (value >= 75) return 'orange';
   return 'green';
 }
 
 function usageBadgeTone(value: number) {
-  if (value >= 90) return 'border-red-300/20 bg-red-500/10 text-red-100';
-  if (value >= 75) return 'border-amber-300/20 bg-amber-500/10 text-amber-100';
+  if (value >= 90) return 'border-red-400/40 bg-red-500/10 text-red-200';
+  if (value >= 75) return 'border-orange-400/45 bg-orange-500/10 text-orange-200';
   return 'border-emerald-300/20 bg-emerald-500/10 text-emerald-100';
 }
 
 function recommendationTone(tone: string) {
   if (tone === 'success') return 'border-emerald-300/20 bg-emerald-500/10 text-emerald-100';
-  if (tone === 'danger') return 'border-red-300/20 bg-red-500/10 text-red-100';
-  if (tone === 'warning') return 'border-amber-300/20 bg-amber-500/10 text-amber-100';
-  return 'border-slate-800 bg-slate-900/40 text-slate-300';
+  if (tone === 'danger') return 'border-red-400/40 bg-red-500/10 text-red-200';
+  if (tone === 'warning') return 'border-orange-400/45 bg-orange-500/10 text-orange-200';
+  return 'border-sky-400/25 bg-slate-800 text-slate-300';
 }
 
 function shortRecommendation(recommendation: StorageRecommendation) {

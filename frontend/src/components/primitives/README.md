@@ -36,4 +36,6 @@ Access uses `PageShell`, `Surface`, `StatusPill`, shared Project OS button primi
 
 Backups uses `PageShell`, `Surface`, shared Project OS button primitives, and local `BackupPanel`/`BackupInset` wrappers under `pages/BackupsPage`. Keep backup-specific job, restore, and protection layout local unless another page needs the same exact component.
 
+Storage uses `PageShell`, `Surface`, shared Project OS button primitives, and local `StoragePanel`/`StorageInset` wrappers under `pages/StoragePage`. Keep cleanup confirmation, disk gauges, and storage-specific rows local while routing common surface and action styling through primitives.
+
 Avoid importing the legacy broad `ProjectOSComponents` styling helpers into pages as they are cleaned up. If a page needs one of those patterns, copy the visual decision into a small primitive or feature component and keep `className` available for layout tweaks.
