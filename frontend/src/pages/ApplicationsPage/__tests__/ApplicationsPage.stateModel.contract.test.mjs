@@ -16,6 +16,7 @@ test('applications page uses split behavior states instead of a single app statu
   const badges = source('src/pages/ApplicationsPage/components/AppStateBadges.tsx');
   const operationStatus = source('src/pages/ApplicationsPage/components/AppOperationStatus.tsx');
   const basic = source('src/pages/ApplicationsPage/BasicApplicationsView.tsx');
+  const applicationCard = source('src/pages/ApplicationsPage/components/ApplicationCard.tsx');
   const advanced = source('src/pages/ApplicationsPage/AdvancedApplicationsView.tsx');
   const rail = source('src/pages/ApplicationsPage/ApplicationDetailsRail.tsx');
   const managementPanel = source('src/pages/ApplicationsPage/ApplicationManagementPanel.tsx');
@@ -61,13 +62,14 @@ test('applications page uses split behavior states instead of a single app statu
   assert.match(operationStatus, /item\.operationState\.currentStep/);
   assert.match(operationStatus, /item\.operationState\.kind === 'failed'/);
 
-  assert.match(basic, /item\.attentionState !== 'none'/);
-  assert.match(basic, /item\.readinessState === 'paused'/);
-  assert.match(basic, /from '\.\/components\/AppStateBadges'/);
-  assert.match(basic, /from '\.\/components\/AppOperationStatus'/);
-  assert.match(basic, /ReadinessBadge item=\{item\} overlay/);
-  assert.match(basic, /ManagementBadge item=\{item\}/);
-  assert.match(basic, /CompactOperationStatus item=\{item\}/);
+  assert.match(basic, /ApplicationCard/);
+  assert.match(applicationCard, /item\.attentionState !== 'none'/);
+  assert.match(applicationCard, /item\.readinessState === 'paused'/);
+  assert.match(applicationCard, /from '\.\/AppStateBadges'/);
+  assert.match(applicationCard, /from '\.\/AppOperationStatus'/);
+  assert.match(applicationCard, /ReadinessBadge item=\{item\} overlay/);
+  assert.match(applicationCard, /AttentionIndicator item=\{item\}/);
+  assert.match(applicationCard, /CompactOperationStatus item=\{item\}/);
   assert.doesNotMatch(basic, /item\.runtimeState === 'paused'/);
 
   assert.match(advanced, /from '\.\/components\/AppStateBadges'/);

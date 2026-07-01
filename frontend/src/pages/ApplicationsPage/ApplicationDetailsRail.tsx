@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { ApplicationDarkControlButton, ApplicationPrimaryButton, ApplicationWarningButton } from './components/ApplicationButtons';
 import { ExpandedOperationStatus } from './components/AppOperationStatus';
 import { labelForAttention, labelForManagementState, labelForReadiness } from './components/AppStateBadges';
 import { ApplicationIcon } from './extensions/ApplicationVisuals';
@@ -155,12 +156,12 @@ function RailControls({ actions, item, loadingAction }: { actions: ApplicationAc
   return (
     <section className="grid gap-3 rounded-xl border border-sky-400/20 bg-slate-800 p-3">
       {item.href && (
-        <Button asChild className="bg-cyan-300 text-slate-950 shadow-lg shadow-cyan-500/20 hover:bg-cyan-200">
+        <ApplicationPrimaryButton asChild>
           <a href={item.href} rel="noreferrer" target="_blank">
             <ExternalLink data-icon="inline-start" />
             Open app
           </a>
-        </Button>
+        </ApplicationPrimaryButton>
       )}
 
       {item.nextAction ? (
@@ -171,9 +172,9 @@ function RailControls({ actions, item, loadingAction }: { actions: ApplicationAc
               <p className="mt-1 text-xs leading-5">{item.nextAction.description}</p>
             </div>
             <DisabledAction disabled={runtimeActionDisabled} reason={runtimeDisabledReason}>
-              <Button className="bg-orange-500 text-white hover:bg-orange-400" disabled={runtimeActionDisabled} onClick={() => actions.onRunNextAction(item.id)} size="sm" type="button">
+              <ApplicationWarningButton className="shadow-none" disabled={runtimeActionDisabled} onClick={() => actions.onRunNextAction(item.id)} size="sm" type="button">
                 {runtimeActionDisabled && item.nextAction.id === 'start_app' ? 'Running' : nextActionButtonLabel(item.nextAction.id)}
-              </Button>
+              </ApplicationWarningButton>
             </DisabledAction>
           </div>
         </div>
@@ -187,24 +188,24 @@ function RailControls({ actions, item, loadingAction }: { actions: ApplicationAc
       {item.managementState === 'managed' && (
         <div className="grid gap-2 sm:grid-cols-3">
           <DisabledAction disabled={runtimeActionDisabled} reason={runtimeDisabledReason}>
-            <Button className="border-sky-400/40 bg-slate-900 text-sky-50 hover:bg-slate-700 hover:text-white" disabled={runtimeActionDisabled} onClick={() => item.readinessState === 'paused' || item.readinessState === 'stopped' ? actions.onStart(item.id) : actions.onStop(item.id)} type="button" variant="outline">
+            <ApplicationDarkControlButton disabled={runtimeActionDisabled} onClick={() => item.readinessState === 'paused' || item.readinessState === 'stopped' ? actions.onStart(item.id) : actions.onStop(item.id)} type="button">
               {loadingAction === 'start' || loadingAction === 'stop'
                 ? <Loader2 className="animate-spin" data-icon="inline-start" />
                 : item.readinessState === 'paused' || item.readinessState === 'stopped' ? <Play data-icon="inline-start" /> : <Pause data-icon="inline-start" />}
               {loadingAction === 'start' ? 'Starting' : loadingAction === 'stop' ? 'Pausing' : item.readinessState === 'paused' || item.readinessState === 'stopped' ? 'Start' : 'Pause'}
-            </Button>
+            </ApplicationDarkControlButton>
           </DisabledAction>
           <DisabledAction disabled={runtimeActionDisabled} reason={runtimeDisabledReason}>
-            <Button className="border-sky-400/40 bg-slate-900 text-sky-50 hover:bg-slate-700 hover:text-white" disabled={runtimeActionDisabled} onClick={() => actions.onRestart(item.id)} type="button" variant="outline">
+            <ApplicationDarkControlButton disabled={runtimeActionDisabled} onClick={() => actions.onRestart(item.id)} type="button">
               {loadingAction === 'restart' ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <RotateCw data-icon="inline-start" />}
               {loadingAction === 'restart' ? 'Restarting' : 'Restart'}
-            </Button>
+            </ApplicationDarkControlButton>
           </DisabledAction>
           <DisabledAction disabled={runtimeActionDisabled} reason={runtimeDisabledReason}>
-            <Button className="border-sky-400/40 bg-slate-900 text-sky-50 hover:bg-slate-700 hover:text-white" disabled={runtimeActionDisabled} onClick={() => actions.onCreateBackup(item.id)} type="button" variant="outline">
+            <ApplicationDarkControlButton disabled={runtimeActionDisabled} onClick={() => actions.onCreateBackup(item.id)} type="button">
               {loadingAction === 'backup' ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <ShieldCheck data-icon="inline-start" />}
               {loadingAction === 'backup' ? 'Backing up' : 'Backup'}
-            </Button>
+            </ApplicationDarkControlButton>
           </DisabledAction>
           {repairAction && (
             <DisabledAction disabled={runtimeActionDisabled || Boolean(repairAction.disabled)} reason={repairAction.disabled ? repairAction.reason || 'Repair is not available for this app right now.' : runtimeDisabledReason}>

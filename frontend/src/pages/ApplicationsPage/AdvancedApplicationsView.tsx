@@ -1,6 +1,5 @@
 import { ExternalLink, Loader2, Pause, Play, RotateCw, Search, ShieldCheck } from 'lucide-react';
 import { DisabledAction } from '@/components/project-os/DisabledAction';
-import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -8,13 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@/components/ui/empty';
+import { ProjectEmptyState } from '@/components/primitives/EmptyState';
 import {
   Table,
   TableBody,
@@ -26,6 +19,7 @@ import {
 import { cn } from '@/lib/utils';
 import { CompactOperationStatus } from './components/AppOperationStatus';
 import { AttentionIndicator, ManagementBadge, ReadinessBadge } from './components/AppStateBadges';
+import { ApplicationLightControlButton, ApplicationOpenButton } from './components/ApplicationButtons';
 import { ApplicationIcon } from './extensions/ApplicationVisuals';
 import { runtimeControlsDisabled } from './extensions/ApplicationsPage.operations.js';
 import type { ApplicationActionHandlers, ApplicationEmptyState, ApplicationRuntimeAction, ApplicationSurfaceItem } from './extensions/ApplicationsPage.types';
@@ -39,6 +33,9 @@ type AdvancedApplicationsViewProps = {
   onSelect: (id: string) => void;
   selectedId?: string;
 };
+
+const tableHeadClass = 'text-sky-100/70';
+const tableCellMutedClass = 'text-slate-700';
 
 export function AdvancedApplicationsView({ actions, actionLoadingByItemId, emptyState, items, managementOpen, onSelect, selectedId }: AdvancedApplicationsViewProps) {
   return (
@@ -55,14 +52,14 @@ export function AdvancedApplicationsView({ actions, actionLoadingByItemId, empty
         ) : (
         <div className="rounded-xl border border-sky-400/25 bg-slate-800 px-2 pb-2">
           <Table className="border-separate border-spacing-y-2">
-            <TableHeader>
-              <TableRow className="border-transparent hover:bg-transparent">
-                <TableHead className="text-sky-100/70">Name</TableHead>
-                <TableHead className="text-sky-100/70">Type</TableHead>
-                <TableHead className="text-sky-100/70">State</TableHead>
-                <TableHead className="text-sky-100/70">Access</TableHead>
-                <TableHead className="text-sky-100/70">Backup</TableHead>
-                <TableHead className="text-right text-sky-100/70">Controls</TableHead>
+              <TableHeader>
+                <TableRow className="border-transparent hover:bg-transparent">
+                <TableHead className={tableHeadClass}>Name</TableHead>
+                <TableHead className={tableHeadClass}>Type</TableHead>
+                <TableHead className={tableHeadClass}>State</TableHead>
+                <TableHead className={tableHeadClass}>Access</TableHead>
+                <TableHead className={tableHeadClass}>Backup</TableHead>
+                <TableHead className={`text-right ${tableHeadClass}`}>Controls</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -114,68 +111,68 @@ export function AdvancedApplicationsView({ actions, actionLoadingByItemId, empty
                         <CompactOperationStatus item={item} />
                       </div>
                     </TableCell>
-                    <TableCell className="text-slate-700">{item.access}</TableCell>
-                    <TableCell className="text-slate-700">{item.backup}</TableCell>
+                    <TableCell className={tableCellMutedClass}>{item.access}</TableCell>
+                    <TableCell className={tableCellMutedClass}>{item.backup}</TableCell>
                     <TableCell className="rounded-r-xl">
                       <div className="flex justify-end gap-2 whitespace-nowrap">
                         {item.href && (
-                          <Button asChild className="border-cyan-300 bg-cyan-300 text-slate-950 shadow-sm shadow-cyan-700/20 hover:bg-cyan-200" size="sm" variant="outline">
+                          <ApplicationOpenButton asChild className="border-cyan-300" size="sm" variant="outline">
                             <a href={item.href} onClick={(event) => event.stopPropagation()} rel="noreferrer" target="_blank">
                               <ExternalLink data-icon="inline-start" />
                               Open
                             </a>
-                          </Button>
+                          </ApplicationOpenButton>
                         )}
                         {item.managementState === 'managed' && (
                           primaryRuntimeActionLoading ? (
                             <DisabledAction disabled={runtimeActionDisabled} reason={runtimeDisabledReason}>
-                              <Button className="border-sky-300 bg-white text-slate-950 hover:bg-sky-100" disabled size="sm" type="button" variant="outline">
+                              <ApplicationLightControlButton disabled size="sm" type="button">
                                 <Loader2 className="animate-spin" data-icon="inline-start" />
                                 {runtimeActionLabel(loadingAction)}
-                              </Button>
+                              </ApplicationLightControlButton>
                             </DisabledAction>
                           ) : item.readinessState === 'paused' || item.readinessState === 'stopped' ? (
                             <DisabledAction disabled={runtimeActionDisabled} reason={runtimeDisabledReason}>
-                              <Button className="border-sky-300 bg-white text-slate-950 hover:bg-sky-100" disabled={runtimeActionDisabled} onClick={(event) => {
+                              <ApplicationLightControlButton disabled={runtimeActionDisabled} onClick={(event) => {
                                 event.stopPropagation();
                                 actions.onStart(item.id);
                               }} size="sm" type="button" variant="outline">
                                 <Play data-icon="inline-start" />
                                 Start
-                              </Button>
+                              </ApplicationLightControlButton>
                             </DisabledAction>
                           ) : (
                             <DisabledAction disabled={runtimeActionDisabled} reason={runtimeDisabledReason}>
-                              <Button className="border-sky-300 bg-white text-slate-950 hover:bg-sky-100" disabled={runtimeActionDisabled} onClick={(event) => {
+                              <ApplicationLightControlButton disabled={runtimeActionDisabled} onClick={(event) => {
                                 event.stopPropagation();
                                 actions.onStop(item.id);
                               }} size="sm" type="button" variant="outline">
                                 <Pause data-icon="inline-start" />
                                 Stop
-                              </Button>
+                              </ApplicationLightControlButton>
                             </DisabledAction>
                           )
                         )}
                         {item.managementState === 'managed' && (
                           <DisabledAction disabled={runtimeActionDisabled} reason={runtimeDisabledReason}>
-                            <Button className="border-sky-300 bg-white text-slate-950 hover:bg-sky-100" disabled={runtimeActionDisabled} onClick={(event) => {
+                            <ApplicationLightControlButton disabled={runtimeActionDisabled} onClick={(event) => {
                               event.stopPropagation();
                               actions.onRestart(item.id);
                             }} size="sm" type="button" variant="outline">
                               {loadingAction === 'restart' ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <RotateCw data-icon="inline-start" />}
                               {loadingAction === 'restart' ? 'Restarting' : 'Restart'}
-                            </Button>
+                            </ApplicationLightControlButton>
                           </DisabledAction>
                         )}
                         {item.managementState === 'managed' && (
                           <DisabledAction disabled={runtimeActionDisabled} reason={runtimeDisabledReason}>
-                            <Button className="border-sky-300 bg-white text-slate-950 hover:bg-sky-100" onClick={(event) => {
+                            <ApplicationLightControlButton onClick={(event) => {
                               event.stopPropagation();
                               actions.onCreateBackup(item.id);
                             }} disabled={runtimeActionDisabled} size="sm" type="button" variant="outline">
                               {loadingAction === 'backup' ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <ShieldCheck data-icon="inline-start" />}
                               {loadingAction === 'backup' ? 'Backing up' : 'Backup'}
-                            </Button>
+                            </ApplicationLightControlButton>
                           </DisabledAction>
                         )}
                       </div>
@@ -194,15 +191,12 @@ export function AdvancedApplicationsView({ actions, actionLoadingByItemId, empty
 
 function AdvancedEmptyState({ emptyState }: { emptyState: ApplicationEmptyState }) {
   return (
-    <Empty className="min-h-96 rounded-xl border border-sky-400/25 bg-slate-800 text-slate-50">
-      <EmptyHeader>
-        <EmptyMedia className="bg-cyan-300 text-slate-950" variant="icon">
-          <Search />
-        </EmptyMedia>
-        <EmptyTitle>{emptyState.title}</EmptyTitle>
-        <EmptyDescription className="text-sky-100/70">{emptyState.description}</EmptyDescription>
-      </EmptyHeader>
-    </Empty>
+    <ProjectEmptyState
+      className="rounded-xl border-sky-400/25 bg-slate-800"
+      description={emptyState.description}
+      icon={<Search />}
+      title={emptyState.title}
+    />
   );
 }
 

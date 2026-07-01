@@ -155,6 +155,18 @@
   --po-type-small: 0.8125rem;
   --po-type-caption: 0.75rem;
 
+  /* Lean Project OS app-surface tokens for new reusable primitives. */
+  --app-surface: var(--color-slate-950);
+  --app-panel: var(--color-slate-900);
+  --app-panel-muted: var(--color-slate-800);
+  --app-border: var(--color-sky-400);
+  --app-text: var(--color-slate-50);
+  --app-text-muted: var(--color-sky-100);
+  --app-accent: var(--color-cyan-300);
+  --app-success: var(--color-emerald-300);
+  --app-warning: var(--color-orange-500);
+  --app-danger: var(--color-red-600);
+
   --background: oklch(0.73 0.045 220);
   --foreground: oklch(0.18 0.035 245);
   --card: oklch(0.88 0.035 220);
@@ -318,6 +330,17 @@
   --text-po-body: var(--po-type-body);
   --text-po-small: var(--po-type-small);
   --text-po-caption: var(--po-type-caption);
+
+  --color-app-surface: var(--app-surface);
+  --color-app-panel: var(--app-panel);
+  --color-app-panel-muted: var(--app-panel-muted);
+  --color-app-border: var(--app-border);
+  --color-app-text: var(--app-text);
+  --color-app-text-muted: var(--app-text-muted);
+  --color-app-accent: var(--app-accent);
+  --color-app-success: var(--app-success);
+  --color-app-warning: var(--app-warning);
+  --color-app-danger: var(--app-danger);
 }
 
 * {

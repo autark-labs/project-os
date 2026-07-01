@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import {
   Accordion,
   AccordionContent,
@@ -8,6 +9,7 @@ import { Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { ApplicationDarkControlButton } from './components/ApplicationButtons';
 import { DestructiveActionDialog } from './components/DestructiveActionDialog';
 import { labelForAttention, labelForManagementState, labelForReadiness } from './components/AppStateBadges';
 import { operationBlocksManagement } from './extensions/ApplicationsPage.operations.js';
@@ -75,12 +77,12 @@ export function ApplicationManagementPanel({
               Recovery
             </TabsTrigger>
           )}
-          <TabsTrigger className="px-3 py-2 text-sky-100/60 data-active:text-white" value="overview">Overview</TabsTrigger>
-          <TabsTrigger className="px-3 py-2 text-sky-100/60 data-active:text-white" value="guide">Guide</TabsTrigger>
-          <TabsTrigger className="px-3 py-2 text-sky-100/60 data-active:text-white" value="settings">Settings</TabsTrigger>
-          <TabsTrigger className="px-3 py-2 text-sky-100/60 data-active:text-white" value="telemetry">Telemetry</TabsTrigger>
-          <TabsTrigger className="px-3 py-2 text-sky-100/60 data-active:text-white" value="links">Links</TabsTrigger>
-          <TabsTrigger className="px-3 py-2 text-sky-100/60 data-active:text-white" value="advanced">Advanced</TabsTrigger>
+          <ManagementTabTrigger value="overview">Overview</ManagementTabTrigger>
+          <ManagementTabTrigger value="guide">Guide</ManagementTabTrigger>
+          <ManagementTabTrigger value="settings">Settings</ManagementTabTrigger>
+          <ManagementTabTrigger value="telemetry">Telemetry</ManagementTabTrigger>
+          <ManagementTabTrigger value="links">Links</ManagementTabTrigger>
+          <ManagementTabTrigger value="advanced">Advanced</ManagementTabTrigger>
         </TabsList>
 
         <div className="p-4">
@@ -130,10 +132,10 @@ export function ApplicationManagementPanel({
                 <p className="text-sm font-semibold text-white">Support details</p>
                 <p className="text-xs leading-5 text-sky-100/60">Copy the compact app state, runtime path, access links, and last event for troubleshooting.</p>
               </div>
-              <Button className="w-fit border-sky-400/40 bg-slate-900 text-sky-50 hover:bg-slate-700 hover:text-white" onClick={() => copySupportDetails(item)} size="sm" type="button" variant="outline">
+              <ApplicationDarkControlButton className="w-fit" onClick={() => copySupportDetails(item)} size="sm" type="button">
                 <Copy data-icon="inline-start" />
                 Copy details
-              </Button>
+              </ApplicationDarkControlButton>
             </section>
             <Accordion className="rounded-xl border border-sky-400/20 bg-slate-800 px-3" collapsible defaultValue="runtime" type="single">
               <AccordionItem value="runtime">
@@ -168,6 +170,14 @@ export function ApplicationManagementPanel({
         </div>
       </Tabs>
     </section>
+  );
+}
+
+function ManagementTabTrigger({ children, value }: { children: ReactNode; value: string }) {
+  return (
+    <TabsTrigger className="px-3 py-2 text-sky-100/60 data-active:text-white" value={value}>
+      {children}
+    </TabsTrigger>
   );
 }
 

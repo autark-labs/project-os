@@ -4,9 +4,11 @@ import { AlertTriangle, CheckCircle2, Search } from 'lucide-react';
 import { BackupAPIClient } from '@/api/BackupAPIClient';
 import { InstalledAppsAPIClient } from '@/api/InstalledAppsAPIClient';
 import { ObservedServicesAPIClient } from '@/api/ObservedServicesAPIClient';
-import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { PageShell } from '@/components/layout/PageShell';
+import { MetricCard } from '@/components/primitives/MetricCard';
+import { Surface } from '@/components/primitives/Surface';
 import { Input } from '@/components/ui/input';
-import { Separator } from '@/components/ui/separator';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
 import { showActionErrorNotification, showActionNotification } from '@/lib/actionNotifications';
@@ -27,6 +29,7 @@ import type { ObservedServiceActionResult, ObservedServiceAdoptionPlan } from '@
 import { ApplicationDetailsRail } from './ApplicationDetailsRail';
 import { BasicApplicationsView } from './BasicApplicationsView';
 import { AdvancedApplicationsView } from './AdvancedApplicationsView';
+import { ApplicationWarningButton } from './components/ApplicationButtons';
 import { mapUninstallPlanToDestructiveActionPlan } from './extensions/ApplicationsPage.destructiveActions';
 import { buildApplicationSurfaceItems } from './extensions/ApplicationsPage.liveModel';
 import { operationStateForItem } from './extensions/ApplicationsPage.operations';
@@ -500,30 +503,19 @@ export const ApplicationsPage = () => {
   };
 
   return (
-    <main className="min-h-full bg-slate-800 text-slate-50">
-      <div className="mx-auto flex w-full max-w-[96rem] flex-col gap-5 p-4 md:p-5 2xl:px-6">
-        <header className="rounded-2xl border border-sky-400/30 bg-slate-900 shadow-xl shadow-slate-950/30">
-          <div className="flex flex-col gap-2 p-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="flex max-w-3xl flex-col gap-3">
-              <div className="flex flex-col gap-1">
-                <h1 className="text-3xl font-semibold tracking-tight text-white">Your apps and services</h1>
-                    <p className="max-w-2xl text-sm leading-6 text-sky-100/80">
-                      Open apps, review found services, and recover anything that needs attention from one focused control surface.
-                    </p>
-              </div>
-            </div>
-          </div>
-
-          <Separator className="bg-sky-400/20" />
-
+    <PageShell>
+      <PageHeader
+        description="Open apps, review found services, and recover anything that needs attention from one focused control surface."
+        title="Your apps and services"
+      >
           <div className="grid gap-3 p-4 sm:grid-cols-3">
-            <PageMetric label="Managed" value={managedCount} />
-            <PageMetric label="Pinned" value={pinnedCount} />
-            <PageMetric label="Needs review" value={attentionCount} />
+            <MetricCard label="Managed" value={managedCount} />
+            <MetricCard label="Pinned" value={pinnedCount} />
+            <MetricCard label="Needs review" tone={attentionCount > 0 ? 'attention' : 'default'} value={attentionCount} />
           </div>
-        </header>
+      </PageHeader>
 
-        <section className="rounded-2xl border border-sky-400/30 bg-slate-900 p-3 shadow-xl shadow-slate-950/20">
+        <Surface className="p-3 shadow-slate-950/20" tone="panel">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div className="relative min-w-0 flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sky-200/70" />
@@ -563,8 +555,7 @@ export const ApplicationsPage = () => {
                 </ToggleGroupItem>
               </ToggleGroup>
 
-              <Button
-                className="bg-orange-500 text-white shadow-md shadow-orange-700/20 hover:bg-orange-400"
+              <ApplicationWarningButton
                 disabled={!nextReviewItem}
                 onClick={() => {
                   if (nextReviewItem) {
@@ -579,17 +570,17 @@ export const ApplicationsPage = () => {
               >
                 {nextReviewItem ? <AlertTriangle data-icon="inline-start" /> : <CheckCircle2 data-icon="inline-start" />}
                 {reviewNextButtonLabel}
-              </Button>
+              </ApplicationWarningButton>
             </div>
           </div>
           {(appState.isLoading || Boolean(appState.error)) && (
-            <div className="mt-3 rounded-xl border border-sky-400/20 bg-slate-800 px-3 py-2 text-sm text-sky-100/80">
+            <Surface className="mt-3 px-3 py-2 text-sm text-sky-100/80" tone="muted">
               {appState.isLoading ? 'Loading apps and found services.' : 'Could not load the current apps list.'}
-            </div>
+            </Surface>
           )}
-        </section>
+        </Surface>
 
-        <section className="grid min-h-[44rem] items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <section className="grid min-h-[44rem] items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
           {viewMode === 'basic' ? (
             <BasicApplicationsView
               emptyState={emptyState}
@@ -622,9 +613,8 @@ export const ApplicationsPage = () => {
             settingsLoadingByItemId={settingsLoadingByAppId}
             ref={railRef}
           />
-        </section>
-      </div>
-    </main>
+      </section>
+    </PageShell>
   );
 };
 
@@ -705,20 +695,6 @@ function appActionLabel(action: ApplicationRuntimeAction) {
   if (action === 'repair') return 'Repair';
   if (action === 'backup') return 'Backup';
   return 'App action';
-}
-
-function PageMetric({ label, value }: { label: string; value: number }) {
-  const attention = label === 'Needs review' && value > 0;
-
-  return (
-    <div className={attention
-      ? 'min-w-28 rounded-xl border border-orange-400 bg-orange-200 px-4 py-3 text-orange-950 shadow-lg shadow-orange-500/20'
-      : 'min-w-28 rounded-xl border border-sky-400/25 bg-slate-800 px-4 py-3 text-sky-50'}
-    >
-      <div className="text-2xl font-semibold">{value}</div>
-      <div className={attention ? 'text-sm text-orange-800' : 'text-sm text-sky-100/70'}>{label}</div>
-    </div>
-  );
 }
 
 function isReviewableItem(item: { nextAction?: { id: string } }) {
