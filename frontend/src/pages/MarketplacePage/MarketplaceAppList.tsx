@@ -23,37 +23,25 @@ import { AppImage } from './MarketplacePage.shared';
 
 type MarketplaceAppListProps = {
   apps: DiscoverAppView[];
-  basicCatalogMode?: 'starter' | 'all-safe';
   density?: 'basic' | 'full';
   installingAppId?: string | null;
   modeLabel?: string;
   selectedAppId: string;
   sortBy: string;
-  onBasicCatalogModeChange?: (value: 'starter' | 'all-safe') => void;
   onSelect: (appId: string) => void;
   onSortChange: (value: string) => void;
 };
 
-export function MarketplaceAppList({ apps, basicCatalogMode, density = 'full', installingAppId = null, modeLabel = 'All apps', selectedAppId, sortBy, onBasicCatalogModeChange, onSelect, onSortChange }: MarketplaceAppListProps) {
+export function MarketplaceAppList({ apps, density = 'full', installingAppId = null, modeLabel = 'All apps', selectedAppId, sortBy, onSelect, onSortChange }: MarketplaceAppListProps) {
   const basic = density === 'basic';
   return (
-    <Card className={cn('rounded-lg border-sky-400/25 py-0 text-slate-50 shadow-xl shadow-slate-950/30', basic ? 'bg-slate-800' : 'bg-slate-900')}>
+    <Card className="rounded-lg border-sky-400/25 bg-slate-900 py-0 text-slate-50 shadow-xl shadow-slate-950/30">
       <CardHeader className="flex flex-row items-center justify-between gap-4 p-4 md:p-5">
         <div>
           <CardTitle className="text-lg font-bold text-slate-50">{modeLabel}</CardTitle>
           <p className="mt-1 text-sm text-slate-400">{apps.length} available</p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          {basicCatalogMode && onBasicCatalogModeChange && (
-            <div className="inline-flex rounded-full border border-sky-400/25 bg-slate-950 p-1" aria-label="Basic catalog view">
-              <Button className={cn('h-8 rounded-full px-3 text-xs', basicCatalogMode === 'starter' ? 'bg-cyan-300 text-slate-950 hover:bg-cyan-200' : 'bg-transparent text-slate-400 hover:bg-slate-700 hover:text-slate-50')} onClick={() => onBasicCatalogModeChange('starter')} size="sm" type="button" variant="ghost">
-                Starter apps
-              </Button>
-              <Button className={cn('h-8 rounded-full px-3 text-xs', basicCatalogMode === 'all-safe' ? 'bg-cyan-300 text-slate-950 hover:bg-cyan-200' : 'bg-transparent text-slate-400 hover:bg-slate-700 hover:text-slate-50')} onClick={() => onBasicCatalogModeChange('all-safe')} size="sm" type="button" variant="ghost">
-                View all apps
-              </Button>
-            </div>
-          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <ProjectDarkControlButton type="button">

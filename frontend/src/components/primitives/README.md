@@ -30,6 +30,8 @@ Raw Tailwind colors are acceptable for local status meaning. Shared surface, pan
 
 Applications uses `PageShell`, `PageHeader`, `Surface`, `MetricCard`, `ProjectEmptyState`, shared Project OS button primitives, and application-specific card wrappers.
 
+`SearchFilterBar` is the shared search and segmented-filter row used by Applications and Discover. Use it when a page needs a primary text search plus a small set of mutually exclusive filters, with page-specific actions passed through the `actions` slot.
+
 Home uses `PageShell`, `Surface`, `StatusPill`, and the same shared Project OS button primitives, with homepage-only cards and timeline components under `pages/OverviewPage/components`. Keep feature-specific composition local until a second page needs the same component.
 
 Access uses `PageShell`, `Surface`, `StatusPill`, shared Project OS button primitives, and local `NetworkPanel`/`NetworkInset` wrappers under `pages/NetworkPage`. Use this pattern for operational pages that need slate panels, blue borders, and compact actionable sections without bringing back broad `po-*` styling helpers.
@@ -44,6 +46,6 @@ Activity uses `PageShell`, `Surface`, shared Project OS button primitives, and l
 
 Settings uses `PageShell`, `Surface`, shared Project OS button primitives, and local `SettingsPanel`/`SettingsInset` wrappers under `pages/SettingsPage`. Keep setting rows, help popovers, and form-specific controls local while routing common surface and action styling through primitives.
 
-Discover uses `PageShell`, `Surface`, shared Project OS button primitives, and Marketplace-local card, wizard, and setup components under `pages/MarketplacePage`. Keep catalog-specific presentation local because Discover needs app-store density, install review dialogs, and guided setup controls that should not leak into operational pages.
+Discover uses `PageShell`, `Surface`, `SearchFilterBar`, shared Project OS button primitives, and Marketplace-local card, wizard, and setup components under `pages/MarketplacePage`. Keep catalog-specific presentation local because Discover needs app-store density, install review dialogs, and guided setup controls that should not leak into operational pages.
 
 Avoid importing the legacy broad `ProjectOSComponents` styling helpers into pages as they are cleaned up. If a page needs one of those patterns, copy the visual decision into a small primitive or feature component and keep `className` available for layout tweaks.

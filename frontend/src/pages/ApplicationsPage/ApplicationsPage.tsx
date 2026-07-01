@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, CheckCircle2, Search } from 'lucide-react';
+import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { BackupAPIClient } from '@/api/BackupAPIClient';
 import { InstalledAppsAPIClient } from '@/api/InstalledAppsAPIClient';
 import { ObservedServicesAPIClient } from '@/api/ObservedServicesAPIClient';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { PageShell } from '@/components/layout/PageShell';
 import { MetricCard } from '@/components/primitives/MetricCard';
+import { SearchFilterBar } from '@/components/primitives/SearchFilterBar';
 import { Surface } from '@/components/primitives/Surface';
-import { Input } from '@/components/ui/input';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
 import { showActionErrorNotification, showActionNotification } from '@/lib/actionNotifications';
 import {
@@ -508,111 +507,89 @@ export const ApplicationsPage = () => {
         description="Open apps, review found services, and recover anything that needs attention from one focused control surface."
         title="Your apps and services"
       >
-          <div className="grid gap-3 p-4 sm:grid-cols-3">
-            <MetricCard label="Managed" value={managedCount} />
-            <MetricCard label="Pinned" value={pinnedCount} />
-            <MetricCard label="Needs review" tone={attentionCount > 0 ? 'attention' : 'default'} value={attentionCount} />
-          </div>
+        <div className="grid gap-3 p-4 sm:grid-cols-3">
+          <MetricCard label="Managed" value={managedCount} />
+          <MetricCard label="Pinned" value={pinnedCount} />
+          <MetricCard label="Needs review" tone={attentionCount > 0 ? 'attention' : 'default'} value={attentionCount} />
+        </div>
       </PageHeader>
 
-        <Surface className="p-3 shadow-slate-950/20" tone="panel">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-            <div className="relative min-w-0 flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sky-200/70" />
-              <Input
-                aria-label="Search apps and services"
-                className="h-9 border-sky-400/40 bg-slate-800 pl-9 text-white placeholder:text-sky-100/50 focus-visible:border-cyan-300"
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search apps and services"
-                value={query}
-              />
-            </div>
-
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between xl:justify-end">
-              <ToggleGroup
-                aria-label="Filter apps and services"
-                className="flex-wrap"
-                onValueChange={handleFilterChange}
-                size="sm"
-                type="single"
-                value={filter}
-                variant="outline"
-              >
-                <ToggleGroupItem className="border-sky-400/40 bg-slate-800 text-sky-50 data-[state=on]:bg-cyan-300 data-[state=on]:text-slate-950" value="all">
-                  All
-                </ToggleGroupItem>
-                <ToggleGroupItem className="border-sky-400/40 bg-slate-800 text-sky-50 data-[state=on]:bg-cyan-300 data-[state=on]:text-slate-950" value="managed">
-                  Managed
-                </ToggleGroupItem>
-                <ToggleGroupItem className="border-sky-400/40 bg-slate-800 text-sky-50 data-[state=on]:bg-cyan-300 data-[state=on]:text-slate-950" value="pinned">
-                  Pinned
-                </ToggleGroupItem>
-                <ToggleGroupItem className="border-sky-400/40 bg-slate-800 text-sky-50 data-[state=on]:bg-cyan-300 data-[state=on]:text-slate-950" value="found">
-                  Found
-                </ToggleGroupItem>
-                <ToggleGroupItem className="border-sky-400/40 bg-slate-800 text-sky-50 data-[state=on]:bg-cyan-300 data-[state=on]:text-slate-950" value="needs_review">
-                  Needs review
-                </ToggleGroupItem>
-              </ToggleGroup>
-
-              <ApplicationWarningButton
-                disabled={!nextReviewItem}
-                onClick={() => {
-                  if (nextReviewItem) {
-                    setQuery('');
-                    setFilter('needs_review');
-                    setSelectedId(nextReviewItem.id);
-                    setManagementOpen(true);
-                  }
-                }}
-                title={nextReviewItem ? 'Open the next app or service that needs review.' : 'No apps or services need review.'}
-                type="button"
-              >
-                {nextReviewItem ? <AlertTriangle data-icon="inline-start" /> : <CheckCircle2 data-icon="inline-start" />}
-                {reviewNextButtonLabel}
-              </ApplicationWarningButton>
-            </div>
-          </div>
-          {(appState.isLoading || Boolean(appState.error)) && (
-            <Surface className="mt-3 px-3 py-2 text-sm text-sky-100/80" tone="muted">
-              {appState.isLoading ? 'Loading apps and found services.' : 'Could not load the current apps list.'}
-            </Surface>
+      <div className="grid gap-3">
+        <SearchFilterBar
+          actions={(
+            <ApplicationWarningButton
+              disabled={!nextReviewItem}
+              onClick={() => {
+                if (nextReviewItem) {
+                  setQuery('');
+                  setFilter('needs_review');
+                  setSelectedId(nextReviewItem.id);
+                  setManagementOpen(true);
+                }
+              }}
+              title={nextReviewItem ? 'Open the next app or service that needs review.' : 'No apps or services need review.'}
+              type="button"
+            >
+              {nextReviewItem ? <AlertTriangle data-icon="inline-start" /> : <CheckCircle2 data-icon="inline-start" />}
+              {reviewNextButtonLabel}
+            </ApplicationWarningButton>
           )}
-        </Surface>
+          filterAriaLabel="Filter apps and services"
+          filterValue={filter}
+          filters={[
+            { label: 'All', value: 'all' },
+            { label: 'Managed', value: 'managed' },
+            { label: 'Pinned', value: 'pinned' },
+            { label: 'Found', value: 'found' },
+            { label: 'Needs review', value: 'needs_review' },
+          ]}
+          onFilterChange={handleFilterChange}
+          onSearchChange={setQuery}
+          searchAriaLabel="Search apps and services"
+          searchPlaceholder="Search apps and services"
+          searchValue={query}
+        />
+
+        {(appState.isLoading || Boolean(appState.error)) && (
+          <Surface className="px-3 py-2 text-sm text-sky-100/80" tone="muted">
+            {appState.isLoading ? 'Loading apps and found services.' : 'Could not load the current apps list.'}
+          </Surface>
+        )}
+      </div>
 
       <section className="grid min-h-[44rem] items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
-          {viewMode === 'basic' ? (
-            <BasicApplicationsView
+        {viewMode === 'basic' ? (
+          <BasicApplicationsView
+            emptyState={emptyState}
+            items={visibleItems}
+            managementOpen={managementOpen}
+            onSelect={setSelectedId}
+            selectedId={selectedItemIsVisible ? selectedItem?.id : undefined}
+          />
+        ) : (
+          <div className="max-h-[44rem] min-h-[44rem] overflow-y-auto pr-1">
+            <AdvancedApplicationsView
+              actions={actions}
+              actionLoadingByItemId={actionLoadingByAppId}
               emptyState={emptyState}
               items={visibleItems}
               managementOpen={managementOpen}
               onSelect={setSelectedId}
               selectedId={selectedItemIsVisible ? selectedItem?.id : undefined}
             />
-          ) : (
-            <div className="max-h-[44rem] min-h-[44rem] overflow-y-auto pr-1">
-              <AdvancedApplicationsView
-                actions={actions}
-                actionLoadingByItemId={actionLoadingByAppId}
-                emptyState={emptyState}
-                items={visibleItems}
-                managementOpen={managementOpen}
-                onSelect={setSelectedId}
-                selectedId={selectedItemIsVisible ? selectedItem?.id : undefined}
-              />
-            </div>
-          )}
+          </div>
+        )}
 
-          <ApplicationDetailsRail
-            actions={actions}
-            actionLoadingByItemId={actionLoadingByAppId}
-            item={selectedItemIsVisible ? selectedItem : null}
-            managementOpen={managementOpen}
-            canCloseManagement={canCloseManagement}
-            onManagementOpenChange={setManagementOpen}
-            settingsLoadingByItemId={settingsLoadingByAppId}
-            ref={railRef}
-          />
+        <ApplicationDetailsRail
+          actions={actions}
+          actionLoadingByItemId={actionLoadingByAppId}
+          item={selectedItemIsVisible ? selectedItem : null}
+          managementOpen={managementOpen}
+          canCloseManagement={canCloseManagement}
+          onManagementOpenChange={setManagementOpen}
+          settingsLoadingByItemId={settingsLoadingByAppId}
+          ref={railRef}
+        />
       </section>
     </PageShell>
   );

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Bell, CheckCircle2, Filter, Info, RefreshCw, Search, Sparkles, X } from 'lucide-react';
+import { AlertTriangle, Bell, CheckCircle2, Info, RefreshCw, Sparkles, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { PageShell } from '@/components/layout/PageShell';
+import { SearchFilterBar } from '@/components/primitives/SearchFilterBar';
 import { ProjectDarkControlButton, ProjectPrimaryButton } from '@/components/primitives/ProjectButtons';
 import { Surface } from '@/components/primitives/Surface';
 import { CanonicalRecommendedAction } from '@/components/project-os/CanonicalRecommendedAction';
@@ -24,7 +24,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
 import { apiErrorMessage } from '@/api/httpClient';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
 import { cn } from '@/lib/utils';
@@ -323,11 +322,32 @@ function MarketplacePage() {
   );
   const showStartHere = shouldShowStartHereSection(starterRecommendations, startHereDismissed);
   const canRestoreStartHere = startHereDismissed && shouldShowStartHereSection(starterRecommendations, false);
+  const discoverFilters = useMemo(
+    () => showAdvancedMetrics
+      ? categories.map((category) => ({ label: category, value: category }))
+      : [
+          { label: 'Starter apps', value: 'starter' },
+          { label: 'Safe apps', value: 'all-safe' },
+        ],
+    [showAdvancedMetrics],
+  );
+  const discoverFilterValue = showAdvancedMetrics ? selectedCategory : basicCatalogMode;
 
   function selectRecommendedApp(appId: string) {
     setSearchQuery('');
     setSelectedCategory('All');
     setSelectedAppId(appId);
+  }
+
+  function changeDiscoverFilter(nextFilter: string) {
+    if (!nextFilter) {
+      return;
+    }
+    if (showAdvancedMetrics) {
+      setSelectedCategory(nextFilter);
+      return;
+    }
+    setBasicCatalogMode(nextFilter as 'starter' | 'all-safe');
   }
 
   function changeSetupAnswers(nextAnswers: Record<string, unknown>) {
@@ -382,34 +402,36 @@ function MarketplacePage() {
         />
       )}
 
-      <div className="mb-6 grid gap-4">
-        <label className="relative block">
-          <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-          <Input className="h-13 border-sky-400/25 bg-slate-900 pl-11 text-slate-50 placeholder:text-slate-400 focus-visible:border-cyan-300/35 focus-visible:ring-cyan-300/30" onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search by name, purpose, or category..." type="search" value={searchQuery} />
-        </label>
-        <div aria-label="Discover filters" className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-2 text-sm text-slate-400">
-            <Filter className="size-4" />
-            {showAdvancedMetrics ? 'Show' : basicCatalogMode === 'all-safe' ? 'Safe apps' : 'Starter catalog'}
-          </span>
-          {showAdvancedMetrics && categories.map((category) => (
-            <Button className={cn('h-9 border-sky-400/25 bg-slate-800 px-4 text-slate-300 hover:bg-slate-700 hover:text-slate-50', selectedCategory === category && 'border-cyan-300/35 bg-cyan-400/10 text-cyan-200 hover:bg-cyan-400/15')} key={category} onClick={() => setSelectedCategory(category)} type="button" variant="outline">
-              {category}
-            </Button>
-          ))}
-          <Button className={cn('h-9 border-sky-400/25 bg-slate-800 px-4 text-slate-300 hover:bg-slate-700 hover:text-slate-50', hideInstalled && 'border-cyan-300/35 bg-cyan-400/10 text-cyan-200 hover:bg-cyan-400/15')} onClick={() => setHideInstalled((value) => !value)} type="button" variant="outline">
-            {hideInstalled ? 'Showing new apps only' : 'Hide installed'}
-          </Button>
-          {canRestoreStartHere && (
-            <Button className="h-9 border-sky-400/25 bg-slate-800 px-4 text-slate-300 hover:bg-slate-700 hover:text-slate-50" onClick={restoreStartHere} type="button" variant="outline">
-              Show Start here
-            </Button>
-          )}
-        </div>
-      </div>
+      <SearchFilterBar
+        actions={(
+          <>
+            <ProjectDarkControlButton
+              className={cn(hideInstalled && 'border-cyan-300/35 bg-cyan-400/10 text-cyan-200 hover:bg-cyan-400/15')}
+              onClick={() => setHideInstalled((value) => !value)}
+              type="button"
+            >
+              {hideInstalled ? 'Showing new apps only' : 'Hide installed'}
+            </ProjectDarkControlButton>
+            {canRestoreStartHere && (
+              <ProjectDarkControlButton onClick={restoreStartHere} type="button">
+                Show Start here
+              </ProjectDarkControlButton>
+            )}
+          </>
+        )}
+        className="mb-6"
+        filterAriaLabel="Discover filters"
+        filterValue={discoverFilterValue}
+        filters={discoverFilters}
+        onFilterChange={changeDiscoverFilter}
+        onSearchChange={setSearchQuery}
+        searchAriaLabel="Search Discover apps"
+        searchPlaceholder="Search by name, purpose, or category..."
+        searchValue={searchQuery}
+      />
 
       <div className="grid items-start gap-6 2xl:grid-cols-[minmax(620px,1fr)_minmax(420px,560px)]">
-        <MarketplaceAppList apps={visibleApps} basicCatalogMode={showAdvancedMetrics ? undefined : basicCatalogMode} density={showAdvancedMetrics ? 'full' : 'basic'} installingAppId={installJob && !terminalJob(installJob) ? installJob.subjectId ?? null : null} modeLabel={showAdvancedMetrics ? 'All apps' : basicCatalogMode === 'all-safe' ? 'Ready apps' : 'Starter apps'} onBasicCatalogModeChange={showAdvancedMetrics ? undefined : setBasicCatalogMode} onSelect={setSelectedAppId} onSortChange={setSortBy} selectedAppId={selectedApp.id} sortBy={sortBy} />
+        <MarketplaceAppList apps={visibleApps} density={showAdvancedMetrics ? 'full' : 'basic'} installingAppId={installJob && !terminalJob(installJob) ? installJob.subjectId ?? null : null} modeLabel={showAdvancedMetrics ? 'All apps' : basicCatalogMode === 'all-safe' ? 'Ready apps' : 'Starter apps'} onSelect={setSelectedAppId} onSortChange={setSortBy} selectedAppId={selectedApp.id} sortBy={sortBy} />
         <MarketplaceAppDetail app={selectedApp} appView={selectedView} backupJob={backupJob?.subjectId === selectedApp.id ? backupJob : null} installJob={installJob?.subjectId === selectedApp.id ? installJob : null} installLocked={selectedAppInstallLocked} installOptions={installOptions ?? fallbackInstallOptions} installPreview={installPreview} installStatusMessage={installStatusMessage} installing={selectedAppInstalling} installPlan={installPlan} installedApp={selectedInstalledApp} onBack={() => { setSearchQuery(''); setSelectedCategory('All'); }} onCreateBackup={createFirstBackup} onDuplicateInstallAcknowledged={() => setDuplicateAcknowledgedAppId(selectedApp.id)} onInstall={(options) => installApp(selectedApp.id, options)} onReinstallCurrent={reinstallWithCurrentSettings} onRequestPlan={(options) => requestPlan(selectedApp.id, options)} onSetupAnswersChange={changeSetupAnswers} planLoading={planLoading} recoveryMode={recoveryAppId === selectedApp.id ? recoveryMode : null} setupAnswers={setupAnswers} setupReady={installPreview?.valid ?? true} setupSchema={selectedView.setupSchema} />
       </div>
     </PageShell>
