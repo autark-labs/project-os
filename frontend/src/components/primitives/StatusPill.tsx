@@ -5,12 +5,12 @@ import { cn } from '@/lib/utils';
 type StatusTone = 'success' | 'warning' | 'danger' | 'info' | 'teal' | 'neutral';
 
 const statusToneClass: Record<StatusTone, string> = {
-  success: 'border-emerald-500/30 bg-emerald-600/10 text-emerald-700',
-  warning: 'border-orange-500/35 bg-orange-600/10 text-orange-700',
-  danger: 'border-red-400/35 bg-red-600/10 text-red-700',
-  info: 'border-cyan-400/35 bg-cyan-400/10 text-cyan-700',
-  teal: 'border-teal-500/30 bg-teal-600/10 text-teal-700',
-  neutral: 'border-slate-500/30 bg-slate-700/10 text-slate-600',
+  success: 'border-emerald-400/35 bg-emerald-500/10 text-emerald-200',
+  warning: 'border-orange-400/45 bg-orange-500/10 text-orange-200',
+  danger: 'border-red-400/40 bg-red-500/10 text-red-200',
+  info: 'border-cyan-300/35 bg-cyan-400/10 text-cyan-100',
+  teal: 'border-teal-300/30 bg-teal-400/10 text-teal-100',
+  neutral: 'border-sky-400/25 bg-slate-800 text-sky-100/80',
 };
 
 export function StatusPill({

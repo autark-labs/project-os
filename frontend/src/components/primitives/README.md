@@ -11,9 +11,9 @@ Preferred:
 ```
 
 ```tsx
-<ApplicationDarkControlButton onClick={onRestart}>
+<ProjectDarkControlButton onClick={onRestart}>
   Restart
-</ApplicationDarkControlButton>
+</ProjectDarkControlButton>
 ```
 
 Discouraged:
@@ -28,8 +28,8 @@ Raw Tailwind colors are acceptable for local status meaning. Shared surface, pan
 
 ## Current Reference Pages
 
-Applications uses `PageShell`, `PageHeader`, `Surface`, `MetricCard`, `ProjectEmptyState`, and application-specific button/card wrappers.
+Applications uses `PageShell`, `PageHeader`, `Surface`, `MetricCard`, `ProjectEmptyState`, shared Project OS button primitives, and application-specific card wrappers.
 
-Home uses `PageShell`, `Surface`, and `StatusPill`, with homepage-only cards and timeline components under `pages/OverviewPage/components`. Keep feature-specific composition local until a second page needs the same component.
+Home uses `PageShell`, `Surface`, `StatusPill`, and the same shared Project OS button primitives, with homepage-only cards and timeline components under `pages/OverviewPage/components`. Keep feature-specific composition local until a second page needs the same component.
 
 Avoid importing the legacy broad `ProjectOSComponents` styling helpers into pages as they are cleaned up. If a page needs one of those patterns, copy the visual decision into a small primitive or feature component and keep `className` available for layout tweaks.

@@ -13,7 +13,7 @@ import {
 } from './components/HomeCards';
 import { HomeHero } from './components/HomeHero';
 import { PageShell } from '@/components/layout/PageShell';
-import { Button } from '@/components/ui/button';
+import { ProjectDarkControlButton, ProjectPrimaryButton, ProjectWarningButton } from '@/components/primitives/ProjectButtons';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
 import { useApplicationStateRepository } from '@/repositories/applicationStateRepository';
 import { useHomeRepository } from '@/repositories/homeRepository';
@@ -40,7 +40,7 @@ function OverviewPage() {
   const pageLoading = home.isLoading || appState.isLoading;
 
   return (
-    <PageShell className="bg-transparent text-slate-950" contentClassName="mx-0 max-w-[90%] p-0 md:p-0 2xl:px-0">
+    <PageShell>
       <HomeHero
         deviceName={deviceName}
         loading={pageLoading}
@@ -67,28 +67,28 @@ function OverviewPage() {
           )}
 
           {observedNeedingReview.length > 0 && (
-            <HomeSoftCard className="border-orange-500/35 bg-orange-600/10">
+            <HomeSoftCard className="border-orange-400/45 bg-slate-800">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex min-w-0 gap-3">
-                  <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-sky-50 text-orange-700">
+                  <div className="grid size-9 shrink-0 place-items-center rounded-lg border border-orange-400/30 bg-orange-500/10 text-orange-200">
                     <AlertTriangle className="size-4" />
                   </div>
                   <div className="min-w-0">
-                    <p className="m-0 text-sm font-bold text-slate-950">Services found on this server</p>
-                    <p className="m-0 mt-1 text-sm leading-5 text-slate-600">
+                    <p className="m-0 text-sm font-bold text-slate-50">Services found on this server</p>
+                    <p className="m-0 mt-1 text-sm leading-5 text-sky-100/70">
                       Project OS found {observedNeedingReview.length} service{observedNeedingReview.length === 1 ? '' : 's'} that need review before they are treated as managed apps.
                     </p>
                   </div>
                 </div>
-                <Button asChild className="shrink-0" size="sm" variant="outline">
+                <ProjectWarningButton asChild className="shrink-0" size="sm">
                   <Link to="/apps/found">Review</Link>
-                </Button>
+                </ProjectWarningButton>
               </div>
             </HomeSoftCard>
           )}
 
           <HomeSection
-            action={<Button asChild variant="outline"><Link to="/apps">Manage apps</Link></Button>}
+            action={<ProjectDarkControlButton asChild><Link to="/apps">Manage apps</Link></ProjectDarkControlButton>}
             description="These are the apps ready to open now."
             title="Your Apps"
           >
@@ -113,12 +113,12 @@ function OverviewPage() {
               <HomeSoftCard>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="m-0 font-bold text-slate-950">{apps.length ? 'No apps are ready to open yet' : 'No apps installed yet'}</p>
-                    <p className="m-0 mt-1 text-sm text-slate-500">{apps.length ? 'Open My Apps to review setup or repair options.' : 'Discover verified starter apps to get going.'}</p>
+                    <p className="m-0 font-bold text-slate-50">{apps.length ? 'No apps are ready to open yet' : 'No apps installed yet'}</p>
+                    <p className="m-0 mt-1 text-sm text-sky-100/65">{apps.length ? 'Open My Apps to review setup or repair options.' : 'Discover verified starter apps to get going.'}</p>
                   </div>
-                  <Button asChild>
+                  <ProjectPrimaryButton asChild>
                     <Link to={apps.length ? '/apps' : '/discover'}>{apps.length ? 'Review apps' : 'Open Discover'}</Link>
-                  </Button>
+                  </ProjectPrimaryButton>
                 </div>
               </HomeSoftCard>
             )}
@@ -169,7 +169,7 @@ function OverviewPage() {
           ) : null}
 
           <HomeSection
-            action={showActivityLogLink ? <Button asChild size="sm" variant="outline"><Link to="/activity">Activity Log</Link></Button> : null}
+            action={showActivityLogLink ? <ProjectDarkControlButton asChild size="sm"><Link to="/activity">Activity Log</Link></ProjectDarkControlButton> : null}
             title="Recent Activity"
           >
             <HomeActivityTimeline
